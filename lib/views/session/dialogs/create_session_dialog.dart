@@ -13,27 +13,33 @@ import '../../../state/sites_provider.dart';
 import '../../editor/report_editor_screen.dart';
 import '../maintenance_session_screen.dart';
 
+import '../../sites/site_form_screen.dart';
+
 enum SessionCreationMode {
   fromSiteDirectory,
   fromExisting,
-  fromTemplate,
-  blank,
 }
 
 class CreateSessionDialog extends ConsumerStatefulWidget {
   final ReportTemplate? initialTemplate;
   final bool openSessionDirectly;
+  final Site? initialSite;
+  final Client? initialClient;
 
   const CreateSessionDialog({
     super.key,
     this.initialTemplate,
     this.openSessionDirectly = true,
+    this.initialSite,
+    this.initialClient,
   });
 
   static Future<void> show(
     BuildContext context, {
     ReportTemplate? initialTemplate,
     bool openSessionDirectly = true,
+    Site? initialSite,
+    Client? initialClient,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -42,6 +48,8 @@ class CreateSessionDialog extends ConsumerStatefulWidget {
       builder: (_) => CreateSessionDialog(
         initialTemplate: initialTemplate,
         openSessionDirectly: openSessionDirectly,
+        initialSite: initialSite,
+        initialClient: initialClient,
       ),
     );
   }
@@ -100,6 +108,27 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog>
     final now = DateTime.now();
     _visitDateCtrl.text =
         '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (widget.initialSite != null) {
+        final clients = ref.read(clientsProvider);
+        final client = widget.initialClient ??
+            clients.firstWhere(
+              (c) => c.id == widget.initialSite!.clientId,
+              orElse: () => Client(
+                id: widget.initialSite!.clientId,
+                nameAr: 'الجهة المالكة',
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              ),
+            );
+        _populateFromSite(widget.initialSite!, client);
+      } else if (widget.initialClient != null) {
+        setState(() {
+          _selectedClient = widget.initialClient;
+        });
+      }
+    });
   }
 
   @override
@@ -231,42 +260,25 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog>
     });
   }
 
-  void _clearAllFields() {
-    setState(() {
-      _selectedSourceReport = null;
-      _projectNameCtrl.clear();
-      _contractNumberCtrl.clear();
-      _ownerEntityCtrl.clear();
-      _funderCtrl.clear();
-      _contractorCtrl.clear();
-      _governorateCtrl.clear();
-      _districtCtrl.clear();
-      _locationCtrl.clear();
-
-      _facilityNameCtrl.clear();
-      _facilityNameEnCtrl.clear();
-      _facilityTypeCtrl.clear();
-      _categoryCtrl.clear();
-      _visitNumberCtrl.text = '1';
-      _contactPersonCtrl.clear();
-      _phoneCtrl.clear();
-
-      _systemTypeCtrl.clear();
-      _capacityKwCtrl.clear();
-      _panelsCountAndWattCtrl.clear();
-      _batteryUnitsCapacityCtrl.clear();
-      _batteryUnitsCountCtrl.clear();
-      _invertersCapacityCtrl.clear();
-      _invertersCountCtrl.clear();
-      _chargeControllersCapacityCtrl.clear();
-      _chargeControllersCountCtrl.clear();
-      _otherAppliancesCtrl.clear();
-      _activeBatteryGroups = [1, 2, 3, 4];
-      _activeCombinerBoxes = [1, 2, 3, 4];
-    });
-  }
 
   Future<void> _submit({required bool startInteractiveSession}) async {
+    final resolvedClientId = _selectedClient?.id ?? _selectedSourceReport?.clientId;
+    final resolvedSiteId = _selectedSite?.id ?? _selectedSourceReport?.siteId;
+
+    if (resolvedClientId == null || resolvedClientId.isEmpty ||
+        resolvedSiteId == null || resolvedSiteId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'يرجى تحديد العميل والموقع أولاً لضمان ترابط الزيارة والتقرير بالدليل الميداني',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: AppTheme.solarGold,
+        ),
+      );
+      return;
+    }
+
     final projectInfo = ProjectInfo(
       projectName: _projectNameCtrl.text.trim(),
       ownerEntity: _ownerEntityCtrl.text.trim(),
@@ -314,8 +326,8 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog>
       projectInfo: projectInfo,
       facilityInfo: facilityInfo,
       systemSpecs: systemSpecs,
-      clientId: _selectedClient?.id ?? _selectedSourceReport?.clientId,
-      siteId: _selectedSite?.id ?? _selectedSourceReport?.siteId,
+      clientId: resolvedClientId,
+      siteId: resolvedSiteId,
       activeBatteryGroups: _activeBatteryGroups,
       activeCombinerBoxes: _activeCombinerBoxes,
       cloneSourceReport: _mode == SessionCreationMode.fromExisting ? _selectedSourceReport : null,
@@ -424,30 +436,25 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog>
                     children: [
                       _buildModeOption(
                         mode: SessionCreationMode.fromSiteDirectory,
-                        label: 'دليل المواقع',
+                        label: 'دليل العملاء والمواقع',
                         icon: Icons.domain_verification,
                       ),
                       _buildModeOption(
                         mode: SessionCreationMode.fromExisting,
-                        label: 'تقرير سابق',
-                        icon: Icons.update_rounded,
-                      ),
-                      _buildModeOption(
-                        mode: SessionCreationMode.blank,
-                        label: 'تقرير فارغ',
-                        icon: Icons.note_add_outlined,
+                        label: 'استنساخ من تقرير سابق',
+                        icon: Icons.history_edu_rounded,
                       ),
                     ],
                   ),
                 ),
               ),
 
-              // If creating from Site Directory: Show site & client selector
+              // If creating from Site Directory: Show cascading client & site selector
               if (_mode == SessionCreationMode.fromSiteDirectory) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF0FDF4),
                       borderRadius: BorderRadius.circular(12),
@@ -461,75 +468,169 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog>
                             Icon(Icons.domain_verification, color: Color(0xFF15803D), size: 18),
                             SizedBox(width: 8),
                             Text(
-                              'اختر الموقع من دليل العملاء المعتمد (جلب المواصفات والممول تلقائياً):',
+                              'حدد العميل ثم الموقع لبدء زيارة صيانة متصلة:',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 12.5,
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF166534),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
                         Consumer(
                           builder: (context, ref, _) {
-                            final sites = ref.watch(sitesProvider);
                             final clients = ref.watch(clientsProvider);
+                            final sites = ref.watch(sitesProvider);
 
-                            if (sites.isEmpty) {
-                              return const Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text(
-                                  'لا توجد مواقع مسجلة في الدليل حالياً. يمكنك التبديل إلى "تقرير سابق" أو "تقرير فارغ" أو إضافة موقع من تبويب العملاء والمواقع.',
-                                  style: TextStyle(fontSize: 11.5, color: Colors.grey),
+                            if (clients.isEmpty) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Column(
+                                  children: [
+                                    const Text(
+                                      'لا يوجد عملاء مسجلين في الدليل بعد. ابدأ بإضافة عميل أولاً.',
+                                      style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => const SiteFormScreen(clientId: ''),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.add_business_rounded, size: 16),
+                                      label: const Text('إضافة عميل وموقع الآن'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.solarGold,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               );
                             }
 
-                            return DropdownButtonFormField<Site>(
-                              initialValue: _selectedSite,
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: Colors.white,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              hint: const Text('اضغط لاختيار الموقع أو المنشأة...'),
-                              items: sites.map((site) {
-                                final client = clients.firstWhere(
-                                  (c) => c.id == site.clientId,
-                                  orElse: () => Client(
-                                    id: site.clientId,
-                                    nameAr: 'عميل عام',
-                                    createdAt: DateTime.now(),
-                                    updatedAt: DateTime.now(),
+                            final availableSites = _selectedClient != null
+                                ? sites.where((s) => s.clientId == _selectedClient!.id).toList()
+                                : <Site>[];
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Step 1: Client Selector
+                                DropdownButtonFormField<Client>(
+                                  initialValue: _selectedClient,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                    labelText: '1. الجهة المالكة / العميل *',
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                    prefixIcon: const Icon(Icons.business_rounded, size: 18, color: AppTheme.primaryNavy),
                                   ),
-                                );
-                                return DropdownMenuItem<Site>(
-                                  value: site,
-                                  child: Text(
-                                    '${site.nameAr} (${site.funderNameAr}) - ${client.nameAr}',
-                                    style: const TextStyle(fontSize: 12),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (site) {
-                                if (site != null) {
-                                  final client = clients.firstWhere(
-                                    (c) => c.id == site.clientId,
-                                    orElse: () => Client(
-                                      id: site.clientId,
-                                      nameAr: 'عميل عام',
-                                      createdAt: DateTime.now(),
-                                      updatedAt: DateTime.now(),
+                                  hint: const Text('اختر العميل / الجهة المالكة...', style: TextStyle(fontSize: 12)),
+                                  items: clients.map((c) {
+                                    return DropdownMenuItem<Client>(
+                                      value: c,
+                                      child: Text(
+                                        c.displayName,
+                                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (client) {
+                                    if (client != null) {
+                                      setState(() {
+                                        _selectedClient = client;
+                                        _selectedSite = null; // reset site when client changes
+                                      });
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 10),
+
+                                // Step 2: Site Selector (filtered by Client)
+                                if (_selectedClient != null && availableSites.isEmpty) ...[
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFFBEB),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFFFDE68A)),
                                     ),
-                                  );
-                                  _populateFromSite(site, client);
-                                }
-                              },
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.warning_amber_rounded, size: 18, color: AppTheme.solarGold),
+                                        const SizedBox(width: 8),
+                                        const Expanded(
+                                          child: Text(
+                                            'هذا العميل ليس لديه مواقع مسجلة بعد.',
+                                            style: TextStyle(fontSize: 11.5, color: Color(0xFF92400E)),
+                                          ),
+                                        ),
+                                        TextButton.icon(
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => SiteFormScreen(clientId: _selectedClient!.id),
+                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(Icons.add_location_alt_rounded, size: 15),
+                                          label: const Text('إضافة موقع', style: TextStyle(fontSize: 11.5)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ] else ...[
+                                  DropdownButtonFormField<Site>(
+                                    initialValue: _selectedSite,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      labelText: '2. الموقع الميداني / المنشأة *',
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                      prefixIcon: const Icon(Icons.location_on_rounded, size: 18, color: AppTheme.primaryNavy),
+                                    ),
+                                    hint: Text(
+                                      _selectedClient == null
+                                          ? 'اختر العميل أولاً لعرض مواقعه التابعة'
+                                          : 'اختر المنشأة أو الموقع...',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    items: availableSites.map((site) {
+                                      final loc = [site.governorate, site.directorate].where((s) => s.isNotEmpty).join(' • ');
+                                      return DropdownMenuItem<Site>(
+                                        value: site,
+                                        child: Text(
+                                          loc.isNotEmpty ? '${site.nameAr} ($loc)' : site.nameAr,
+                                          style: const TextStyle(fontSize: 12),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: _selectedClient == null
+                                        ? null
+                                        : (site) {
+                                            if (site != null) {
+                                              _populateFromSite(site, _selectedClient!);
+                                            }
+                                          },
+                                  ),
+                                ],
+                              ],
                             );
                           },
                         ),
@@ -688,9 +789,6 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog>
         onTap: () {
           setState(() {
             _mode = mode;
-            if (mode == SessionCreationMode.blank) {
-              _clearAllFields();
-            }
           });
         },
         child: Container(
