@@ -106,12 +106,16 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
                 return NavigationRailDestination(
                   icon: Badge(
                     isLabelVisible: count > 0,
-                    label: Text('$count'),
+                    backgroundColor: AppTheme.solarGold,
+                    textColor: Colors.white,
+                    label: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
                     child: Icon(item.$1),
                   ),
                   selectedIcon: Badge(
                     isLabelVisible: count > 0,
-                    label: Text('$count'),
+                    backgroundColor: AppTheme.solarGold,
+                    textColor: Colors.white,
+                    label: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
                     child: Icon(item.$2),
                   ),
                   label: Text(item.$3),
@@ -151,12 +155,16 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
               return NavigationDestination(
                 icon: Badge(
                   isLabelVisible: count > 0,
-                  label: Text('$count'),
+                  backgroundColor: AppTheme.solarGold,
+                  textColor: Colors.white,
+                  label: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
                   child: Icon(item.$1),
                 ),
                 selectedIcon: Badge(
                   isLabelVisible: count > 0,
-                  label: Text('$count'),
+                  backgroundColor: AppTheme.solarGold,
+                  textColor: Colors.white,
+                  label: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
                   child: Icon(item.$2),
                 ),
                 label: item.$3,
