@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/responsive_layout.dart';
 import '../../core/utils/ui_helpers.dart';
+import '../../core/utils/breadcrumb_widget.dart';
 import '../../state/reports_provider.dart';
+import '../../state/clients_provider.dart';
+import '../../state/sites_provider.dart';
 import '../../models/report.dart';
 import '../editor/report_editor_screen.dart';
 import '../preview/pdf_preview_screen.dart';
@@ -22,6 +25,8 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
   final TextEditingController _searchController = TextEditingController();
   ReportStatus? _filterStatus;
   ReportSortOrder _sortOrder = ReportSortOrder.updatedAtDesc;
+  String? _filterClientId;
+  String? _filterSiteId;
   Timer? _searchDebounce;
 
   @override
@@ -35,11 +40,18 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
   Widget build(BuildContext context) {
     final reports = ref.watch(reportsProvider);
 
-    final filtered = ref.watch(reportsProvider.notifier).getFiltered(
+    var filtered = ref.watch(reportsProvider.notifier).getFiltered(
       query: _searchController.text.trim(),
       status: _filterStatus,
       sortOrder: _sortOrder,
     );
+
+    if (_filterClientId != null && _filterClientId!.isNotEmpty) {
+      filtered = filtered.where((r) => r.clientId == _filterClientId).toList();
+    }
+    if (_filterSiteId != null && _filterSiteId!.isNotEmpty) {
+      filtered = filtered.where((r) => r.siteId == _filterSiteId).toList();
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -159,6 +171,106 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                       ],
                     ),
                   ),
+                  // Client & Site cascading dropdown row
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final clients = ref.watch(clientsProvider);
+                      final sites = ref.watch(sitesProvider);
+                      if (clients.isEmpty) return const SizedBox.shrink();
+
+                      final availableSites = _filterClientId != null
+                          ? sites.where((s) => s.clientId == _filterClientId).toList()
+                          : sites;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Row(
+                          children: [
+                            // Client filter dropdown
+                            Expanded(
+                              child: Container(
+                                height: 38,
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceLight,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppTheme.borderSubtle),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String?>(
+                                    value: _filterClientId,
+                                    isExpanded: true,
+                                    hint: const Text('فلترة بالعميل: الكل', style: TextStyle(fontSize: 11.5)),
+                                    items: [
+                                      const DropdownMenuItem<String?>(
+                                        value: null,
+                                        child: Text('كافة العملاء', style: TextStyle(fontSize: 11.5)),
+                                      ),
+                                      ...clients.map((c) => DropdownMenuItem<String?>(
+                                        value: c.id,
+                                        child: Text(c.displayName, style: const TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis),
+                                      )),
+                                    ],
+                                    onChanged: (val) {
+                                      setState(() {
+                                        _filterClientId = val;
+                                        _filterSiteId = null; // reset site when client changes
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Site filter dropdown
+                            Expanded(
+                              child: Container(
+                                height: 38,
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceLight,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppTheme.borderSubtle),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String?>(
+                                    value: _filterSiteId,
+                                    isExpanded: true,
+                                    hint: const Text('فلترة بالموقع: الكل', style: TextStyle(fontSize: 11.5)),
+                                    items: [
+                                      const DropdownMenuItem<String?>(
+                                        value: null,
+                                        child: Text('كافة المواقع', style: TextStyle(fontSize: 11.5)),
+                                      ),
+                                      ...availableSites.map((s) => DropdownMenuItem<String?>(
+                                        value: s.id,
+                                        child: Text(s.displayName, style: const TextStyle(fontSize: 11.5), overflow: TextOverflow.ellipsis),
+                                      )),
+                                    ],
+                                    onChanged: (val) {
+                                      setState(() => _filterSiteId = val);
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (_filterClientId != null || _filterSiteId != null) ...[
+                              IconButton(
+                                tooltip: 'إلغاء الفلاتر',
+                                icon: const Icon(Icons.filter_alt_off_rounded, size: 18, color: AppTheme.statusRejected),
+                                onPressed: () {
+                                  setState(() {
+                                    _filterClientId = null;
+                                    _filterSiteId = null;
+                                  });
+                                },
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -166,25 +278,51 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
 
           // Reports List or Grid
           Expanded(
-            child: filtered.isEmpty
+            child: reports.isEmpty
                 ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search_off_outlined, size: 56, color: AppTheme.textMuted.withValues(alpha: 0.4)),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'لم يتم العثور على تقارير مطابقة',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'تأكد من كتابة عبارة البحث أو اختر تصنيفاً آخر.',
-                          style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                        ),
-                      ],
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: EmptyStateGuide(
+                        icon: Icons.assignment_outlined,
+                        title: 'لا توجد تقارير صيانة مسجلة بعد',
+                        description: 'ابدأ جلستك الأولى باختيار العميل والموقع لإنشاء تقرير فحص ميداني متكامل',
+                        actionLabel: 'بدء جلسة صيانة جديدة',
+                        onAction: () => _showNewReportModal(context),
+                      ),
                     ),
                   )
+                : filtered.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.search_off_outlined, size: 56, color: AppTheme.textMuted.withValues(alpha: 0.4)),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'لم يتم العثور على تقارير مطابقة للفلاتر الحالية',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'جرّب إعادة تعيين فلاتر البحث أو العميل/الموقع.',
+                              style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _filterStatus = null;
+                                  _filterClientId = null;
+                                  _filterSiteId = null;
+                                });
+                              },
+                              icon: const Icon(Icons.refresh_rounded, size: 16),
+                              label: const Text('إعادة ضبط كافة الفلاتر'),
+                            ),
+                          ],
+                        ),
+                      )
                 : LayoutBuilder(
                     builder: (context, constraints) {
                       final isWide = constraints.maxWidth > 750;
@@ -273,6 +411,63 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Client > Site > Visit Breadcrumb Pill
+                Consumer(
+                  builder: (context, ref, _) {
+                    final client = ref.watch(clientByIdProvider(report.clientId));
+                    final site = ref.watch(siteByIdProvider(report.siteId));
+                    final clientName = client?.displayName ?? 'عميل غير محدد';
+                    final siteName = site?.displayName ?? (report.facilityInfo.facilityName.isNotEmpty ? report.facilityInfo.facilityName : 'موقع غير محدد');
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryNavy.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.business_rounded, size: 12, color: AppTheme.primaryNavy),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              clientName,
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4),
+                            child: Icon(Icons.chevron_left_rounded, size: 12, color: AppTheme.textMuted),
+                          ),
+                          const Icon(Icons.location_on_rounded, size: 12, color: AppTheme.solarGold),
+                          const SizedBox(width: 2),
+                          Flexible(
+                            child: Text(
+                              siteName,
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppTheme.brandCyan.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'زيارة #${report.visitNumber}',
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.brandCyan),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
