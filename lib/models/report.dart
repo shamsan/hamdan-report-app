@@ -523,6 +523,8 @@ class Report {
   }
 
   Report copyWith({
+    String? id,
+    String? templateId,
     String? title,
     String? reportNumber,
     String? contractNumber,
@@ -567,8 +569,8 @@ class Report {
     DateTime? updatedAt,
   }) {
     return Report(
-      id: id,
-      templateId: templateId,
+      id: id ?? this.id,
+      templateId: templateId ?? this.templateId,
       title: title ?? this.title,
       reportNumber: reportNumber ?? this.reportNumber,
       contractNumber: contractNumber ?? this.contractNumber,

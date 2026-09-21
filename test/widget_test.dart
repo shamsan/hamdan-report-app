@@ -13,7 +13,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byType(OnboardingScreen), findsOneWidget);
-    expect(find.text('منظومة إدارة تقارير الصيانة الفنية'), findsOneWidget);
+    expect(find.text('مرحباً بك في ReportCraft'), findsOneWidget);
   });
 
   testWidgets('App launches MainNavigationShell when onboarding has been seen', (WidgetTester tester) async {

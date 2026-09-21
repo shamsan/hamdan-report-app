@@ -596,8 +596,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       child: const Icon(Icons.auto_stories_rounded, color: AppTheme.primaryNavy, size: 22),
                     ),
-                    title: const Text('دليل الاستخدام الترحيبي (جولة تفاعلية)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark)),
-                    subtitle: const Text('إعادة عرض الجولة التوضيحية خطوة بخطوة لمميزات التطبيق', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                    title: const Text('معالج التهيئة والإعداد الأولي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark)),
+                    subtitle: const Text('إعادة تشغيل معالج إعداد هوية الشركة والعملاء والمواقع خطوة بخطوة', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
                     trailing: const Icon(Icons.chevron_left_rounded, color: AppTheme.textMuted),
                     onTap: () {
                       Navigator.push(
