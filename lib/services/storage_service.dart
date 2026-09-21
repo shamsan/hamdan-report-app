@@ -178,10 +178,7 @@ class StorageService {
         .toList();
 
     if (files.isEmpty) {
-      // أول تشغيل: نضيف تقرير العينة الافتراضي
-      final sample = DefaultTemplates.sampleDialysisReport;
-      await _writeReportFile(sample);
-      return [sample];
+      return [];
     }
 
     final reports = <Report>[];
@@ -317,21 +314,7 @@ class StorageService {
         .toList();
 
     if (files.isEmpty) {
-      final sample = Client(
-        id: 'client_mophp_01',
-        nameAr: 'وزارة الصحة العامة والسكان',
-        nameEn: 'Ministry of Public Health & Population',
-        clientType: 'جهة حكومية / وزارة',
-        contactPerson: 'د. طارق الحيدري',
-        phone: '+967 777 123 456',
-        email: 'info@mophp.ye',
-        address: 'صنعاء - الحصبة',
-        notes: 'العميل المشرف على تشغيل المنشآت الصحية ومراكز الغسيل الكلوي',
-        createdAt: DateTime.now().subtract(const Duration(days: 90)),
-        updatedAt: DateTime.now(),
-      );
-      await _writeClientFile(sample);
-      return [sample];
+      return [];
     }
 
     final clients = <Client>[];
@@ -372,69 +355,7 @@ class StorageService {
         .toList();
 
     if (files.isEmpty) {
-      final sample1 = Site(
-        id: 'site_abs_dialysis',
-        clientId: 'client_mophp_01',
-        nameAr: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة',
-        nameEn: 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions',
-        facilityType: 'مركز صحي تخصصي',
-        category: 'CAT 8',
-        governorate: 'حجة',
-        directorate: 'عبس',
-        locationAddress: 'محافظة حجة - مديرية عبس - بجوار المستشفى الريفي',
-        latitude: 15.9876,
-        longitude: 43.1234,
-        funderNameAr: 'مكتب الأمم المتحدة لخدمات المشاريع - UNOPS',
-        funderNameEn: 'United Nations Office for Project Services - UNOPS',
-        showFunderLogo: true,
-        projectName: 'مشروع تشغيل مراكز الغسيل الكلوي بالطاقة الشمسية',
-        contractNumber: '1010720',
-        implementingContractor: 'مؤسسة حمدان لتقنية الطاقة المتجددة',
-        systemSpecs: DefaultTemplates.sampleDialysisReport.systemSpecs,
-        contactPerson: 'د. يحيى الشجاع',
-        phone: '+967 771 234 567',
-        installationDate: '2024/05/10',
-        createdAt: DateTime.now().subtract(const Duration(days: 60)),
-        updatedAt: DateTime.now(),
-      );
-
-      final sample2 = Site(
-        id: 'site_mahabisha_hospital',
-        clientId: 'client_mophp_01',
-        nameAr: 'مستشفى المحابشة العام',
-        nameEn: 'Al-Mahabisha General Hospital',
-        facilityType: 'مستشفى ريفي',
-        category: 'CAT 6',
-        governorate: 'حجة',
-        directorate: 'المحابشة',
-        locationAddress: 'محافظة حجة - مركز مديرية المحابشة',
-        latitude: 16.0245,
-        longitude: 43.3421,
-        funderNameAr: 'البنك الدولي - World Bank',
-        funderNameEn: 'World Bank Group',
-        showFunderLogo: true,
-        projectName: 'مشروع استجابة الطوارئ والمنشآت الصحية الحيوية',
-        contractNumber: '1010850',
-        implementingContractor: 'مؤسسة حمدان لتقنية الطاقة المتجددة',
-        systemSpecs: const SystemSpecs(
-          systemType: 'منظومة هجينة (Hybrid Solar PV System)',
-          capacityKw: '30.0 kWp',
-          panelsCountAndWatt: '60 لوح مونوكريستالين قدرة 500 وات',
-          invertersCapacity: '3 إنفرترات سعة 10kW كواترو Victron Energy',
-          batteryUnitsCapacity: 'بنك بطاريات جل 48V سعة 1200Ah',
-          chargeControllersCapacity: 'منظمات شحن MPPT 250/100 عدد 4',
-          otherAppliances: 'قواطع DC ومفاتيح تحويل آلية ATS',
-        ),
-        contactPerson: 'د. خالد المحبشي',
-        phone: '+967 772 345 678',
-        installationDate: '2024/09/20',
-        createdAt: DateTime.now().subtract(const Duration(days: 30)),
-        updatedAt: DateTime.now(),
-      );
-
-      await _writeSiteFile(sample1);
-      await _writeSiteFile(sample2);
-      return [sample1, sample2];
+      return [];
     }
 
     final sites = <Site>[];
