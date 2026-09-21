@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/breadcrumb_widget.dart';
 import '../../models/site.dart';
 import '../../models/client.dart';
 import '../../models/report.dart';
@@ -113,10 +114,31 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20, color: Colors.white70),
+            tooltip: 'حذف الموقع',
+            onPressed: () => _confirmDeleteSite(context, site, client),
+          ),
         ],
       ),
       body: Column(
         children: [
+          // ─── Breadcrumb Navigation Bar ─────────────────────────────────
+          BreadcrumbBar(
+            items: [
+              BreadcrumbItem(
+                label: 'دليل العملاء',
+                icon: Icons.business_center_rounded,
+                onTap: () => Navigator.pop(context),
+              ),
+              BreadcrumbItem(
+                label: client.displayName,
+                onTap: () => Navigator.pop(context),
+              ),
+              BreadcrumbItem(label: site.displayName),
+            ],
+          ),
+
           // ─── Header Operations Hub ──────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -277,29 +299,12 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.assignment_late_outlined, size: 48, color: AppTheme.textMuted),
-              const SizedBox(height: 12),
-              const Text(
-                'لم يتم تنفيذ أي زيارة صيانة لهذا الموقع بعد',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'اضغط على زر بدء زيارة صيانة جديدة بالأعلى لإنشاء أول تقرير فحص ميداني.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('بدء الزيارة الأولى الآن'),
-                onPressed: () => _startNewVisitForSite(context, site, client, nextVisitNum),
-              ),
-            ],
+          child: EmptyStateGuide(
+            icon: Icons.assignment_outlined,
+            title: 'لم يتم تنفيذ أي زيارة صيانة لهذا الموقع بعد',
+            description: 'ابدأ أول زيارة صيانة ميدانية للموقع لاختبار مكونات المنظومة وإصدار تقرير الفحص.',
+            actionLabel: 'بدء الزيارة الأولى الآن',
+            onAction: () => _startNewVisitForSite(context, site, client, nextVisitNum),
           ),
         ),
       );
@@ -469,22 +474,10 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.inventory_2_outlined, size: 48, color: AppTheme.textMuted),
-              SizedBox(height: 12),
-              Text(
-                'لا توجد مواد أو قطع غيار مسجلة لهذا الموقع بعد',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-              ),
-              SizedBox(height: 6),
-              Text(
-                'عندما يطلب المهندس قطع غيار أثناء الفحص الميداني، ستظهر هنا مجمعة ومصنفة بحسب الزيارات.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
-              ),
-            ],
+          child: EmptyStateGuide(
+            icon: Icons.checklist_rounded,
+            title: 'سجل المواد والاحتياجات سليم',
+            description: 'لم يتم تسجيل أي قطع غيار مطلوبة أو صيانات تصحيحية معلقة في زيارات هذا الموقع حتى الآن.',
           ),
         ),
       );
@@ -703,6 +696,90 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
         ),
       );
     }
+  }
+
+  void _confirmDeleteSite(BuildContext context, Site site, Client client) {
+    final reports = ref.read(reportsProvider);
+    final siteReports = reports.where((r) => r.siteId == site.id).toList();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: AppTheme.statusRejected, size: 24),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'حذف الموقع: ${site.nameAr}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'سيؤدي حذف هذا الموقع إلى حذف كافة البيانات والتقارير المرتبطة به نهائياً:',
+              style: TextStyle(fontSize: 13, color: AppTheme.textDark, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.statusRejected.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.statusRejected.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('• الجهة المالكة: ${client.displayName}', style: const TextStyle(fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Text('• عدد التقارير والزيارات: ${siteReports.length} تقرير', style: const TextStyle(fontSize: 12)),
+                  const SizedBox(height: 4),
+                  const Text('• كافة القياسات والصور والتوقيعات التابعة للموقع', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'تحذير: لا يمكن التراجع عن هذه العملية بعد التأكيد.',
+              style: TextStyle(fontSize: 12, color: AppTheme.statusRejected, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.statusRejected,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              await deleteSiteCascade(ref, site.id);
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('تم حذف الموقع "${site.nameAr}" وكافة تقاريره بنجاح'),
+                    backgroundColor: AppTheme.primaryNavy,
+                  ),
+                );
+              }
+            },
+            child: const Text('حذف نهائي شامل'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
