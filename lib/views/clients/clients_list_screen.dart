@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/breadcrumb_widget.dart';
 import '../../models/client.dart';
 import '../../state/clients_provider.dart';
 import '../../state/sites_provider.dart';
@@ -114,12 +115,9 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                     itemCount: filteredClients.length,
                     itemBuilder: (context, index) {
                       final client = filteredClients[index];
-                      final clientSites = sites.where((s) => s.clientId == client.id).toList();
-                      final clientReports = reports.where((r) =>
-                          r.clientId == client.id ||
-                          clientSites.any((s) => s.id == r.siteId || s.nameAr == r.facilityInfo.facilityName)).length;
+                      final stats = ref.watch(clientStatsProvider(client.id));
 
-                      return _buildClientCard(context, client, clientSites.length, clientReports);
+                      return _buildClientCard(context, client, stats);
                     },
                   ),
           ),
@@ -171,7 +169,7 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
     return const SizedBox(width: 8);
   }
 
-  Widget _buildClientCard(BuildContext context, Client client, int sitesCount, int reportsCount) {
+  Widget _buildClientCard(BuildContext context, Client client, ClientStats stats) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 1.5,
@@ -328,14 +326,22 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      _buildChipBadge(Icons.location_on_outlined, '$sitesCount مواقع', AppTheme.primaryNavy),
-                      const SizedBox(width: 8),
-                      _buildChipBadge(Icons.assignment_outlined, '$reportsCount زيارة وتقارير', AppTheme.solarGold),
-                    ],
+                  Expanded(
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        _buildChipBadge(Icons.location_on_outlined, '${stats.sitesCount} مواقع', AppTheme.primaryNavy),
+                        _buildChipBadge(Icons.assignment_outlined, '${stats.reportsCount} زيارة', AppTheme.solarGold),
+                        if (stats.draftReports > 0)
+                          _buildChipBadge(Icons.pending_actions_rounded, '${stats.draftReports} مسودة', AppTheme.statusFollowup),
+                        if (stats.lastVisitDate != null)
+                          _buildChipBadge(Icons.event_available_rounded, stats.lastVisitDate!, AppTheme.statusGood),
+                      ],
+                    ),
                   ),
                   const Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'استعراض المواقع',
@@ -383,40 +389,12 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppTheme.solarGold.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.business_outlined, size: 48, color: AppTheme.solarGold),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'لا يوجد عملاء مضافين حالياً',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'أضف عميلاً جديداً (وزارة، منظمة، مؤسسة) ثم ابدأ بإضافة المواقع والمنشآت التابعة له.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryNavy,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('إضافة العميل الأول', style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: () => _showAddClientDialog(context),
-            ),
-          ],
+        child: EmptyStateGuide(
+          icon: Icons.apartment_rounded,
+          title: 'لا يوجد عملاء مضافين حالياً',
+          description: 'أضف عميلاً جديداً (وزارة، منظمة، مؤسسة) ثم ابدأ بإضافة المواقع والمنشآت الميدانية التابعة له.',
+          actionLabel: 'إضافة العميل الأول',
+          onAction: () => _showAddClientDialog(context),
         ),
       ),
     );
@@ -626,23 +604,87 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
   }
 
   void _confirmDeleteClient(BuildContext context, Client client) {
+    final sites = ref.read(sitesProvider);
+    final reports = ref.read(reportsProvider);
+    final clientSites = sites.where((s) => s.clientId == client.id).toList();
+    final siteIds = clientSites.map((s) => s.id).toSet();
+    final clientReports = reports.where(
+      (r) => r.clientId == client.id || siteIds.contains(r.siteId),
+    ).toList();
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('تأكيد الحذف'),
-        content: Text('هل أنت متأكد من حذف العميل "${client.nameAr}"؟ لن يتم حذف التقارير التاريخية السابقة.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: AppTheme.statusRejected, size: 24),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'حذف العميل: ${client.displayName}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'سيؤدي هذا الإجراء إلى حذف هذا العميل وجميع البيانات المرتبطة به نهائياً:',
+              style: TextStyle(fontSize: 13, color: AppTheme.textDark, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.statusRejected.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.statusRejected.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('• عدد المواقع التابعة: ${clientSites.length} موقع', style: const TextStyle(fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Text('• عدد تقارير الزيارات: ${clientReports.length} تقرير', style: const TextStyle(fontSize: 12)),
+                  const SizedBox(height: 4),
+                  const Text('• كافة القياسات والصور والتوقيعات التابعة لها', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'تحذير: لا يمكن التراجع عن هذا الإجراء بعد تنفيذه.',
+              style: TextStyle(fontSize: 12, color: AppTheme.statusRejected, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('إلغاء'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.statusRejected,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
-              await ref.read(clientsProvider.notifier).deleteClient(client.id);
+              await deleteClientCascade(ref, client.id);
               if (ctx.mounted) Navigator.pop(ctx);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('تم حذف العميل "${client.displayName}" وجميع مواقعه وتقاريره بنجاح'),
+                    backgroundColor: AppTheme.primaryNavy,
+                  ),
+                );
+              }
             },
-            child: const Text('حذف'),
+            child: const Text('حذف نهائي شامل'),
           ),
         ],
       ),
