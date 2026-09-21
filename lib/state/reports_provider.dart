@@ -8,6 +8,8 @@ import '../models/site.dart';
 import '../models/maintenance_need.dart';
 import '../services/storage_service.dart';
 import '../services/default_templates.dart';
+import 'clients_provider.dart';
+import 'sites_provider.dart';
 
 class ReportsNotifier extends StateNotifier<List<Report>> {
   final StorageService _storage;
@@ -434,7 +436,7 @@ enum ReportSortOrder {
 }
 
 final reportsProvider = StateNotifierProvider<ReportsNotifier, List<Report>>((ref) {
-  return ReportsNotifier(StorageService());
+  return ReportsNotifier(ref.watch(storageServiceProvider));
 });
 
 /// معرّف التقرير النشط حالياً في المحرر
@@ -447,6 +449,104 @@ final activeReportProvider = Provider<Report?>((ref) {
   final reports = ref.watch(reportsProvider);
   try {
     return reports.firstWhere((r) => r.id == id);
+  } catch (_) {
+    return null;
+  }
+});
+
+// ========================
+// Derived Relationship Providers — الترابط المنطقي
+// ========================
+
+/// تقارير عميل معين — مرتبة من الأحدث للأقدم
+final reportsForClientProvider = Provider.family<List<Report>, String>((ref, clientId) {
+  if (clientId.isEmpty) return [];
+  final reports = ref.watch(reportsProvider);
+  return reports
+      .where((r) => r.clientId == clientId)
+      .toList()
+    ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+});
+
+/// زيارات موقع معين — مرتبة حسب رقم الزيارة (الأحدث أولاً)
+final visitsForSiteProvider = Provider.family<List<Report>, String>((ref, siteId) {
+  if (siteId.isEmpty) return [];
+  final reports = ref.watch(reportsProvider);
+  return reports
+      .where((r) => r.siteId == siteId)
+      .toList()
+    ..sort((a, b) {
+      final numA = int.tryParse(a.visitNumber) ?? 0;
+      final numB = int.tryParse(b.visitNumber) ?? 0;
+      return numB.compareTo(numA);
+    });
+});
+
+/// رقم الزيارة التالية لموقع معين
+final nextVisitNumberProvider = Provider.family<int, String>((ref, siteId) {
+  if (siteId.isEmpty) return 1;
+  final visits = ref.watch(visitsForSiteProvider(siteId));
+  if (visits.isEmpty) return 1;
+  final maxNum = visits.map((r) => int.tryParse(r.visitNumber) ?? 0).reduce((a, b) => a > b ? a : b);
+  return maxNum + 1;
+});
+
+/// إحصائيات العميل
+class ClientStats {
+  final int sitesCount;
+  final int reportsCount;
+  final int completedReports;
+  final int draftReports;
+  final String? lastVisitDate;
+
+  const ClientStats({
+    this.sitesCount = 0,
+    this.reportsCount = 0,
+    this.completedReports = 0,
+    this.draftReports = 0,
+    this.lastVisitDate,
+  });
+}
+
+final clientStatsProvider = Provider.family<ClientStats, String>((ref, clientId) {
+  if (clientId.isEmpty) return const ClientStats();
+  final sites = ref.watch(sitesForClientProvider(clientId));
+  final reports = ref.watch(reportsForClientProvider(clientId));
+  final completed = reports.where((r) => r.status == ReportStatus.completed).length;
+  return ClientStats(
+    sitesCount: sites.length,
+    reportsCount: reports.length,
+    completedReports: completed,
+    draftReports: reports.length - completed,
+    lastVisitDate: reports.isNotEmpty ? reports.first.visitDate : null,
+  );
+});
+
+/// المواقع مجمعة حسب المحافظة
+final sitesGroupedByGovernorateProvider = Provider<Map<String, List<Site>>>((ref) {
+  final sites = ref.watch(sitesProvider);
+  final grouped = <String, List<Site>>{};
+  for (final site in sites) {
+    final key = site.governorate.isNotEmpty ? site.governorate : 'غير محدد';
+    grouped.putIfAbsent(key, () => []).add(site);
+  }
+  return grouped;
+});
+
+/// عدد المسودات غير المكتملة
+final draftReportsProvider = Provider<List<Report>>((ref) {
+  final reports = ref.watch(reportsProvider);
+  return reports
+      .where((r) => r.status == ReportStatus.draft)
+      .toList()
+    ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+});
+
+/// تقرير بمعرفه
+final reportByIdProvider = Provider.family<Report?, String>((ref, reportId) {
+  final reports = ref.watch(reportsProvider);
+  try {
+    return reports.firstWhere((r) => r.id == reportId);
   } catch (_) {
     return null;
   }

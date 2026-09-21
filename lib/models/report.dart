@@ -346,8 +346,8 @@ class Report {
   final List<int> activeBatteryGroups;
   final List<int> activeCombinerBoxes;
   final Map<int, String> pageOrientations;
-  final String? clientId;
-  final String? siteId;
+  final String clientId;
+  final String siteId;
   final ReportStatus status;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -390,8 +390,8 @@ class Report {
     this.activeBatteryGroups = const [1, 2, 3, 4],
     this.activeCombinerBoxes = const [1, 2, 3, 4],
     this.pageOrientations = const {},
-    this.clientId,
-    this.siteId,
+    this.clientId = '',
+    this.siteId = '',
     this.status = ReportStatus.draft,
     required this.createdAt,
     required this.updatedAt,
@@ -717,8 +717,8 @@ class Report {
             (k, v) => MapEntry(int.tryParse(k.toString()) ?? 1, v.toString()),
           )
         : const {},
-    clientId: json['clientId'] as String?,
-    siteId: json['siteId'] as String?,
+    clientId: (json['clientId'] as String?) ?? '',
+    siteId: (json['siteId'] as String?) ?? '',
     status: ReportStatus.values.firstWhere(
       (e) => e.name == json['status'],
       orElse: () => ReportStatus.draft,

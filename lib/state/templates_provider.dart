@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../models/report_template.dart';
 import '../services/storage_service.dart';
+import 'clients_provider.dart';
 
 class TemplatesNotifier extends StateNotifier<List<ReportTemplate>> {
   final StorageService _storage;
@@ -48,5 +49,5 @@ class TemplatesNotifier extends StateNotifier<List<ReportTemplate>> {
 }
 
 final templatesProvider = StateNotifierProvider<TemplatesNotifier, List<ReportTemplate>>((ref) {
-  return TemplatesNotifier(StorageService());
+  return TemplatesNotifier(ref.watch(storageServiceProvider));
 });
