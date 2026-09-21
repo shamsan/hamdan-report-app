@@ -1,0 +1,3495 @@
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import '../models/organization.dart';
+import '../models/inspection_item.dart';
+import '../models/measurement_data.dart';
+import '../models/signature_data.dart';
+import '../models/report_photo.dart';
+import '../models/maintenance_need.dart';
+import '../models/report.dart';
+import '../core/utils/arabic_reshaper.dart';
+import 'default_templates.dart';
+import 'package:image/image.dart' as image_pkg;
+
+class PdfExportService {
+  /// Safely sanitizes and decodes a base64 image string (strips data URIs, whitespace, handles padding)
+  static Uint8List? safeDecodeBase64(String? raw) {
+    if (raw == null) return null;
+    var cleaned = raw.trim();
+    if (cleaned.isEmpty) return null;
+    if (cleaned.contains(',')) {
+      cleaned = cleaned.substring(cleaned.indexOf(',') + 1).trim();
+    }
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), '');
+    if (cleaned.isEmpty) return null;
+    final remainder = cleaned.length % 4;
+    if (remainder > 0) {
+      cleaned = cleaned.padRight(cleaned.length + (4 - remainder), '=');
+    }
+    try {
+      final bytes = base64Decode(cleaned);
+      return bytes.isNotEmpty ? bytes : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Safely wraps a base64 image into pw.MemoryImage without throwing
+  static pw.MemoryImage? safeMemoryImage(String? base64Str) {
+    final bytes = safeDecodeBase64(base64Str);
+    if (bytes != null && bytes.isNotEmpty) {
+      try {
+        return pw.MemoryImage(bytes);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// Helper to reshape and bidi Arabic text for PDF
+  static String _ar(String? text, [int? maxCharsPerLine]) {
+    if (text == null || text.trim().isEmpty) return '';
+    return ArabicReshaper.shapeAndBidi(text, maxCharsPerLine: maxCharsPerLine);
+  }
+
+  /// Helper specifically for notes and comments in tables to wrap downwards cleanly
+  static String _arNotes(String? text, [int maxChars = 28]) {
+    if (text == null || text.trim().isEmpty) return '';
+    return ArabicReshaper.shapeAndBidi(text, maxCharsPerLine: maxChars);
+  }
+
+  /// Wraps Arabic text dynamically to fill the available width from margin to margin
+  /// ensuring lines never break prematurely or leave empty gaps.
+  static String wrapArabicByWidth(String text, double maxWidth, double fontSize, PdfFont font) {
+    if (text.isEmpty) return text;
+    final tokenPattern = RegExp(r'\([^\)]*\)[\.\,\:\;\!\؟\?\،]*|\[[^\]]*\][\.\,\:\;\!\؟\?\،]*|\S+');
+    final words = tokenPattern.allMatches(text.trim()).map((m) => m.group(0)!).toList();
+    final lines = <String>[];
+    String currentLine = '';
+
+    for (final word in words) {
+      final testLine = currentLine.isEmpty ? word : '$currentLine $word';
+      final reshaped = ArabicReshaper.shapeAndBidi(testLine);
+      final width = font.stringMetrics(reshaped).size.x * fontSize;
+      if (width <= maxWidth || currentLine.isEmpty) {
+        currentLine = testLine;
+      } else {
+        lines.add(currentLine);
+        currentLine = word;
+      }
+    }
+    if (currentLine.isNotEmpty) {
+      lines.add(currentLine);
+    }
+    return lines.map((l) => ArabicReshaper.shapeAndBidi(l)).join('\n');
+  }
+
+  /// Builds and returns the multi-page PDF document as bytes matching the reference PDF 1:1
+  static Future<Uint8List> generateReportPdf({
+    required Report report,
+    required OrganizationProfile branding,
+    List<int>? pagesToExport,
+  }) async {
+    final pdf = pw.Document();
+
+    // 1. Load Arabic TrueType fonts from assets (Official Pure Arabic Naskh - Noto Naskh Arabic)
+    final fontRegularData = await rootBundle.load('assets/fonts/NotoNaskhArabic-Regular.ttf');
+    final fontBoldData = await rootBundle.load('assets/fonts/NotoNaskhArabic-Bold.ttf');
+    final fontFallbackData = await rootBundle.load('assets/fonts/Tahoma-Regular.ttf');
+    final ttfRegular = pw.Font.ttf(fontRegularData);
+    final ttfBold = pw.Font.ttf(fontBoldData);
+    final ttfFallback = pw.Font.ttf(fontFallbackData);
+
+    // 2. Load authentic logos (Hierarchical: Report custom -> Global branding -> Asset fallback)
+    pw.MemoryImage? logoFacility;
+    pw.MemoryImage? logoUnops;
+    pw.MemoryImage? logoContractor;
+
+    // A. Contractor Logo
+    try {
+      final customContractor = report.contractorLogoBase64;
+      final customImg = safeMemoryImage(customContractor);
+      final brandImg = safeMemoryImage(branding.contractorLogoBase64);
+      if (customImg != null) {
+        logoContractor = customImg;
+      } else if (brandImg != null) {
+        logoContractor = brandImg;
+      } else {
+        final d = await rootBundle.load('assets/logos/logo_contractor.png');
+        logoContractor = pw.MemoryImage(d.buffer.asUint8List());
+      }
+    } catch (_) {}
+
+    // B. Ministry / Facility Logo
+    try {
+      final customMinistry = report.ministryLogoBase64;
+      final customImg = safeMemoryImage(customMinistry);
+      final brandImg = safeMemoryImage(branding.facilityLogoBase64);
+      if (customImg != null) {
+        logoFacility = customImg;
+      } else if (brandImg != null) {
+        logoFacility = brandImg;
+      } else {
+        final d = await rootBundle.load('assets/logos/logo_facility.png');
+        logoFacility = pw.MemoryImage(d.buffer.asUint8List());
+      }
+    } catch (_) {}
+
+    // C. Funder / Right Logo
+    try {
+      final customFunder = report.funderLogoBase64;
+      final customImg = safeMemoryImage(customFunder);
+      final brandImg = safeMemoryImage(branding.unopsLogoBase64);
+      if (customImg != null) {
+        logoUnops = customImg;
+      } else if (brandImg != null) {
+        logoUnops = brandImg;
+      } else {
+        final d = await rootBundle.load('assets/logos/logo_unops.png');
+        logoUnops = pw.MemoryImage(d.buffer.asUint8List());
+      }
+    } catch (_) {}
+
+    // 2.5. Load Digital Signatures & Stamps for Running Footer & Page 10
+    final engSigBase64 = (report.approvalStatement.contractorSignatureBase64 != null && report.approvalStatement.contractorSignatureBase64!.isNotEmpty)
+        ? report.approvalStatement.contractorSignatureBase64
+        : report.signatures.cast<ReportSignature?>().firstWhere(
+            (s) => s != null && s.signatureBase64 != null && s.signatureBase64!.isNotEmpty &&
+                   (s.role.contains('مهندس') || s.role.contains('صيانة') || s.role.contains('مقاول')),
+            orElse: () => report.signatures.cast<ReportSignature?>().firstWhere(
+              (s) => s != null && s.signatureBase64 != null && s.signatureBase64!.isNotEmpty,
+              orElse: () => null,
+            ),
+          )?.signatureBase64;
+
+    final pw.MemoryImage? engineerSigImage = safeMemoryImage(engSigBase64);
+
+    final effectiveRepName = report.approvalStatement.beneficiaryRepName.isNotEmpty
+        ? report.approvalStatement.beneficiaryRepName
+        : report.facilityInfo.contactPerson;
+
+    final benSigBase64 = (report.approvalStatement.beneficiarySignatureBase64 != null && report.approvalStatement.beneficiarySignatureBase64!.isNotEmpty)
+        ? report.approvalStatement.beneficiarySignatureBase64
+        : (report.signatures.cast<ReportSignature?>().firstWhere(
+            (s) => s != null && s.signatureBase64 != null && s.signatureBase64!.isNotEmpty &&
+                   (s.role.contains('مستفيد') || s.role.contains('مرفق') || s.role.contains('مدير') || s.role.contains('عميل') || s.role.contains('إدارة') ||
+                    (effectiveRepName.isNotEmpty && (s.signerName == effectiveRepName || s.signerName.contains(effectiveRepName)))),
+            orElse: () => null,
+          )?.signatureBase64 ??
+          report.attendanceList.cast<AttendanceRecord?>().firstWhere(
+            (a) => a != null && a.signatureBase64 != null && a.signatureBase64!.isNotEmpty &&
+                   (a.role.contains('مدير') || a.role.contains('مستفيد') || a.role.contains('مرفق') || a.role.contains('مسؤول') ||
+                    (effectiveRepName.isNotEmpty && (a.name == effectiveRepName || a.name.contains(effectiveRepName) || effectiveRepName.contains(a.name)))),
+            orElse: () => null,
+          )?.signatureBase64);
+
+    final pw.MemoryImage? beneficiarySigImage = safeMemoryImage(benSigBase64);
+
+    final pw.MemoryImage? stampImage = safeMemoryImage(report.approvalStatement.stampBase64);
+
+    // 3. Brand & Theme Colors matching the reference PDF
+    final goldColor = PdfColor.fromHex('EAA023');
+    final cyanColor = PdfColor.fromHex('009FE3');
+    final darkNavyColor = PdfColor.fromHex('0B3A60');
+    final tableHeaderBg = PdfColor.fromHex('DCE4EC');
+    final borderGrey = PdfColor.fromHex('CBD5E1');
+    final lightBeige = PdfColor.fromHex('FCEBB6');
+    final lightCyanBg = PdfColor.fromHex('7CD5EC');
+    final creamBg = PdfColor.fromHex('FFF9E6');
+
+    pw.TextStyle textStyle({double size = 8.0, bool isBold = false, PdfColor color = PdfColors.black, double? lineSpacing}) {
+      return pw.TextStyle(
+        font: isBold ? ttfBold : ttfRegular,
+        fontFallback: [ttfFallback],
+        fontSize: size,
+        color: color,
+        lineSpacing: lineSpacing,
+      );
+    }
+
+    // Vector checkmark to avoid font glyph dependency
+    pw.Widget buildCheckmark({PdfColor color = PdfColors.green900, double size = 8.0}) {
+      return pw.SizedBox(
+        width: size,
+        height: size,
+        child: pw.CustomPaint(
+          painter: (PdfGraphics canvas, PdfPoint pSize) {
+            canvas.setColor(color);
+            canvas.setLineWidth(1.3);
+            canvas.moveTo(pSize.x * 0.15, pSize.y * 0.5);
+            canvas.lineTo(pSize.x * 0.4, pSize.y * 0.2);
+            canvas.lineTo(pSize.x * 0.85, pSize.y * 0.85);
+            canvas.strokePath();
+          },
+        ),
+      );
+    }
+
+    final effectiveVisitNum = report.visitNumber.isNotEmpty
+        ? report.visitNumber
+        : (report.facilityInfo.visitNumber.isNotEmpty ? report.facilityInfo.visitNumber : '');
+
+    // Dynamic contractor branding (Report custom -> Global branding -> Fallback)
+    bool isLegacyAr(String? s) {
+      if (s == null || s.trim().isEmpty) return true;
+      if (s == 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة') return false;
+      return s.contains('بندر ناجي') || s.contains('شركة') || s.contains('الإتقان') || s.contains('الاتقان');
+    }
+    final contractorAr = !isLegacyAr(report.contractorNameAr)
+        ? report.contractorNameAr!
+        : (!isLegacyAr(report.projectInfo.implementingContractor)
+            ? report.projectInfo.implementingContractor
+            : (!isLegacyAr(branding.contractorNameAr)
+                ? branding.contractorNameAr
+                : 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة'));
+
+    final contractorSub = (report.contractorSubtitleAr != null && report.contractorSubtitleAr!.isNotEmpty && !report.contractorSubtitleAr!.contains('المحدودة'))
+        ? report.contractorSubtitleAr!
+        : (branding.contractorSubtitleAr.isNotEmpty && !branding.contractorSubtitleAr.contains('المحدودة')
+            ? branding.contractorSubtitleAr
+            : '');
+
+    // Dynamic ministry / entity branding
+    final isEducation = report.projectInfo.ownerEntity.contains('تربية') ||
+        report.projectInfo.ownerEntity.contains('تعليم') ||
+        report.facilityInfo.facilityType.contains('مدرس') ||
+        branding.ministryNameAr.contains('تربية') ||
+        (report.ministryNameAr != null && report.ministryNameAr!.contains('تربية'));
+
+    final ministryAr = (report.ministryNameAr != null && report.ministryNameAr!.isNotEmpty)
+        ? report.ministryNameAr!
+        : (isEducation
+            ? 'وزارة التربية والتعليم'
+            : (report.projectInfo.ownerEntity.isNotEmpty
+                ? report.projectInfo.ownerEntity
+                : (branding.ministryNameAr.isNotEmpty
+                    ? branding.ministryNameAr
+                    : 'وزارة الصحة العامة و البيئة')));
+
+    // Dynamic funder / right branding
+    final showRight = report.showRightLogo ?? branding.showRightLogo;
+    final rightEn = (report.funderNameEn != null && report.funderNameEn!.isNotEmpty)
+        ? report.funderNameEn!
+        : (branding.rightLogoNameEn.isNotEmpty
+            ? branding.rightLogoNameEn
+            : 'UNITED NATIONS OFFICE FOR PROJECT SERVICES (UNOPS)');
+
+    final rightAr = (report.funderNameAr != null && report.funderNameAr!.isNotEmpty)
+        ? report.funderNameAr!
+        : ((report.projectInfo.funder.isNotEmpty)
+            ? report.projectInfo.funder
+            : (branding.rightLogoNameAr.isNotEmpty
+                ? branding.rightLogoNameAr
+                 : 'مكتب الأمم المتحدة لخدمات المشاريع'));
+
+    final headerArabicBlue = PdfColor.fromHex('1565C0');
+    final headerEnglishBlack = PdfColors.black;
+
+    bool isLegacyEn(String? s) {
+      if (s == null || s.trim().isEmpty) return true;
+      final lower = s.toLowerCase();
+      if (lower.contains('al-etqan') || lower.contains('aletqan') || lower.contains('al etqan')) return false;
+      return lower.contains('bandar') || lower.contains('naji');
+    }
+
+    final contractorEn = !isLegacyEn(report.contractorNameEn)
+        ? report.contractorNameEn!
+        : (!isLegacyEn(branding.contractorNameEn)
+            ? branding.contractorNameEn
+            : 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions');
+
+    final ministryEn = (report.ministryNameEn != null && report.ministryNameEn!.isNotEmpty)
+        ? report.ministryNameEn!
+        : (isEducation
+            ? 'Ministry of Education'
+            : (branding.ministryNameEn.isNotEmpty
+                ? branding.ministryNameEn
+                : 'Ministry of Public Health and Population'));
+
+
+    // Helper: Dynamically resolve page format and orientation based on engineer's choice (A4/A3, Portrait/Landscape)
+    PdfPageFormat resolvePageFormat(int pageNumber, {PdfPageFormat defaultFormat = PdfPageFormat.a4}) {
+      String? rawPref = report.pageOrientations[pageNumber];
+      if (rawPref == null) {
+        final dynamicMap = report.pageOrientations as dynamic;
+        try {
+          rawPref = dynamicMap[pageNumber.toString()]?.toString();
+        } catch (_) {}
+      }
+      final pref = (rawPref ?? '').toLowerCase().trim();
+
+      // Explicit A3 checks
+      if (pref == 'a3_landscape' || pref == 'a3_horizontal') return PdfPageFormat.a3.landscape;
+      if (pref == 'a3_portrait' || pref == 'a3_vertical') return PdfPageFormat.a3;
+      if (pref == 'a3') {
+        return (pageNumber == 8 || pageNumber == 9) ? PdfPageFormat.a3.landscape : PdfPageFormat.a3;
+      }
+
+      // Explicit A4 checks
+      if (pref == 'a4_landscape' || pref == 'landscape' || pref == 'horizontal') return PdfPageFormat.a4.landscape;
+      if (pref == 'a4_portrait' || pref == 'portrait' || pref == 'vertical' || pref == 'a4') return PdfPageFormat.a4;
+
+      // Smart default: in official reference PDFs all pages are A4 Portrait (wide tables rotated inside A4)
+      return defaultFormat;
+    }
+
+    // Helper: Smart English line formatting for long organizational names
+    List<pw.Widget> buildSmartEnglishLines(String text, {double fontSize = 5.2, bool isBold = false}) {
+      final clean = text.trim();
+      if (clean.isEmpty) return [];
+
+      if (clean.length <= 32) {
+        return [
+          pw.Text(
+            clean,
+            textAlign: pw.TextAlign.center,
+            style: textStyle(size: fontSize, isBold: isBold, color: headerEnglishBlack),
+          ),
+        ];
+      }
+
+      final words = clean.split(RegExp(r'\s+'));
+      if (words.length <= 1) {
+        return [
+          pw.Text(
+            clean,
+            textAlign: pw.TextAlign.center,
+            style: textStyle(size: fontSize - 0.6, isBold: isBold, color: headerEnglishBlack),
+          ),
+        ];
+      }
+
+      int bestSplit = 1;
+      int minDiff = 9999;
+      for (int i = 1; i < words.length; i++) {
+        final line1 = words.sublist(0, i).join(' ');
+        final line2 = words.sublist(i).join(' ');
+        final diff = (line1.length - line2.length).abs();
+        if (diff < minDiff) {
+          minDiff = diff;
+          bestSplit = i;
+        }
+      }
+
+      final line1 = words.sublist(0, bestSplit).join(' ');
+      final line2 = words.sublist(bestSplit).join(' ');
+
+      return [
+        pw.Text(
+          line1,
+          textAlign: pw.TextAlign.center,
+          style: textStyle(size: fontSize, isBold: isBold, color: headerEnglishBlack),
+        ),
+        pw.SizedBox(height: 0.5),
+        pw.Text(
+          line2,
+          textAlign: pw.TextAlign.center,
+          style: textStyle(size: fontSize - 0.4, isBold: false, color: headerEnglishBlack),
+        ),
+      ];
+    }
+
+    // Helper: Institutional Running Header (Top of every page)
+    pw.Widget buildRunningHeader({bool isLandscape = false}) {
+      final logoColWidth = isLandscape ? 190.0 : 158.0;
+
+      final contractorWidget = pw.SizedBox(
+        width: logoColWidth,
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            if (logoContractor != null)
+              pw.Image(logoContractor, height: isLandscape ? 28 : 22, width: 80, fit: pw.BoxFit.contain)
+            else
+              pw.SizedBox(height: isLandscape ? 28 : 22, width: 80),
+            pw.SizedBox(height: 1.5),
+            // Arabic Name in Blue
+            if (contractorAr.contains('الأتقان') && (contractorAr.contains('الهندسية') || contractorAr.contains('طاقة'))) ...[
+              pw.Text(
+                _ar('مكتب الأتقان الهندسي'),
+                textAlign: pw.TextAlign.center,
+                style: textStyle(size: 6.8, isBold: true, color: headerArabicBlue),
+              ),
+              pw.Text(
+                _ar('للخدمات الهندسية وحلول الطاقة'),
+                textAlign: pw.TextAlign.center,
+                style: textStyle(size: 6.0, isBold: true, color: headerArabicBlue),
+              ),
+            ] else ...[
+              pw.Text(
+                _ar(contractorAr),
+                textAlign: pw.TextAlign.center,
+                style: textStyle(size: 6.6, isBold: true, color: headerArabicBlue),
+              ),
+            ],
+            if (contractorSub.isNotEmpty)
+              pw.Text(
+                _ar(contractorSub),
+                textAlign: pw.TextAlign.center,
+                style: textStyle(size: 5.8, isBold: true, color: headerArabicBlue),
+              ),
+            pw.SizedBox(height: 1.0),
+            // English Name in Black
+            if (contractorEn.toLowerCase().contains('al-etqan') || contractorEn.toLowerCase().contains('aletqan')) ...[
+              pw.Text(
+                'Al-Etqan Engineering Office',
+                textAlign: pw.TextAlign.center,
+                style: textStyle(size: 5.2, isBold: true, color: headerEnglishBlack),
+              ),
+              pw.SizedBox(height: 0.5),
+              pw.Text(
+                'for Engineering Services & Energy Solutions',
+                textAlign: pw.TextAlign.center,
+                style: textStyle(size: 4.6, isBold: false, color: headerEnglishBlack),
+              ),
+            ] else ...[
+              ...buildSmartEnglishLines(contractorEn, fontSize: 5.0, isBold: true),
+            ],
+          ],
+        ),
+      );
+
+      final ministryWidget = pw.SizedBox(
+        width: logoColWidth,
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            if (logoFacility != null)
+              pw.Image(logoFacility, height: isLandscape ? 30 : 23, width: 70, fit: pw.BoxFit.contain)
+            else
+              pw.SizedBox(height: isLandscape ? 30 : 23, width: 70),
+            pw.SizedBox(height: 1.5),
+            // Arabic Name in Blue
+            pw.Text(
+              _ar(ministryAr),
+              textAlign: pw.TextAlign.center,
+              style: textStyle(size: 6.8, isBold: true, color: headerArabicBlue),
+            ),
+            pw.SizedBox(height: 1.0),
+            // English Name in Black
+            if (ministryEn.toLowerCase().contains('public health')) ...[
+              pw.Text(
+                'Ministry of Public Health & Population',
+                textAlign: pw.TextAlign.center,
+                style: textStyle(size: 5.2, isBold: true, color: headerEnglishBlack),
+              ),
+            ] else ...[
+              ...buildSmartEnglishLines(ministryEn, fontSize: 5.2, isBold: true),
+            ],
+          ],
+        ),
+      );
+
+      final rightWidget = pw.SizedBox(
+        width: logoColWidth,
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            if (logoUnops != null)
+              pw.Image(logoUnops, height: isLandscape ? 26 : 20, width: 80, fit: pw.BoxFit.contain)
+            else
+              pw.SizedBox(height: isLandscape ? 26 : 20, width: 80),
+            pw.SizedBox(height: 1.5),
+            // Arabic Name in Blue
+            if (rightAr.contains('الأمم المتحدة') && rightAr.contains('المشاريع')) ...[
+              pw.Text(
+                _ar('مكتب الأمم المتحدة'),
+                textAlign: pw.TextAlign.center,
+                style: textStyle(size: 6.8, isBold: true, color: headerArabicBlue),
+              ),
+              pw.Text(
+                _ar('لخدمات المشاريع - صنعاء'),
+                textAlign: pw.TextAlign.center,
+                style: textStyle(size: 6.0, isBold: true, color: headerArabicBlue),
+              ),
+            ] else ...[
+              pw.Text(
+                _ar(rightAr),
+                textAlign: pw.TextAlign.center,
+                style: textStyle(size: 6.6, isBold: true, color: headerArabicBlue),
+              ),
+            ],
+            pw.SizedBox(height: 1.0),
+            // English Name in Black
+            if (rightEn.toUpperCase().contains('UNOPS') || rightEn.toUpperCase().contains('PROJECT SERVICES')) ...[
+              pw.Text(
+                'United Nations Office for Project Services',
+                textAlign: pw.TextAlign.center,
+                style: textStyle(size: 4.8, isBold: false, color: headerEnglishBlack),
+              ),
+              pw.SizedBox(height: 0.5),
+              pw.Text(
+                '(UNOPS)',
+                textAlign: pw.TextAlign.center,
+                style: textStyle(size: 5.2, isBold: true, color: headerEnglishBlack),
+              ),
+            ] else ...[
+              ...buildSmartEnglishLines(rightEn, fontSize: 5.0, isBold: true),
+            ],
+          ],
+        ),
+      );
+
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              // Left: Contractor Logo + Text
+              contractorWidget,
+              // Center / Right depending on showRight
+              if (showRight) ...[
+                ministryWidget,
+                rightWidget,
+              ] else ...[
+                // When Right Logo is cancelled, the Ministry logo moves to the right
+                ministryWidget,
+              ],
+            ],
+          ),
+          pw.SizedBox(height: 1.5),
+          pw.Container(height: 1.2, color: goldColor),
+          pw.SizedBox(height: 1.5),
+          pw.Stack(
+            children: [
+              pw.Center(
+                child: pw.Column(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.Text('Periodic Maintenance Report for Solar Power Systems', style: textStyle(size: isLandscape ? 11 : 10.5, isBold: true)),
+                    pw.SizedBox(height: 0.5),
+                    pw.Text(_ar('تقرير الصيانة الدورية لمنظومة الطاقة الشمسية'), style: textStyle(size: isLandscape ? 9.5 : 9.0, isBold: true, color: cyanColor)),
+                  ],
+                ),
+              ),
+              pw.Positioned(
+                left: 0,
+                top: 1,
+                child: pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    pw.Text(
+                      effectiveVisitNum.isNotEmpty ? '($effectiveVisitNum)' : '(       )',
+                      style: textStyle(size: 7.5, isBold: true),
+                    ),
+                    pw.SizedBox(width: 3),
+                    pw.Text(':', style: textStyle(size: 7.5, isBold: true)),
+                    pw.SizedBox(width: 4),
+                    pw.Text(_ar('رقم الزيارة'), style: textStyle(size: 7.5, isBold: true)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 2),
+        ],
+      );
+    }
+
+    // Helper: Institutional Running Footer (Bottom of every page)
+    pw.Widget buildRunningFooter(int pageNum) {
+      final facName = report.facilityInfo.facilityName.trim();
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(top: 2),
+        child: pw.Column(
+          mainAxisSize: pw.MainAxisSize.min,
+          children: [
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                // Left: Page Pill + Engineer Signature
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                      decoration: pw.BoxDecoration(
+                        color: cyanColor,
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                      ),
+                      child: pw.Text('Page $pageNum', style: textStyle(size: 8, isBold: true, color: PdfColors.white)),
+                    ),
+                    pw.SizedBox(width: 6),
+                    if (engineerSigImage != null) ...[
+                      pw.Text('Engineer Signature: ', style: textStyle(size: 7.5)),
+                      pw.Container(
+                        height: 18,
+                        width: 70,
+                        padding: const pw.EdgeInsets.only(bottom: 1),
+                        decoration: const pw.BoxDecoration(
+                          border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey600, width: 0.5)),
+                        ),
+                        child: pw.Image(engineerSigImage, fit: pw.BoxFit.contain),
+                      ),
+                    ] else ...[
+                      pw.Text('Engineer Signature ................................... ', style: textStyle(size: 7.5)),
+                    ],
+                    pw.Text(':', style: textStyle(size: 7.5, isBold: true)),
+                    pw.SizedBox(width: 3),
+                    pw.Text(_ar('توقيع مهندس الصيانة'), style: textStyle(size: 7.5, isBold: true)),
+                  ],
+                ),
+                // Right: Beneficiary Approval
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    if (beneficiarySigImage != null) ...[
+                      pw.Text('Beneficiary Approval: ', style: textStyle(size: 7.5)),
+                      pw.Container(
+                        height: 18,
+                        width: 70,
+                        padding: const pw.EdgeInsets.only(bottom: 1),
+                        decoration: const pw.BoxDecoration(
+                          border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey600, width: 0.5)),
+                        ),
+                        child: pw.Image(beneficiarySigImage, fit: pw.BoxFit.contain),
+                      ),
+                    ] else ...[
+                      pw.Text('Beneficiary Approval ................................... ', style: textStyle(size: 7.5)),
+                    ],
+                    pw.Text(':', style: textStyle(size: 7.5, isBold: true)),
+                    pw.SizedBox(width: 3),
+                    pw.Text(_ar('مصادقة المستفيد'), style: textStyle(size: 7.5, isBold: true)),
+                  ],
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 2),
+            // Center-Right: Facility Name Box
+            pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Container(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: cyanColor, width: 0.8),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                ),
+                child: pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    if (facName.isNotEmpty)
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.only(left: 6),
+                        child: pw.Text(_ar(facName), style: textStyle(size: 8, isBold: true)),
+                      )
+                    else
+                      pw.Text('Facility Name ..............................................................', style: textStyle(size: 7.5)),
+                    pw.SizedBox(width: 4),
+                    pw.Text(':', style: textStyle(size: 8, isBold: true)),
+                    pw.SizedBox(width: 4),
+                    pw.Text(_ar('اسم المرفق الخدمي'), style: textStyle(size: 8, isBold: true)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Helper: Wrap content with the vertical gold stripe
+    pw.Widget wrapWithPageFrame({required pw.Widget child, required pw.Context context}) {
+      return pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            width: 7,
+            margin: const pw.EdgeInsets.only(right: 12),
+            decoration: pw.BoxDecoration(
+              color: goldColor,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(2)),
+            ),
+          ),
+          pw.Expanded(
+            child: child,
+          ),
+        ],
+      );
+    }
+
+    // Helper: Build section cyan banner matching reference PDF (Right-aligned number and hyphen)
+    pw.Widget buildSectionBanner(String number, String title, {double fontSize = 8.5}) {
+      return pw.Container(
+        padding: const pw.EdgeInsets.symmetric(vertical: 2.2, horizontal: 8),
+        decoration: pw.BoxDecoration(
+          color: cyanColor,
+          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+        ),
+        child: pw.Center(
+          child: pw.Row(
+            mainAxisSize: pw.MainAxisSize.min,
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              pw.Text(_ar(title), style: textStyle(size: fontSize, isBold: true, color: PdfColors.white)),
+              pw.SizedBox(width: 4),
+              pw.Text(' - $number', style: textStyle(size: fontSize, isBold: true, color: PdfColors.white)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Helper: Standard 6-Column Inspection Table Widget matching Reference PDF
+    pw.Widget buildInspectionTable(InspectionGroup group) {
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(bottom: 3),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          children: [
+            buildSectionBanner('${group.groupNumber}', group.title, fontSize: 8.5),
+            pw.SizedBox(height: 1.5),
+            pw.Table(
+              border: pw.TableBorder.all(color: borderGrey, width: 0.5),
+              columnWidths: const {
+                0: pw.FlexColumnWidth(2.6), // ملاحظات (leftmost)
+                1: pw.FixedColumnWidth(42), // مرفوض
+                2: pw.FixedColumnWidth(42), // مقبول
+                3: pw.FixedColumnWidth(42), // جيد
+                4: pw.FlexColumnWidth(5.2), // الوصف
+                5: pw.FixedColumnWidth(24), // م. (rightmost)
+              },
+              children: [
+                pw.TableRow(
+                  decoration: pw.BoxDecoration(color: tableHeaderBg),
+                  children: [
+                    pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 1.8), child: pw.Center(child: pw.Text(_ar('ملاحظات'), style: textStyle(size: 8, isBold: true)))),
+                    pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 1.8), child: pw.Center(child: pw.Text(_ar('مرفوض'), style: textStyle(size: 8, isBold: true)))),
+                    pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 1.8), child: pw.Center(child: pw.Text(_ar('مقبول'), style: textStyle(size: 8, isBold: true)))),
+                    pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 1.8), child: pw.Center(child: pw.Text(_ar('جيد'), style: textStyle(size: 8, isBold: true)))),
+                    pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 1.8, horizontal: 4), child: pw.Center(child: pw.Text(_ar('الوصف'), style: textStyle(size: 8, isBold: true)))),
+                    pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 1.8), child: pw.Center(child: pw.Text(_ar('م.'), style: textStyle(size: 8, isBold: true)))),
+                  ],
+                ),
+                ...group.items.map((item) {
+                  final isGood = item.status == InspectionStatus.good;
+                  final isAcceptable = item.status == InspectionStatus.acceptable;
+                  final isRejected = item.status == InspectionStatus.rejected || item.status == InspectionStatus.needsFollowup;
+
+                  return pw.TableRow(
+                    children: [
+                      // ملاحظات (Right-aligned, wraps downwards)
+                      pw.Container(
+                        alignment: pw.Alignment.centerRight,
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1.0),
+                        child: pw.Text(_arNotes(item.notes, 28), style: textStyle(size: 7.0), textAlign: pw.TextAlign.right),
+                      ),
+                      // مرفوض
+                      pw.Center(
+                        child: pw.Padding(
+                          padding: const pw.EdgeInsets.all(1),
+                          child: isRejected ? buildCheckmark(color: PdfColors.red900, size: 7.5) : pw.SizedBox(),
+                        ),
+                      ),
+                      // مقبول
+                      pw.Center(
+                        child: pw.Padding(
+                          padding: const pw.EdgeInsets.all(1),
+                          child: isAcceptable ? buildCheckmark(color: PdfColors.blue900, size: 7.5) : pw.SizedBox(),
+                        ),
+                      ),
+                      // جيد
+                      pw.Center(
+                        child: pw.Padding(
+                          padding: const pw.EdgeInsets.all(1),
+                          child: isGood ? buildCheckmark(color: PdfColors.green900, size: 7.5) : pw.SizedBox(),
+                        ),
+                      ),
+                      // الوصف (Strictly aligned to the right!)
+                      pw.Container(
+                        alignment: pw.Alignment.centerRight,
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1.0),
+                        child: pw.Text(
+                          _ar(item.description, 55),
+                          style: textStyle(size: 7.2),
+                          textAlign: pw.TextAlign.right,
+                        ),
+                      ),
+                      // م.
+                      pw.Center(
+                        child: pw.Padding(
+                          padding: const pw.EdgeInsets.all(1),
+                          child: pw.Text('${item.serialNo}', style: textStyle(size: 7.5, isBold: true)),
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    int currentPageNumber = 1;
+
+    // ================= PAGE 1: Project & Facility & Solar Specs =================
+    if (pagesToExport == null || pagesToExport.contains(1)) {
+      final pNum = currentPageNumber++;
+      final pFormat = resolvePageFormat(1);
+      final isLandscape = pFormat.width > pFormat.height;
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pFormat,
+          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8),
+          build: (pw.Context context) {
+            final otherRaw = report.systemSpecs.otherAppliances.trim();
+            final hasOther = otherRaw.isNotEmpty;
+            String otherType = '';
+            String otherCap = '';
+            String otherCount = '';
+            String otherExtra = '';
+
+            if (hasOther) {
+              if (otherRaw.contains('مكيف')) {
+                otherType = 'مكيف هواء';
+                final tonMatch = RegExp(r'(\d+(?:\.\d+)?\s*طن)').firstMatch(otherRaw);
+                otherCap = tonMatch?.group(1) ?? '1 طن';
+                final countMatch = RegExp(r'عدد\s*(\d+)').firstMatch(otherRaw);
+                otherCount = countMatch?.group(1) ?? '2';
+              } else {
+                final parts = otherRaw.split(RegExp(r'[,،\n]|\s+عدد\s+'));
+                otherType = parts.isNotEmpty ? parts[0].trim() : otherRaw;
+                if (parts.length > 1) otherCount = parts[1].trim();
+                if (parts.length > 2) otherCap = parts[2].trim();
+              }
+            }
+
+            return wrapWithPageFrame(
+              context: context,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  buildRunningHeader(isLandscape: isLandscape),
+                  // Warm Sand Project Info Box (NO orange border stroke matching ref PDF)
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(
+                      color: lightBeige,
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                    ),
+                    child: pw.Column(
+                      children: [
+                        // Row 1: اسم المشروع
+                        pw.Row(
+                          children: [
+                            pw.Expanded(
+                              child: pw.Text(
+                                _ar(report.projectInfo.projectName),
+                                style: textStyle(size: 9.5, isBold: true),
+                                textAlign: pw.TextAlign.right,
+                              ),
+                            ),
+                            pw.SizedBox(width: 8),
+                            pw.Container(
+                              width: 100,
+                              padding: const pw.EdgeInsets.symmetric(vertical: 4.5, horizontal: 8),
+                              decoration: pw.BoxDecoration(
+                                color: cyanColor,
+                                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                              ),
+                              child: pw.Center(child: pw.Text(_ar('اسم المشروع'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                            ),
+                          ],
+                        ),
+                        pw.SizedBox(height: 7),
+                        // Row 2: رقم العقد
+                        pw.Row(
+                          children: [
+                            pw.Expanded(
+                              child: pw.Text(
+                                report.contractNumber,
+                                style: textStyle(size: 9.5, isBold: true),
+                                textAlign: pw.TextAlign.right,
+                              ),
+                            ),
+                            pw.SizedBox(width: 8),
+                            pw.Container(
+                              width: 100,
+                              padding: const pw.EdgeInsets.symmetric(vertical: 4.5, horizontal: 8),
+                              decoration: pw.BoxDecoration(
+                                color: cyanColor,
+                                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                              ),
+                              child: pw.Center(child: pw.Text(_ar('رقم العقد'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                            ),
+                          ],
+                        ),
+                        pw.SizedBox(height: 7),
+                        // Row 3: المنفّذ
+                        pw.Row(
+                          children: [
+                            pw.Expanded(
+                              child: pw.Text(
+                                _ar(report.projectInfo.funder),
+                                style: textStyle(size: 9.5, isBold: true),
+                                textAlign: pw.TextAlign.right,
+                              ),
+                            ),
+                            pw.SizedBox(width: 8),
+                            pw.Container(
+                              width: 100,
+                              padding: const pw.EdgeInsets.symmetric(vertical: 4.5, horizontal: 8),
+                              decoration: pw.BoxDecoration(
+                                color: cyanColor,
+                                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                              ),
+                              child: pw.Center(child: pw.Text(_ar('المنفّذ'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                            ),
+                          ],
+                        ),
+                        pw.SizedBox(height: 7),
+                        // Row 4: المقاول
+                        pw.Row(
+                          children: [
+                            pw.Expanded(
+                              child: pw.Text(
+                                _ar(report.projectInfo.implementingContractor),
+                                style: textStyle(size: 9.5, isBold: true),
+                                textAlign: pw.TextAlign.right,
+                              ),
+                            ),
+                            pw.SizedBox(width: 8),
+                            pw.Container(
+                              width: 100,
+                              padding: const pw.EdgeInsets.symmetric(vertical: 4.5, horizontal: 8),
+                              decoration: pw.BoxDecoration(
+                                color: cyanColor,
+                                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                              ),
+                              child: pw.Center(child: pw.Text(_ar('المقاول'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: 18),
+                  // Facility Info Section
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                    children: [
+                      // Row 1: بيانات المنشأة
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.end,
+                        children: [
+                          pw.Text(
+                            _ar('المحافظة : ${report.effectiveGovernorate.isNotEmpty ? report.effectiveGovernorate : "            "} - المديرية : ${report.effectiveDistrict.isNotEmpty ? report.effectiveDistrict : "            "}'),
+                            style: textStyle(size: 9.5, isBold: true),
+                          ),
+                          pw.SizedBox(width: 8),
+                          pw.Container(
+                            width: 100,
+                            padding: const pw.EdgeInsets.symmetric(vertical: 4.5, horizontal: 8),
+                            decoration: pw.BoxDecoration(
+                              color: cyanColor,
+                              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                            ),
+                            child: pw.Center(child: pw.Text(_ar('بيانات المنشأة'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                          ),
+                        ],
+                      ),
+                      pw.SizedBox(height: 10),
+                      // Row 2: اسم المنشأة
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        children: [
+                          pw.Text(
+                            _ar(report.visitDate.isNotEmpty ? 'تاريخ الزيارة : ${report.visitDate} م' : 'تاريخ الزيارة :      /    / 2025  م'),
+                            style: textStyle(size: 9, isBold: true),
+                          ),
+                          pw.SizedBox(width: 8),
+                          pw.Expanded(
+                            child: pw.Padding(
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 6),
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                                mainAxisSize: pw.MainAxisSize.min,
+                                children: [
+                                  if (report.facilityInfo.facilityName.isNotEmpty)
+                                    pw.Text(
+                                      _ar(report.facilityInfo.facilityName),
+                                      style: textStyle(size: 9.5, isBold: true),
+                                      textAlign: pw.TextAlign.right,
+                                    ),
+                                  if (report.facilityInfo.facilityNameEn.isNotEmpty)
+                                    pw.Padding(
+                                      padding: const pw.EdgeInsets.only(top: 2),
+                                      child: pw.Text(
+                                        ArabicReshaper.hasArabic(report.facilityInfo.facilityNameEn)
+                                            ? _ar(report.facilityInfo.facilityNameEn)
+                                            : report.facilityInfo.facilityNameEn,
+                                        style: textStyle(size: 8, isBold: true, color: PdfColors.grey800),
+                                        textAlign: pw.TextAlign.right,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          pw.Container(
+                            width: 100,
+                            padding: const pw.EdgeInsets.symmetric(vertical: 4.5, horizontal: 8),
+                            decoration: pw.BoxDecoration(
+                              color: cyanColor,
+                              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                            ),
+                            child: pw.Center(child: pw.Text(_ar('اسم المنشأة'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                          ),
+                        ],
+                      ),
+                      pw.SizedBox(height: 10),
+                      // Row 3: نوع المنشأة ورقم الزيارة
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Row(
+                            mainAxisSize: pw.MainAxisSize.min,
+                            children: [
+                              pw.Text(
+                                effectiveVisitNum.isNotEmpty ? '($effectiveVisitNum)' : '(           )',
+                                style: textStyle(size: 9, isBold: true),
+                              ),
+                              pw.SizedBox(width: 3),
+                              pw.Text(':', style: textStyle(size: 9, isBold: true)),
+                              pw.SizedBox(width: 4),
+                              pw.Text(_ar('رقم الزيارة'), style: textStyle(size: 9, isBold: true)),
+                            ],
+                          ),
+                          pw.Row(
+                            children: [
+                              pw.Text(_ar(report.facilityInfo.category), style: textStyle(size: 9.5, isBold: true)),
+                              pw.SizedBox(width: 10),
+                              pw.Container(
+                                padding: const pw.EdgeInsets.symmetric(vertical: 4.5, horizontal: 14),
+                                decoration: pw.BoxDecoration(
+                                  color: cyanColor,
+                                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                                ),
+                                child: pw.Center(child: pw.Text(_ar('الفئة'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                              ),
+                              pw.SizedBox(width: 25),
+                              pw.Text(_ar(report.facilityInfo.facilityType), style: textStyle(size: 10, isBold: true)),
+                              pw.SizedBox(width: 8),
+                              pw.Container(
+                                width: 100,
+                                padding: const pw.EdgeInsets.symmetric(vertical: 4.5, horizontal: 8),
+                                decoration: pw.BoxDecoration(
+                                  color: cyanColor,
+                                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                                ),
+                                child: pw.Center(child: pw.Text(_ar('نوع المنشأة'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 22),
+                  // Solar System Specs Table matching ref_page_1.png 100%
+                  pw.Container(
+                    decoration: pw.BoxDecoration(
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                      border: pw.Border.all(color: cyanColor, width: 1),
+                    ),
+                    child: pw.Column(
+                      children: [
+                        // Top Header: بيانات منظومة الطاقة الشمسية
+                        pw.Container(
+                          padding: const pw.EdgeInsets.symmetric(vertical: 8.5),
+                          decoration: pw.BoxDecoration(
+                            color: cyanColor,
+                            borderRadius: const pw.BorderRadius.vertical(top: pw.Radius.circular(7)),
+                          ),
+                          child: pw.Center(
+                            child: pw.Text(
+                              _ar('بيانات منظومة الطاقة الشمسية'),
+                              style: textStyle(size: 11.5, isBold: true, color: PdfColors.white),
+                            ),
+                          ),
+                        ),
+                        // 8 Rows with 3 sections (Left: Cream, Middle: Light Cyan, Right: 2 cols with cyan label)
+                        pw.Table(
+                          border: pw.TableBorder(
+                            horizontalInside: pw.BorderSide(color: borderGrey, width: 0.4),
+                            verticalInside: pw.BorderSide(color: borderGrey, width: 0.4),
+                          ),
+                          columnWidths: const {
+                            0: pw.FlexColumnWidth(2.2), // Left (مكيف هواء)
+                            1: pw.FlexColumnWidth(1.1), // Middle (النوع)
+                            2: pw.FlexColumnWidth(1.8), // Right Value
+                            3: pw.FlexColumnWidth(1.4), // Right Label (Cyan)
+                          },
+                          children: [
+                            // Row 1: القدرة
+                            pw.TableRow(
+                              children: [
+                                pw.Container(
+                                  color: creamBg,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(otherType), style: textStyle(size: 9.5, isBold: true))),
+                                ),
+                                pw.Container(
+                                  color: lightCyanBg,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(hasOther ? 'النوع' : ''), style: textStyle(size: 9.5, isBold: true))),
+                                ),
+                                pw.Container(
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.capacityKw), style: textStyle(size: 10, isBold: true))),
+                                ),
+                                pw.Container(
+                                  color: cyanColor,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar('القدرة'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                ),
+                              ],
+                            ),
+                            // Row 2: عدد الألواح
+                            pw.TableRow(
+                              children: [
+                                pw.Container(
+                                  color: creamBg,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(otherCap), style: textStyle(size: 9.5, isBold: true))),
+                                ),
+                                pw.Container(
+                                  color: lightCyanBg,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(hasOther ? 'القدرة' : ''), style: textStyle(size: 9.5, isBold: true))),
+                                ),
+                                pw.Container(
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.panelsCountAndWatt), style: textStyle(size: 10, isBold: true))),
+                                ),
+                                pw.Container(
+                                  color: cyanColor,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar('عدد الألواح × القدرة'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                ),
+                              ],
+                            ),
+                            // Row 3: سعة وحدة تخزين الطاقة
+                            pw.TableRow(
+                              children: [
+                                pw.Container(
+                                  color: creamBg,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(otherCount), style: textStyle(size: 9.5, isBold: true))),
+                                ),
+                                pw.Container(
+                                  color: lightCyanBg,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(hasOther ? 'العدد' : ''), style: textStyle(size: 9.5, isBold: true))),
+                                ),
+                                pw.Container(
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.batteryUnitsCapacity), style: textStyle(size: 10, isBold: true))),
+                                ),
+                                pw.Container(
+                                  color: cyanColor,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar('سعة وحدة تخزين الطاقة'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                ),
+                              ],
+                            ),
+                            // Row 4: عدد وحدات تخزين الطاقة
+                            pw.TableRow(
+                              children: [
+                                pw.Container(
+                                  color: creamBg,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(otherExtra), style: textStyle(size: 9.5, isBold: true))),
+                                ),
+                                pw.Container(
+                                  color: lightCyanBg,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(hasOther ? 'أخرى' : ''), style: textStyle(size: 9.5, isBold: true))),
+                                ),
+                                pw.Container(
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.batteryUnitsCount), style: textStyle(size: 10, isBold: true))),
+                                ),
+                                pw.Container(
+                                  color: cyanColor,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar('عدد وحدات تخزين الطاقة'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                ),
+                              ],
+                            ),
+                            // Row 5: قدرة العاكس
+                            pw.TableRow(
+                              children: [
+                                pw.Container(color: creamBg, height: 35),
+                                pw.Container(color: lightCyanBg, height: 35),
+                                pw.Container(
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.invertersCapacity), style: textStyle(size: 10, isBold: true))),
+                                ),
+                                pw.Container(
+                                  color: cyanColor,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar('قدرة العاكس'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                ),
+                              ],
+                            ),
+                            // Row 6: عدد العواكس
+                            pw.TableRow(
+                              children: [
+                                pw.Container(color: creamBg, height: 35),
+                                pw.Container(color: lightCyanBg, height: 35),
+                                pw.Container(
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.invertersCount), style: textStyle(size: 10, isBold: true))),
+                                ),
+                                pw.Container(
+                                  color: cyanColor,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar('عدد العواكس'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                ),
+                              ],
+                            ),
+                            // Row 7: قدرة منظم الشحن
+                            pw.TableRow(
+                              children: [
+                                pw.Container(color: creamBg, height: 35),
+                                pw.Container(color: lightCyanBg, height: 35),
+                                pw.Container(
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.chargeControllersCapacity), style: textStyle(size: 10, isBold: true))),
+                                ),
+                                pw.Container(
+                                  color: cyanColor,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar('قدرة منظم الشحن'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                ),
+                              ],
+                            ),
+                            // Row 8: عدد منظمات الشحن
+                            pw.TableRow(
+                              children: [
+                                pw.Container(color: creamBg, height: 35),
+                                pw.Container(color: lightCyanBg, height: 35),
+                                pw.Container(
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.chargeControllersCount), style: textStyle(size: 10, isBold: true))),
+                                ),
+                                pw.Container(
+                                  color: cyanColor,
+                                  height: 35,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+                                  child: pw.Center(child: pw.Text(_ar('عدد منظمات الشحن'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.Spacer(),
+                  buildRunningFooter(pNum),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // ================= PAGE 2: Inspection Groups 1, 2, 3 =================
+    if (pagesToExport == null || pagesToExport.contains(2)) {
+      final pNum = currentPageNumber++;
+      final pFormat = resolvePageFormat(2);
+      final isLandscape = pFormat.width > pFormat.height;
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pFormat,
+          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 8, bottom: 8),
+          build: (pw.Context context) {
+            InspectionGroup? g1;
+            InspectionGroup? g2;
+            InspectionGroup? g3;
+            try {
+              g1 = report.inspectionGroups.firstWhere((g) => g.groupNumber == 1 || g.title.contains('الألواح'));
+            } catch (_) {
+              if (report.inspectionGroups.isNotEmpty) g1 = report.inspectionGroups[0];
+            }
+            try {
+              g2 = report.inspectionGroups.firstWhere((g) => g.groupNumber == 2 || g.title.contains('الكابل تري'));
+            } catch (_) {
+              if (report.inspectionGroups.length > 1) g2 = report.inspectionGroups[1];
+            }
+            try {
+              g3 = report.inspectionGroups.firstWhere((g) => g.groupNumber == 3 || g.title.contains('تجميع كابلات'));
+            } catch (_) {
+              if (report.inspectionGroups.length > 2) g3 = report.inspectionGroups[2];
+            }
+
+            return wrapWithPageFrame(
+              context: context,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  buildRunningHeader(isLandscape: isLandscape),
+                  if (g1 != null) buildInspectionTable(g1),
+                  if (g2 != null) buildInspectionTable(g2),
+                  if (g3 != null) buildInspectionTable(g3),
+                  pw.Spacer(),
+                  buildRunningFooter(pNum),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // ================= PAGE 3: Inspection Group 4 (Single Master Table matching ref_page_3.png) =================
+    if (pagesToExport == null || pagesToExport.contains(3)) {
+      final pNum = currentPageNumber++;
+      final pFormat = resolvePageFormat(3);
+      final isLandscape = pFormat.width > pFormat.height;
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pFormat,
+          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 6, bottom: 6),
+          build: (pw.Context context) {
+            InspectionGroup? g4;
+            try {
+              g4 = report.inspectionGroups.firstWhere(
+                (g) => g.groupNumber == 4 || g.title.contains('قواطع') || g.title.contains('التيار المستمر'),
+              );
+            } catch (_) {
+              if (report.inspectionGroups.length > 3) {
+                g4 = report.inspectionGroups[3];
+              } else if (DefaultTemplates.defaultInspectionGroups.length > 3) {
+                g4 = DefaultTemplates.defaultInspectionGroups[3];
+              }
+            }
+            if (g4 == null || g4.items.isEmpty) {
+              g4 = DefaultTemplates.defaultInspectionGroups[3];
+            }
+
+            final subcategoryTitles = [
+              'صندوق قواطع البطاريات "تيار مستمر"',
+              'صندوق قواطع العاكس "تيار مستمر"',
+              'صندوق تجميع كابلات التيار المستمر',
+              'صندوق دمج وقواطع حماية التيار المتردد',
+              'لوحة التوزيع الرئيسية',
+              'مفتاح تبديل يدوي لمصدر الطاقة',
+            ];
+
+            return wrapWithPageFrame(
+              context: context,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  buildRunningHeader(isLandscape: isLandscape),
+                  // Cyan Header
+                  buildSectionBanner('4', 'نموذج فحص لوحات قواطع التيار المستمر و المتردد و البزبارات ومفتاح التبديل لمصادر الطاقة', fontSize: 7.5),
+                  pw.SizedBox(height: 1),
+                  // Master Table
+                  pw.Table(
+                    border: pw.TableBorder.all(color: borderGrey, width: 0.5),
+                    columnWidths: const {
+                      0: pw.FlexColumnWidth(2.6), // ملاحظات
+                      1: pw.FixedColumnWidth(42), // مرفوض
+                      2: pw.FixedColumnWidth(42), // مقبول
+                      3: pw.FixedColumnWidth(42), // جيد
+                      4: pw.FlexColumnWidth(5.2), // الوصف
+                      5: pw.FixedColumnWidth(22), // م.
+                    },
+                    children: [
+                      // Header Row
+                      pw.TableRow(
+                        decoration: pw.BoxDecoration(color: tableHeaderBg),
+                        children: [
+                          pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 0.8), child: pw.Center(child: pw.Text(_ar('ملاحظات'), style: textStyle(size: 6.8, isBold: true)))),
+                          pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 0.8), child: pw.Center(child: pw.Text(_ar('مرفوض'), style: textStyle(size: 6.8, isBold: true)))),
+                          pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 0.8), child: pw.Center(child: pw.Text(_ar('مقبول'), style: textStyle(size: 6.8, isBold: true)))),
+                          pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 0.8), child: pw.Center(child: pw.Text(_ar('جيد'), style: textStyle(size: 6.8, isBold: true)))),
+                          pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 0.8), child: pw.Center(child: pw.Text(_ar('الوصف'), style: textStyle(size: 6.8, isBold: true)))),
+                          pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 0.8), child: pw.Center(child: pw.Text(_ar('م.'), style: textStyle(size: 6.8, isBold: true)))),
+                        ],
+                      ),
+                      // 6 Subcategories x 7 items = 42 items
+                      ...List.generate(6, (subIdx) {
+                        final subTitle = subcategoryTitles[subIdx];
+                        var itemsForSub = g4!.items.where((it) => it.subcategory != null && (it.subcategory == subTitle || it.subcategory!.contains(subTitle) || subTitle.contains(it.subcategory!))).toList();
+                        if (itemsForSub.isEmpty && g4.items.length >= (subIdx + 1) * 7) {
+                          itemsForSub = g4.items.sublist(subIdx * 7, (subIdx + 1) * 7);
+                        } else if (itemsForSub.isEmpty) {
+                          final defaultG4 = DefaultTemplates.defaultInspectionGroups[3];
+                          itemsForSub = defaultG4.items.where((it) => it.subcategory == subTitle).toList();
+                          if (itemsForSub.isEmpty && defaultG4.items.length >= (subIdx + 1) * 7) {
+                            itemsForSub = defaultG4.items.sublist(subIdx * 7, (subIdx + 1) * 7);
+                          }
+                        }
+
+                        return [
+                          // Shaded Subheader Row
+                          pw.TableRow(
+                            decoration: pw.BoxDecoration(color: tableHeaderBg),
+                            children: [
+                              pw.SizedBox(),
+                              pw.SizedBox(),
+                              pw.SizedBox(),
+                              pw.SizedBox(),
+                              pw.Container(
+                                alignment: pw.Alignment.centerRight,
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.5),
+                                child: pw.Text(_ar(subTitle), style: textStyle(size: 6.8, isBold: true), textAlign: pw.TextAlign.right),
+                              ),
+                              pw.Center(
+                                child: pw.Padding(
+                                  padding: const pw.EdgeInsets.all(0.5),
+                                  child: pw.Text('${subIdx + 1}', style: textStyle(size: 6.8, isBold: true)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          // 7 Items under this subcategory
+                          ...itemsForSub.map((item) {
+                            return pw.TableRow(
+                              children: [
+                                pw.Container(
+                                  alignment: pw.Alignment.centerRight,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.25),
+                                  child: pw.Text(_arNotes(item.notes, 28), style: textStyle(size: 6.2), textAlign: pw.TextAlign.right),
+                                ),
+                                pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(0.2), child: item.status == InspectionStatus.rejected ? buildCheckmark(color: PdfColors.red900, size: 6.5) : pw.SizedBox())),
+                                pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(0.2), child: item.status == InspectionStatus.acceptable ? buildCheckmark(color: PdfColors.blue900, size: 6.5) : pw.SizedBox())),
+                                pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(0.2), child: item.status == InspectionStatus.good ? buildCheckmark(color: PdfColors.green900, size: 6.5) : pw.SizedBox())),
+                                pw.Container(
+                                  alignment: pw.Alignment.centerRight,
+                                  padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.25),
+                                  child: pw.Text(_ar(item.description, 55), style: textStyle(size: 6.5), textAlign: pw.TextAlign.right),
+                                ),
+                                pw.SizedBox(),
+                              ],
+                            );
+                          }),
+                        ];
+                      }).expand((rows) => rows),
+                    ],
+                  ),
+                  pw.Spacer(),
+                  buildRunningFooter(pNum),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // ================= PAGE 4: Inspection Groups 5, 6, 7 =================
+    if (pagesToExport == null || pagesToExport.contains(4)) {
+      final pNum = currentPageNumber++;
+      final pFormat = resolvePageFormat(4);
+      final isLandscape = pFormat.width > pFormat.height;
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pFormat,
+          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 8, bottom: 8),
+          build: (pw.Context context) {
+            InspectionGroup? g5;
+            InspectionGroup? g6;
+            InspectionGroup? g7;
+            try {
+              g5 = report.inspectionGroups.firstWhere((g) => g.groupNumber == 5 || g.title.contains('منظمات'));
+            } catch (_) {
+              if (report.inspectionGroups.length > 4) g5 = report.inspectionGroups[4];
+            }
+            try {
+              g6 = report.inspectionGroups.firstWhere((g) => g.groupNumber == 6 || g.title.contains('عواكس'));
+            } catch (_) {
+              if (report.inspectionGroups.length > 5) g6 = report.inspectionGroups[5];
+            }
+            try {
+              g7 = report.inspectionGroups.firstWhere((g) => g.groupNumber == 7 || g.title.contains('التهوية'));
+            } catch (_) {
+              if (report.inspectionGroups.length > 6) g7 = report.inspectionGroups[6];
+            }
+
+            return wrapWithPageFrame(
+              context: context,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  buildRunningHeader(isLandscape: isLandscape),
+                  if (g5 != null) buildInspectionTable(g5),
+                  if (g6 != null) buildInspectionTable(g6),
+                  // Model 7 Master Table with 3 Subcategories
+                  if (g7 != null) ...[
+                    buildSectionBanner('7', 'نموذج فحص نظام التهوية – و نظام الانذار و الحماية ونظام المراقبة و المتابعة', fontSize: 8.0),
+                    pw.SizedBox(height: 1.5),
+                    pw.Table(
+                      border: pw.TableBorder.all(color: borderGrey, width: 0.5),
+                      columnWidths: const {
+                        0: pw.FlexColumnWidth(2.6),
+                        1: pw.FixedColumnWidth(42),
+                        2: pw.FixedColumnWidth(42),
+                        3: pw.FixedColumnWidth(42),
+                        4: pw.FlexColumnWidth(5.2),
+                        5: pw.FixedColumnWidth(22),
+                      },
+                      children: [
+                        // Header
+                        pw.TableRow(
+                          decoration: pw.BoxDecoration(color: tableHeaderBg),
+                          children: [
+                            pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Center(child: pw.Text(_ar('ملاحظات'), style: textStyle(size: 7.5, isBold: true)))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Center(child: pw.Text(_ar('مرفوض'), style: textStyle(size: 7.5, isBold: true)))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Center(child: pw.Text(_ar('مقبول'), style: textStyle(size: 7.5, isBold: true)))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Center(child: pw.Text(_ar('جيد'), style: textStyle(size: 7.5, isBold: true)))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Center(child: pw.Text(_ar('الوصف'), style: textStyle(size: 7.5, isBold: true)))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Center(child: pw.Text(_ar('م.'), style: textStyle(size: 7.5, isBold: true)))),
+                          ],
+                        ),
+                        // Subcategory 1: نظام التهوية (3 items)
+                        pw.TableRow(
+                          decoration: pw.BoxDecoration(color: tableHeaderBg),
+                          children: [
+                            pw.SizedBox(),
+                            pw.SizedBox(),
+                            pw.SizedBox(),
+                            pw.SizedBox(),
+                            pw.Container(
+                              alignment: pw.Alignment.centerRight,
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1.0),
+                              child: pw.Text(_ar('نظام التهوية'), style: textStyle(size: 7.2, isBold: true), textAlign: pw.TextAlign.right),
+                            ),
+                            pw.Center(child: pw.Text('1', style: textStyle(size: 7.2, isBold: true))),
+                          ],
+                        ),
+                        ...g7.items.take(3).map((item) => pw.TableRow(
+                          children: [
+                            pw.Container(
+                              alignment: pw.Alignment.centerRight,
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.8),
+                              child: pw.Text(_arNotes(item.notes, 28), style: textStyle(size: 7.0), textAlign: pw.TextAlign.right),
+                            ),
+                            pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(0.5), child: item.status == InspectionStatus.rejected ? buildCheckmark(color: PdfColors.red900, size: 7.0) : pw.SizedBox())),
+                            pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(0.5), child: item.status == InspectionStatus.acceptable ? buildCheckmark(color: PdfColors.blue900, size: 7.0) : pw.SizedBox())),
+                            pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(0.5), child: item.status == InspectionStatus.good ? buildCheckmark(color: PdfColors.green900, size: 7.0) : pw.SizedBox())),
+                            pw.Container(
+                              alignment: pw.Alignment.centerRight,
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.8),
+                              child: pw.Text(_ar(item.description, 55), style: textStyle(size: 7.0), textAlign: pw.TextAlign.right),
+                            ),
+                            pw.SizedBox(),
+                          ],
+                        )),
+                        // Subcategory 2: نظام إنذار ومكافحة الحرائق (4 items)
+                        pw.TableRow(
+                          decoration: pw.BoxDecoration(color: tableHeaderBg),
+                          children: [
+                            pw.SizedBox(),
+                            pw.SizedBox(),
+                            pw.SizedBox(),
+                            pw.SizedBox(),
+                            pw.Container(
+                              alignment: pw.Alignment.centerRight,
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1.0),
+                              child: pw.Text(_ar('نظام إنذار ومكافحة الحرائق'), style: textStyle(size: 7.2, isBold: true), textAlign: pw.TextAlign.right),
+                            ),
+                            pw.Center(child: pw.Text('2', style: textStyle(size: 7.2, isBold: true))),
+                          ],
+                        ),
+                        ...g7.items.skip(3).take(4).map((item) => pw.TableRow(
+                          children: [
+                            pw.Container(
+                              alignment: pw.Alignment.centerRight,
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.8),
+                              child: pw.Text(_arNotes(item.notes, 28), style: textStyle(size: 7.0), textAlign: pw.TextAlign.right),
+                            ),
+                            pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(0.5), child: item.status == InspectionStatus.rejected ? buildCheckmark(color: PdfColors.red900, size: 7.0) : pw.SizedBox())),
+                            pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(0.5), child: item.status == InspectionStatus.acceptable ? buildCheckmark(color: PdfColors.blue900, size: 7.0) : pw.SizedBox())),
+                            pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(0.5), child: item.status == InspectionStatus.good ? buildCheckmark(color: PdfColors.green900, size: 7.0) : pw.SizedBox())),
+                            pw.Container(
+                              alignment: pw.Alignment.centerRight,
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.8),
+                              child: pw.Text(_ar(item.description, 55), style: textStyle(size: 7.0), textAlign: pw.TextAlign.right),
+                            ),
+                            pw.SizedBox(),
+                          ],
+                        )),
+                        // Subcategory 3: نظام المراقبة والمتابعة (6 items)
+                        pw.TableRow(
+                          decoration: pw.BoxDecoration(color: tableHeaderBg),
+                          children: [
+                            pw.SizedBox(),
+                            pw.SizedBox(),
+                            pw.SizedBox(),
+                            pw.SizedBox(),
+                            pw.Container(
+                              alignment: pw.Alignment.centerRight,
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1.0),
+                              child: pw.Text(_ar('نظام المراقبة والمتابعة'), style: textStyle(size: 7.2, isBold: true), textAlign: pw.TextAlign.right),
+                            ),
+                            pw.Center(child: pw.Text('3', style: textStyle(size: 7.2, isBold: true))),
+                          ],
+                        ),
+                        ...g7.items.skip(7).take(6).map((item) => pw.TableRow(
+                          children: [
+                            pw.Container(
+                              alignment: pw.Alignment.centerRight,
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.8),
+                              child: pw.Text(_arNotes(item.notes, 28), style: textStyle(size: 7.0), textAlign: pw.TextAlign.right),
+                            ),
+                            pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(0.5), child: item.status == InspectionStatus.rejected ? buildCheckmark(color: PdfColors.red900, size: 7.0) : pw.SizedBox())),
+                            pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(0.5), child: item.status == InspectionStatus.acceptable ? buildCheckmark(color: PdfColors.blue900, size: 7.0) : pw.SizedBox())),
+                            pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(0.5), child: item.status == InspectionStatus.good ? buildCheckmark(color: PdfColors.green900, size: 7.0) : pw.SizedBox())),
+                            pw.Container(
+                              alignment: pw.Alignment.centerRight,
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 0.8),
+                              child: pw.Text(_ar(item.description, 55), style: textStyle(size: 7.0), textAlign: pw.TextAlign.right),
+                            ),
+                            pw.SizedBox(),
+                          ],
+                        )),
+                      ],
+                    ),
+                  ],
+                  pw.Spacer(),
+                  buildRunningFooter(pNum),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // ================= PAGE 5: Inspection Groups 8, 9, 10 =================
+    if (pagesToExport == null || pagesToExport.contains(5)) {
+      final pNum = currentPageNumber++;
+      final pFormat = resolvePageFormat(5);
+      final isLandscape = pFormat.width > pFormat.height;
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pFormat,
+          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 8, bottom: 8),
+          build: (pw.Context context) {
+            InspectionGroup? g8;
+            InspectionGroup? g9;
+            InspectionGroup? g10;
+            try {
+              g8 = report.inspectionGroups.firstWhere((g) => g.groupNumber == 8 || g.title.contains('كابلات') || g.title.contains('توصيلات'));
+            } catch (_) {
+              if (report.inspectionGroups.length > 7) g8 = report.inspectionGroups[7];
+            }
+            try {
+              g9 = report.inspectionGroups.firstWhere((g) => g.groupNumber == 9 || g.title.contains('تأريض'));
+            } catch (_) {
+              if (report.inspectionGroups.length > 8) g9 = report.inspectionGroups[8];
+            }
+            try {
+              g10 = report.inspectionGroups.firstWhere((g) => g.groupNumber == 10 || g.title.contains('سلامة') || g.title.contains('بيئة'));
+            } catch (_) {
+              if (report.inspectionGroups.length > 9) g10 = report.inspectionGroups[9];
+            }
+
+            return wrapWithPageFrame(
+              context: context,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  buildRunningHeader(isLandscape: isLandscape),
+                  if (g8 != null) buildInspectionTable(g8),
+                  if (g9 != null) buildInspectionTable(g9),
+                  if (g10 != null) buildInspectionTable(g10),
+                  pw.Spacer(),
+                  buildRunningFooter(pNum),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // Helper: 1-Group Battery Matrix Table (Spacious, large font, 24 rows for single active group)
+    pw.Widget buildSingleGroupBatteryTable({
+      required List<BatteryMeasurement> group,
+      required String groupName,
+      required String title,
+    }) {
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 10),
+            decoration: pw.BoxDecoration(
+              color: cyanColor,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+            ),
+            child: pw.Center(
+              child: pw.Text(
+                _ar('$title - $groupName'),
+                style: textStyle(size: 9.5, isBold: true, color: PdfColors.white),
+              ),
+            ),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Table(
+            border: pw.TableBorder.all(color: borderGrey, width: 0.5),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(137), // الملاحظات — مقلص ومنضبط
+              1: pw.FixedColumnWidth(230), // عزم براغي الربط — واسع ومريح
+              2: pw.FixedColumnWidth(160), // الجهد — واسع وواضح
+              3: pw.FixedColumnWidth(40),  // م
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: tableHeaderBg),
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.all(2.5), child: pw.Center(child: pw.Text(_ar('الملاحظات'), style: textStyle(size: 8.5, isBold: true)))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(2.5), child: pw.Center(child: pw.Text(_ar('عزم براغي الربط'), style: textStyle(size: 8.5, isBold: true)))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(2.5), child: pw.Center(child: pw.Text(_ar('الجهد'), style: textStyle(size: 8.5, isBold: true)))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(2.5), child: pw.Center(child: pw.Text(_ar('م'), style: textStyle(size: 8.5, isBold: true)))),
+                ],
+              ),
+              ...List.generate(24, (i) {
+                final cell = i < group.length ? group[i] : null;
+                final notes = cell?.notes ?? '';
+                final isAr = ArabicReshaper.hasArabic(notes);
+                final r = (cell != null && cell.internalResistance > 0) ? cell.internalResistance.toString() : '';
+                final v = (cell != null && cell.voltage > 0) ? cell.voltage.toStringAsFixed(2) : '';
+
+                return pw.TableRow(
+                  children: [
+                    notes.isEmpty
+                        ? pw.SizedBox()
+                        : pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                            child: pw.Text(
+                              isAr ? _arNotes(notes, 18) : notes,
+                              style: textStyle(size: 7.5, isBold: true),
+                              textAlign: isAr ? pw.TextAlign.right : pw.TextAlign.left,
+                            ),
+                          ),
+                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(r, style: textStyle(size: 7.8, isBold: true)))),
+                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(v, style: textStyle(size: 8.2, isBold: true)))),
+                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text('${i + 1}', style: textStyle(size: 7.8, isBold: true)))),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ],
+      );
+    }
+
+    // Helper: 2-Group Battery Matrix Table (24 rows per page matching ref_page_6 & 7)
+    pw.Widget buildDualGroupBatteryTable({
+      required List<BatteryMeasurement> groupA,
+      required List<BatteryMeasurement> groupB,
+      required String groupAName,
+      required String groupBName,
+      required String title,
+    }) {
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 10),
+            decoration: pw.BoxDecoration(
+              color: cyanColor,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+            ),
+            child: pw.Center(
+              child: pw.Text(
+                _ar(title),
+                style: textStyle(size: 9.5, isBold: true, color: PdfColors.white),
+              ),
+            ),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Table(
+            border: pw.TableBorder.all(color: borderGrey, width: 0.5),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(85),  // الملاحظات — مقلص ومتناسق (85 pt)
+              1: pw.FixedColumnWidth(128), // عزم براغي الربط (B) — كبير ومريح
+              2: pw.FixedColumnWidth(85),  // الجهد (B) — واضح وكبير
+              3: pw.FixedColumnWidth(28),  // م (B)
+              4: pw.FixedColumnWidth(128), // عزم براغي الربط (A) — كبير ومريح
+              5: pw.FixedColumnWidth(85),  // الجهد (A) — واضح وكبير
+              6: pw.FixedColumnWidth(28),  // م (A)
+            },
+            children: [
+              // Top Group Header Row
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: tableHeaderBg),
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.all(2.5), child: pw.Center(child: pw.Text(_ar('الملاحظات'), style: textStyle(size: 8, isBold: true)))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(2.5), child: pw.Center(child: pw.Text(_ar(groupBName), style: textStyle(size: 8, isBold: true)))),
+                  pw.SizedBox(),
+                  pw.SizedBox(),
+                  pw.Padding(padding: const pw.EdgeInsets.all(2.5), child: pw.Center(child: pw.Text(_ar(groupAName), style: textStyle(size: 8, isBold: true)))),
+                  pw.SizedBox(),
+                  pw.SizedBox(),
+                ],
+              ),
+              // Sub Header Row
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: tableHeaderBg),
+                children: [
+                  pw.SizedBox(),
+                  pw.Padding(padding: const pw.EdgeInsets.all(2), child: pw.Center(child: pw.Text(_ar('عزم براغي الربط'), style: textStyle(size: 7.5, isBold: true)))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(2), child: pw.Center(child: pw.Text(_ar('الجهد'), style: textStyle(size: 7.5, isBold: true)))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(2), child: pw.Center(child: pw.Text(_ar('م'), style: textStyle(size: 7.5, isBold: true)))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(2), child: pw.Center(child: pw.Text(_ar('عزم براغي الربط'), style: textStyle(size: 7.5, isBold: true)))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(2), child: pw.Center(child: pw.Text(_ar('الجهد'), style: textStyle(size: 7.5, isBold: true)))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(2), child: pw.Center(child: pw.Text(_ar('م'), style: textStyle(size: 7.5, isBold: true)))),
+                ],
+              ),
+              // 24 Rows
+              ...List.generate(24, (i) {
+                final cellA = i < groupA.length ? groupA[i] : null;
+                final cellB = i < groupB.length ? groupB[i] : null;
+
+                final noteA = cellA?.notes ?? '';
+                final noteB = cellB?.notes ?? '';
+                final notes = noteA.isNotEmpty ? noteA : noteB;
+                final isAr = ArabicReshaper.hasArabic(notes);
+
+                final rB = (cellB != null && cellB.internalResistance > 0) ? cellB.internalResistance.toString() : '';
+                final vB = (cellB != null && cellB.voltage > 0) ? cellB.voltage.toStringAsFixed(2) : '';
+
+                final rA = (cellA != null && cellA.internalResistance > 0) ? cellA.internalResistance.toString() : '';
+                final vA = (cellA != null && cellA.voltage > 0) ? cellA.voltage.toStringAsFixed(2) : '';
+
+                return pw.TableRow(
+                  children: [
+                    // الملاحظات — محاذاة لليمين للعربي ولليسار للإنجليزي
+                    notes.isEmpty
+                        ? pw.SizedBox()
+                        : pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 1.5),
+                            child: pw.Text(
+                              isAr ? _arNotes(notes, 12) : notes,
+                              style: textStyle(size: 7.2, isBold: true),
+                              textAlign: isAr ? pw.TextAlign.right : pw.TextAlign.left,
+                            ),
+                          ),
+                    // Group B
+                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(rB, style: textStyle(size: 7.2, isBold: true)))),
+                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(vB, style: textStyle(size: 7.8, isBold: true)))),
+                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text('${i + 1}', style: textStyle(size: 7.2, isBold: true)))),
+                    // Group A
+                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(rA, style: textStyle(size: 7.2, isBold: true)))),
+                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(vA, style: textStyle(size: 7.8, isBold: true)))),
+                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text('${i + 1}', style: textStyle(size: 7.2, isBold: true)))),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ],
+      );
+    }
+
+    List<BatteryMeasurement> getBatteryGroupCells(int groupNum) {
+      final start = (groupNum - 1) * 24;
+      if (report.batteryMeasurements.length >= start + 24) {
+        return report.batteryMeasurements.sublist(start, start + 24);
+      } else if (report.batteryMeasurements.length > start) {
+        return report.batteryMeasurements.skip(start).toList();
+      }
+      return List.generate(24, (i) => BatteryMeasurement(cellNumber: start + i + 1, voltage: 0, internalResistance: 0));
+    }
+
+    final activeBatGroups = report.activeBatteryGroups.isNotEmpty
+        ? report.activeBatteryGroups
+        : [1, 2, 3, 4];
+
+    // ================= BATTERY PAGE 1: First 1 or 2 active groups =================
+    if ((pagesToExport == null || pagesToExport.contains(6)) && activeBatGroups.isNotEmpty) {
+      final pNum = currentPageNumber++;
+      final gaNum = activeBatGroups[0];
+      final gbNum = activeBatGroups.length > 1 ? activeBatGroups[1] : null;
+      final pFormat = resolvePageFormat(6);
+      final isLandscape = pFormat.width > pFormat.height;
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pFormat,
+          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+          build: (pw.Context context) {
+            return wrapWithPageFrame(
+              context: context,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  buildRunningHeader(isLandscape: isLandscape),
+                  if (gbNum != null)
+                    buildDualGroupBatteryTable(
+                      groupA: getBatteryGroupCells(gaNum),
+                      groupB: getBatteryGroupCells(gbNum),
+                      groupAName: 'المجموعة$gaNum',
+                      groupBName: 'المجموعة$gbNum',
+                      title: '10 - نموذج قياسات مصفوفة تخزين الطاقة (البطاريات)',
+                    )
+                  else
+                    buildSingleGroupBatteryTable(
+                      group: getBatteryGroupCells(gaNum),
+                      groupName: 'المجموعة$gaNum',
+                      title: '10 - نموذج قياسات مصفوفة تخزين الطاقة (البطاريات)',
+                    ),
+                  pw.Spacer(),
+                  buildRunningFooter(pNum),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // ================= BATTERY PAGE 2: Groups 3 and 4 (Only if more than 2 groups are active!) =================
+    if ((pagesToExport == null || pagesToExport.contains(7)) && activeBatGroups.length > 2) {
+      final pNum = currentPageNumber++;
+      final gaNum = activeBatGroups[2];
+      final gbNum = activeBatGroups.length > 3 ? activeBatGroups[3] : null;
+      final pFormat = resolvePageFormat(7);
+      final isLandscape = pFormat.width > pFormat.height;
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pFormat,
+          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+          build: (pw.Context context) {
+            return wrapWithPageFrame(
+              context: context,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  buildRunningHeader(isLandscape: isLandscape),
+                  if (gbNum != null)
+                    buildDualGroupBatteryTable(
+                      groupA: getBatteryGroupCells(gaNum),
+                      groupB: getBatteryGroupCells(gbNum),
+                      groupAName: 'المجموعة$gaNum',
+                      groupBName: 'المجموعة$gbNum',
+                      title: 'تابع نموذج قياسات مصفوفة تخزين الطاقة (البطاريات)',
+                    )
+                  else
+                    buildSingleGroupBatteryTable(
+                      group: getBatteryGroupCells(gaNum),
+                      groupName: 'المجموعة$gaNum',
+                      title: 'تابع نموذج قياسات مصفوفة تخزين الطاقة (البطاريات)',
+                    ),
+                  pw.Spacer(),
+                  buildRunningFooter(pNum),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // ================= PAGE 8: Operational Data =================
+    if (pagesToExport == null || pagesToExport.contains(8)) {
+      final pNum = currentPageNumber++;
+      final pFormat = resolvePageFormat(8);
+      final isLandscape = pFormat.width > pFormat.height;
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pFormat,
+          margin: isLandscape
+              ? const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10)
+              : pw.EdgeInsets.zero,
+          build: (pw.Context context) {
+            final invCount = int.tryParse(report.systemSpecs.invertersCount.trim()) ?? 0;
+            final parsedCcCount = int.tryParse(report.systemSpecs.chargeControllersCount.trim()) ?? 0;
+            final ccCount = parsedCcCount > 0 ? parsedCcCount : (report.activeCombinerBoxes.isNotEmpty ? report.activeCombinerBoxes.length : 0);
+
+            String getOpVal(List<String> keys) {
+              for (final k in keys) {
+                final found = report.operationalData.firstWhere(
+                  (op) => op.id.toLowerCase() == k.toLowerCase() || op.parameter.contains(k),
+                  orElse: () => const OperationalData(id: '', parameter: '', unit: '', measuredValue: '', standardRange: ''),
+                );
+                if (found.measuredValue.trim().isNotEmpty) {
+                  return found.measuredValue.trim();
+                }
+              }
+              return '';
+            }
+
+            final invLoadVal = getOpVal(['op_load', 'الحمل على الإنفرتر', 'الحمل']);
+            final invAcVal = getOpVal(['op_ac_v', 'فرق جهد الخرج (متردد)', 'فرق جهد الخرج']);
+            final invDcVal = getOpVal(['op_dc_v', 'فرق جهد الدخول (مستمر)', 'فرق جهد الدخول']);
+
+            final ccCurrentVal = getOpVal(['op_cc_i', 'التيار المنتج بمصفوفة الألواح', 'التيار المنتج']);
+            final ccVoltageVal = getOpVal(['op_cc_v', 'فرق جهد مصفوفة الألواح']);
+
+            // Monitoring screen status check from inspection
+            final monitorScreenGood = report.inspectionGroups.any((g) =>
+                g.items.any((item) => item.description.contains('المراقبة') && item.status == InspectionStatus.good));
+
+            final effectivePageW = isLandscape ? pFormat.width : rotW;
+            final effectivePageH = isLandscape ? pFormat.height : rotH;
+            final availableTableWidth = effectivePageW - 28.0 - 19.0;
+
+            // Dynamic columns calculation: if small site (<= 6 units), provide spacious columns!
+            final maxUnits = [invCount, ccCount, 1].reduce((a, b) => a > b ? a : b);
+            final totalCols = maxUnits <= 6 ? (maxUnits < 3 ? 3 : maxUnits) : 13;
+            final labelColWidth = availableTableWidth > 950 ? 250.0 : 200.0;
+            final unitColWidth = (availableTableWidth - labelColWidth) / totalCols;
+            final unitFontSize = availableTableWidth > 950 ? 9.5 : (totalCols <= 6 ? 9.0 : 8.0);
+            final labelFontSize = availableTableWidth > 950 ? 9.5 : 8.2;
+            final cellVPadding = isLandscape ? (effectivePageH > 650 ? 8.5 : 6.5) : 5.0;
+            final cellPad = pw.EdgeInsets.symmetric(vertical: cellVPadding, horizontal: 3.5);
+
+            final pageContent = wrapWithPageFrame(
+              context: context,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  buildRunningHeader(isLandscape: true),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 10),
+                    decoration: pw.BoxDecoration(
+                      color: cyanColor,
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                    ),
+                    child: pw.Center(
+                      child: pw.Text(
+                        _ar('11 - نموذج بيانات التشغيل لمنظومة الطاقة الشمسية'),
+                        style: textStyle(size: 10, isBold: true, color: PdfColors.white),
+                      ),
+                    ),
+                  ),
+                  pw.SizedBox(height: isLandscape ? 6 : 4),
+                  pw.Container(
+                    width: availableTableWidth,
+                    child: pw.Table(
+                      border: pw.TableBorder.all(color: borderGrey, width: 0.5),
+                      columnWidths: {
+                        ...Map.fromEntries(List.generate(totalCols, (i) => MapEntry(i, pw.FixedColumnWidth(unitColWidth)))),
+                        totalCols: pw.FixedColumnWidth(labelColWidth), // Label (rightmost)
+                      },
+                      children: [
+                        // Section 1: الانفرترات
+                        pw.TableRow(
+                          decoration: pw.BoxDecoration(color: tableHeaderBg),
+                          children: [
+                            ...List.generate(totalCols, (i) => pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text('${totalCols - i}', style: textStyle(size: unitFontSize, isBold: true))))),
+                            pw.Padding(padding: cellPad, child: pw.Text(_ar('الانفرترات : رقم الانفرتر'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
+                          ],
+                        ),
+                        pw.TableRow(
+                          children: [
+                            ...List.generate(totalCols, (i) {
+                              final u = totalCols - i;
+                              final uLoad = getOpVal(['op_load_$u', 'inv_load_$u', 'load_$u', 'الحمل على الإنفرتر #$u', 'الحمل على الإنفرتر رقم $u']);
+                              final displayVal = uLoad.isNotEmpty ? uLoad : invLoadVal;
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text((u <= invCount && invCount > 0) ? _ar(displayVal) : '', style: textStyle(size: unitFontSize, isBold: true))));
+                            }),
+                            pw.Padding(padding: cellPad, child: pw.Text(_ar('الحمل على الإنفرتر (وات)'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
+                          ],
+                        ),
+                        pw.TableRow(
+                          children: [
+                            ...List.generate(totalCols, (i) {
+                              final u = totalCols - i;
+                              final uAc = getOpVal(['op_ac_v_$u', 'inv_ac_$u', 'فرق جهد الخرج (متردد) #$u']);
+                              final displayVal = uAc.isNotEmpty ? uAc : invAcVal;
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text((u <= invCount && invCount > 0) ? _ar(displayVal) : '', style: textStyle(size: unitFontSize, isBold: true))));
+                            }),
+                            pw.Padding(padding: cellPad, child: pw.Text(_ar('فرق جهد الخرج (متردد) بالفولت'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
+                          ],
+                        ),
+                        pw.TableRow(
+                          children: [
+                            ...List.generate(totalCols, (i) {
+                              final u = totalCols - i;
+                              final uDc = getOpVal(['op_dc_v_$u', 'inv_dc_$u', 'فرق جهد الدخول (مستمر) #$u']);
+                              final displayVal = uDc.isNotEmpty ? uDc : invDcVal;
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text((u <= invCount && invCount > 0) ? _ar(displayVal) : '', style: textStyle(size: unitFontSize, isBold: true))));
+                            }),
+                            pw.Padding(padding: cellPad, child: pw.Text(_ar('فرق جهد الدخول (مستمر) بالفولت'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
+                          ],
+                        ),
+                        // Section 2: منظمات الشحن
+                        pw.TableRow(
+                          decoration: pw.BoxDecoration(color: tableHeaderBg),
+                          children: [
+                            ...List.generate(totalCols, (i) => pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text('${totalCols - i}', style: textStyle(size: unitFontSize, isBold: true))))),
+                            pw.Padding(padding: cellPad, child: pw.Text(_ar('منظمات الشحن : رقم منظم الشحن'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
+                          ],
+                        ),
+                        pw.TableRow(
+                          children: [
+                            ...List.generate(totalCols, (i) {
+                              final u = totalCols - i;
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text((u <= ccCount && ccCount > 0) ? _ar(ccCurrentVal) : '', style: textStyle(size: unitFontSize, isBold: true))));
+                            }),
+                            pw.Padding(padding: cellPad, child: pw.Text(_ar('التيار المنتج بمصفوفة الألواح (أمبير)'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
+                          ],
+                        ),
+                        pw.TableRow(
+                          children: [
+                            ...List.generate(totalCols, (i) {
+                              final u = totalCols - i;
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text((u <= ccCount && ccCount > 0) ? _ar(ccVoltageVal) : '', style: textStyle(size: unitFontSize, isBold: true))));
+                            }),
+                            pw.Padding(padding: cellPad, child: pw.Text(_ar('فرق جهد مصفوفة الألواح (فولت)'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
+                          ],
+                        ),
+                        // Section 3: شاشة المراقبة
+                        pw.TableRow(
+                          children: [
+                            ...List.generate(totalCols, (i) {
+                              final u = totalCols - i;
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: (u <= ccCount && ccCount > 0 && monitorScreenGood) ? buildCheckmark(color: PdfColors.green900, size: 9) : pw.SizedBox()));
+                            }),
+                            pw.Padding(padding: cellPad, child: pw.Text(_ar('شاشة المراقبة : كل منظمات الشحن متصلة بشاشة المراقبة'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
+                          ],
+                        ),
+                        pw.TableRow(
+                          children: [
+                            ...List.generate(totalCols, (i) {
+                              final u = totalCols - i;
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: (u <= invCount && invCount > 0 && monitorScreenGood) ? buildCheckmark(color: PdfColors.green900, size: 9) : pw.SizedBox()));
+                            }),
+                            pw.Padding(padding: cellPad, child: pw.Text(_ar('كل أجهزة الإنفرترات متصلة بشاشة المراقبة'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
+                          ],
+                        ),
+                        pw.TableRow(
+                          children: [
+                            ...List.generate(totalCols, (i) {
+                              final u = totalCols - i;
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: (((u <= invCount && invCount > 0) || (u <= ccCount && ccCount > 0)) && monitorScreenGood) ? buildCheckmark(color: PdfColors.green900, size: 9) : pw.SizedBox()));
+                            }),
+                            pw.Padding(padding: cellPad, child: pw.Text(_ar('مطابقة القراءات مع الواقع'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.Spacer(),
+                  buildRunningFooter(pNum),
+                ],
+              ),
+            );
+
+            if (!isLandscape) {
+              return pw.Center(
+                child: pw.Transform.rotateBox(
+                  unconstrained: true,
+                  angle: -math.pi / 2,
+                  child: pw.Container(
+                    width: rotW,
+                    height: rotH,
+                    padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8),
+                    child: pageContent,
+                  ),
+                ),
+              );
+            }
+
+            return pageContent;
+          },
+        ),
+      );
+    }
+
+    // ================= PAGE 9: PV Strings Performance matching ref_page_9.png =================
+    if (pagesToExport == null || pagesToExport.contains(9)) {
+      final pNum = currentPageNumber++;
+      final pFormat = resolvePageFormat(9);
+      final isLandscape = pFormat.width > pFormat.height;
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pFormat,
+          margin: isLandscape
+              ? const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8)
+              : pw.EdgeInsets.zero,
+          build: (pw.Context context) {
+            // Determine maximum combiner box number to display
+            // Standard official form always displays 4 blocks (Boxes 1..16, 64 strings total)
+            final maxBox = report.activeCombinerBoxes.isNotEmpty
+                ? report.activeCombinerBoxes.reduce((a, b) => a > b ? a : b)
+                : 16;
+            final totalBlocksCount = (maxBox > 16) ? ((maxBox + 3) ~/ 4) : 4;
+            final List<List<int>> allBlocks = List.generate(totalBlocksCount, (bIdx) {
+              final startBox = bIdx * 4 + 1;
+              return [startBox, startBox + 1, startBox + 2, startBox + 3];
+            });
+
+            final panelSpecDisplay = report.systemSpecs.panelsCountAndWatt.trim();
+
+            final effectivePageW = isLandscape ? pFormat.width : rotW;
+            final effectivePageH = isLandscape ? pFormat.height : rotH;
+            final availableTableWidth = effectivePageW - 28.0 - 19.0;
+            final notesWidth = (availableTableWidth > 950) ? 75.0 : 54.0;
+            final metricWidth = (availableTableWidth > 950) ? 140.0 : 100.0;
+            final boxWidth = (availableTableWidth - notesWidth - metricWidth) / 4;
+            final stringSubColWidth = boxWidth / 4;
+
+            final availableTableHeight = (effectivePageH - 185.0).clamp(280.0, 700.0);
+            final blockSpacing = (availableTableHeight > 500) ? 6.0 : 4.0;
+            final totalBlockSpacing = (totalBlocksCount - 1) * blockSpacing;
+            final blockHeight = ((availableTableHeight - totalBlockSpacing) / totalBlocksCount).clamp(76.0, 135.0);
+
+            final r1H = (blockHeight * 0.17).clamp(13.0, 24.0);
+            final r2H = (blockHeight * 0.17).clamp(13.0, 24.0);
+            final r3H = (blockHeight * 0.17).clamp(13.0, 24.0);
+            final r4H = (blockHeight - (r1H + r2H + r3H)) / 2;
+            final r5H = r4H;
+            final headerBlankH = r1H + r2H + r3H;
+
+            pw.Widget buildBlock(List<int> boxes, int blockIndex) {
+              final rowNotes = report.stringMeasurements
+                  .where((s) => boxes.contains(((s.stringNumber - 1) ~/ 4) + 1) && s.notes.trim().isNotEmpty)
+                  .map((s) => s.notes.trim())
+                  .toSet()
+                  .join(' ');
+              final notesText = rowNotes.isNotEmpty
+                  ? rowNotes
+                  : (blockIndex < 2 ? 'الملاحظات' : '');
+
+              return pw.Container(
+                height: blockHeight,
+                margin: pw.EdgeInsets.only(bottom: blockSpacing),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: borderGrey, width: 0.5),
+                  color: PdfColors.white,
+                ),
+                child: pw.Row(
+                  children: [
+                    // 1. Leftmost Column: Notes
+                    pw.Container(
+                      width: notesWidth,
+                      height: blockHeight,
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border(
+                          right: pw.BorderSide(color: borderGrey, width: 0.5),
+                        ),
+                      ),
+                      alignment: pw.Alignment.center,
+                      padding: const pw.EdgeInsets.all(2),
+                      child: notesText.isNotEmpty
+                          ? pw.Text(
+                              _ar(notesText),
+                              style: textStyle(size: rowNotes.isNotEmpty ? (availableTableWidth > 950 ? 8.5 : 7.0) : (availableTableWidth > 950 ? 9.0 : 7.8), isBold: rowNotes.isEmpty),
+                              textAlign: pw.TextAlign.center,
+                            )
+                          : pw.SizedBox(),
+                    ),
+
+                    // 2. The 4 Combiner Boxes from Left to Right:
+                    // In RTL, Box 1 is on the right, Box 4 on the left.
+                    // So in LTR Row: Box 4, Box 3, Box 2, Box 1!
+                    ...boxes.reversed.map((bNum) {
+                      return pw.Container(
+                        width: boxWidth,
+                        height: blockHeight,
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border(
+                            right: pw.BorderSide(color: borderGrey, width: 0.5),
+                          ),
+                        ),
+                        child: pw.Column(
+                          children: [
+                            // Row 1: عدد الالواح في المصفوفة : (         )
+                            pw.Container(
+                              height: r1H,
+                              width: boxWidth,
+                              decoration: pw.BoxDecoration(
+                                border: pw.Border(
+                                  bottom: pw.BorderSide(color: borderGrey, width: 0.5),
+                                ),
+                              ),
+                              alignment: pw.Alignment.center,
+                              child: pw.Text(
+                                panelSpecDisplay.isNotEmpty
+                                    ? _ar('عدد الالواح في المصفوفة : ( $panelSpecDisplay )')
+                                    : _ar('عدد الالواح في المصفوفة : (         )'),
+                                style: textStyle(size: availableTableWidth > 950 ? 8.5 : 7.0, isBold: true, color: darkNavyColor),
+                              ),
+                            ),
+
+                            // Row 2: صندوق تجميع $bNum
+                            pw.Container(
+                              height: r2H,
+                              width: boxWidth,
+                              decoration: pw.BoxDecoration(
+                                border: pw.Border(
+                                  bottom: pw.BorderSide(color: borderGrey, width: 0.5),
+                                ),
+                              ),
+                              alignment: pw.Alignment.center,
+                              child: pw.Text(
+                                _ar('صندوق تجميع $bNum'),
+                                style: textStyle(size: availableTableWidth > 950 ? 9.5 : 8.0, isBold: true, color: darkNavyColor),
+                              ),
+                            ),
+
+                            // Row 3: Strings: [السلسلة4, السلسلة3, السلسلة2, السلسلة1]
+                            pw.Container(
+                              height: r3H,
+                              width: boxWidth,
+                              decoration: pw.BoxDecoration(
+                                border: pw.Border(
+                                  bottom: pw.BorderSide(color: borderGrey, width: 0.5),
+                                ),
+                              ),
+                              child: pw.Row(
+                                children: [4, 3, 2, 1].map((sNum) {
+                                  return pw.Container(
+                                    width: stringSubColWidth,
+                                    height: r3H,
+                                    decoration: pw.BoxDecoration(
+                                      border: sNum > 1
+                                          ? pw.Border(
+                                              right: pw.BorderSide(color: borderGrey, width: 0.5),
+                                            )
+                                          : null,
+                                    ),
+                                    alignment: pw.Alignment.center,
+                                    child: pw.Text(
+                                      _ar('السلسلة$sNum'),
+                                      style: textStyle(size: availableTableWidth > 950 ? 8.5 : 7.0, isBold: true),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+
+                            // Row 4: Voltage (Voc)
+                            pw.Container(
+                              height: r4H,
+                              width: boxWidth,
+                              decoration: pw.BoxDecoration(
+                                border: pw.Border(
+                                  bottom: pw.BorderSide(color: borderGrey, width: 0.5),
+                                ),
+                              ),
+                              child: pw.Row(
+                                children: [4, 3, 2, 1].map((sNum) {
+                                  final gIdx = ((bNum - 1) * 4) + sNum;
+                                  final sm = report.stringMeasurements.firstWhere(
+                                    (s) => s.stringNumber == gIdx,
+                                    orElse: () => const StringMeasurement(
+                                      stringNumber: 0,
+                                      openCircuitVoltageVoc: 0,
+                                      shortCircuitCurrentIsc: 0,
+                                    ),
+                                  );
+                                  final valText = (sm.stringNumber > 0 && sm.openCircuitVoltageVoc > 0)
+                                      ? sm.openCircuitVoltageVoc.toStringAsFixed(1)
+                                      : '';
+
+                                  return pw.Container(
+                                    width: stringSubColWidth,
+                                    height: r4H,
+                                    decoration: pw.BoxDecoration(
+                                      border: sNum > 1
+                                          ? pw.Border(
+                                              right: pw.BorderSide(color: borderGrey, width: 0.5),
+                                            )
+                                          : null,
+                                    ),
+                                    alignment: pw.Alignment.center,
+                                    child: pw.Text(
+                                      valText,
+                                      style: textStyle(size: availableTableWidth > 950 ? 9.5 : 8.0),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+
+                            // Row 5: Current (Isc)
+                            pw.Container(
+                              height: r5H,
+                              width: boxWidth,
+                              child: pw.Row(
+                                children: [4, 3, 2, 1].map((sNum) {
+                                  final gIdx = ((bNum - 1) * 4) + sNum;
+                                  final sm = report.stringMeasurements.firstWhere(
+                                    (s) => s.stringNumber == gIdx,
+                                    orElse: () => const StringMeasurement(
+                                      stringNumber: 0,
+                                      openCircuitVoltageVoc: 0,
+                                      shortCircuitCurrentIsc: 0,
+                                    ),
+                                  );
+                                  final valText = (sm.stringNumber > 0 && sm.shortCircuitCurrentIsc > 0)
+                                      ? sm.shortCircuitCurrentIsc.toStringAsFixed(1)
+                                      : '';
+
+                                  return pw.Container(
+                                    width: stringSubColWidth,
+                                    height: r5H,
+                                    decoration: pw.BoxDecoration(
+                                      border: sNum > 1
+                                          ? pw.Border(
+                                              right: pw.BorderSide(color: borderGrey, width: 0.5),
+                                            )
+                                          : null,
+                                    ),
+                                    alignment: pw.Alignment.center,
+                                    child: pw.Text(
+                                      valText,
+                                      style: textStyle(size: availableTableWidth > 950 ? 9.5 : 8.0),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+
+                    // 3. Rightmost Column: Metric Labels
+                    pw.Container(
+                      width: metricWidth,
+                      height: blockHeight,
+                      child: pw.Column(
+                        children: [
+                          // Top Blank Header
+                          pw.Container(
+                            height: headerBlankH,
+                            width: metricWidth,
+                            decoration: pw.BoxDecoration(
+                              border: pw.Border(
+                                bottom: pw.BorderSide(color: borderGrey, width: 0.5),
+                              ),
+                            ),
+                          ),
+
+                          // Row 4: جهد سلسلة الالواح(فولت)
+                          pw.Container(
+                            height: r4H,
+                            width: metricWidth,
+                            decoration: pw.BoxDecoration(
+                              border: pw.Border(
+                                bottom: pw.BorderSide(color: borderGrey, width: 0.5),
+                              ),
+                            ),
+                            alignment: pw.Alignment.center,
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 2),
+                            child: pw.Text(
+                              _ar('جهد سلسلة الالواح(فولت)'),
+                              style: textStyle(size: availableTableWidth > 950 ? 9.0 : 7.6, isBold: true),
+                              textAlign: pw.TextAlign.center,
+                            ),
+                          ),
+
+                          // Row 5: تيار سلسلة الالواح (أمبير)
+                          pw.Container(
+                            height: r5H,
+                            width: metricWidth,
+                            alignment: pw.Alignment.center,
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 2),
+                            child: pw.Text(
+                              _ar('تيار سلسلة الالواح (أمبير)'),
+                              style: textStyle(size: availableTableWidth > 950 ? 9.0 : 7.6, isBold: true),
+                              textAlign: pw.TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final pageContent = wrapWithPageFrame(
+              context: context,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  buildRunningHeader(isLandscape: true),
+                  pw.SizedBox(height: 2),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 10),
+                    decoration: pw.BoxDecoration(
+                      color: cyanColor,
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                    ),
+                    child: pw.Center(
+                      child: pw.Text(
+                        _ar('12 - نموذج قياسات اداء الالواح'),
+                        style: textStyle(size: 10, isBold: true, color: PdfColors.white),
+                      ),
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  // Master Grid of 4 Combiner Blocks spanning full available width
+                  pw.FittedBox(
+                    fit: pw.BoxFit.scaleDown,
+                    child: pw.Container(
+                      width: availableTableWidth,
+                      child: pw.Column(
+                        children: allBlocks.asMap().entries.map((entry) {
+                          return buildBlock(entry.value, entry.key);
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                  pw.Spacer(),
+                  buildRunningFooter(pNum),
+                ],
+              ),
+            );
+
+            if (!isLandscape) {
+              return pw.Center(
+                child: pw.Transform.rotateBox(
+                  unconstrained: true,
+                  angle: -math.pi / 2,
+                  child: pw.Container(
+                    width: rotW,
+                    height: rotH,
+                    padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8),
+                    child: pageContent,
+                  ),
+                ),
+              );
+            }
+
+            return pageContent;
+          },
+        ),
+      );
+    }
+
+    // ================= PAGE 10: Official Attendance Statement matching ref_page_10.png =================
+    if (pagesToExport == null || pagesToExport.contains(10)) {
+      final pNum = currentPageNumber++;
+      final pFormat = resolvePageFormat(10);
+      final isLandscape = pFormat.width > pFormat.height;
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pFormat,
+          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+          build: (pw.Context context) {
+            bool isLegacyContractorAr(String? s) {
+              if (s == null || s.trim().isEmpty) return true;
+              if (s == 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة') return false;
+              return s.contains('بندر ناجي') || s.contains('شركة') || s.contains('الإتقان') || s.contains('الاتقان');
+            }
+            bool isLegacyContractorEn(String? s) {
+              if (s == null || s.trim().isEmpty) return true;
+              if (s == 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions') return false;
+              return s.contains('Bandar Naji') || s.contains('Al-Etqan Al-Handasi') || s.contains('Co. Ltd') || s.contains('Ltd');
+            }
+
+            final contractorAr = !isLegacyContractorAr(report.projectInfo.implementingContractor)
+                ? report.projectInfo.implementingContractor
+                : (!isLegacyContractorAr(branding.contractorNameAr)
+                    ? branding.contractorNameAr
+                    : 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة');
+            final contractorEn = !isLegacyContractorEn(branding.contractorNameEn)
+                ? branding.contractorNameEn
+                : (!isLegacyContractorEn(report.projectInfo.implementingContractor)
+                    ? report.projectInfo.implementingContractor
+                    : 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions');
+
+            // Clean facility name resolution to prevent contractor duplication
+            final rawFacNameAr = report.facilityInfo.facilityName.trim();
+            final facNameAr = rawFacNameAr.isNotEmpty && rawFacNameAr != contractorAr
+                ? rawFacNameAr
+                : (rawFacNameAr.isNotEmpty ? rawFacNameAr : '.....................................................');
+
+            final rawFacNameEn = report.facilityInfo.facilityNameEn.trim();
+            final facNameEn = (rawFacNameEn.isNotEmpty && rawFacNameEn != contractorEn && !rawFacNameEn.contains('Al-Etqan'))
+                ? rawFacNameEn
+                : (facNameAr != '.....................................................'
+                    ? (ArabicReshaper.hasArabic(facNameAr) ? _ar(facNameAr) : facNameAr)
+                    : '.....................................................');
+
+            final dateText = report.visitDate.isNotEmpty ? report.visitDate : '....../....../2025';
+            final installDateStr = report.facilityInfo.installationDate.trim();
+            final installDateDisplay = installDateStr.isNotEmpty ? installDateStr : '                            ';
+
+            final repName = report.approvalStatement.beneficiaryRepName.isNotEmpty
+                ? report.approvalStatement.beneficiaryRepName
+                : report.facilityInfo.contactPerson;
+            final repRole = report.approvalStatement.beneficiaryRepRole.isNotEmpty
+                ? report.approvalStatement.beneficiaryRepRole
+                : 'مدير المنشأة';
+
+            final repNameEnText = report.approvalStatement.beneficiaryRepNameEn.trim();
+            final repRoleEnText = report.approvalStatement.beneficiaryRepRoleEn.trim();
+
+            final hasFunder = showRight;
+            final funderSuffixAr = hasFunder
+                ? (rightAr.contains('مكتب الأمم المتحدة')
+                    ? '، والتي تم تمويلها من قبل البنك الدولي من خلال $rightAr.'
+                    : '، والتي تم تمويلها من قبل $rightAr.')
+                : '.';
+            final funderSuffixEn = hasFunder
+                ? (rightEn.contains('UNOPS')
+                    ? ', which was funded by the World Bank through the United Nations Office for Project Services (UNOPS).'
+                    : ', which was funded by $rightEn.')
+                : '.';
+
+            final fullStatementAr = 'تؤكد إدارة $facNameAr أن مندوب $contractorAr قام بزيارة الموقع للصيانة الوقائية الدورية لمنظومة الطاقة الشمسية المركبة بتاريخ ($installDateDisplay). وخلال هذه الزيارة قاموا بإتمام كافة أعمال الصيانة الوقائية اللازمة لمنظومة الطاقة الشمسية$funderSuffixAr';
+            final fullStatementEn = 'The management of $facNameEn certifies that a representative from $contractorEn made the periodic preventive maintenance visit for the solar system installed on ($installDateDisplay). During this visit, they completed all the necessary preventive maintenance work for the solar system$funderSuffixEn';
+
+            final availableContentWidth = pFormat.width - 47.0;
+            final stmtFontSize = isLandscape ? (pFormat.width > 900 ? 12.5 : 11.0) : 10.0;
+            final stmtLineSpacing = isLandscape ? (pFormat.width > 900 ? 6.5 : 5.0) : 4.0;
+            final sigBlockWidth = isLandscape ? ((availableContentWidth - 110) / 2) : 200.0;
+            final sigFontSize = isLandscape ? (pFormat.width > 900 ? 11.0 : 10.0) : 9.5;
+            final sigRowGap = isLandscape ? 12.0 : 8.0;
+
+            return wrapWithPageFrame(
+              context: context,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  buildRunningHeader(isLandscape: isLandscape),
+                  // Banner: Attendance statement إفادة حضور
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 14),
+                    decoration: pw.BoxDecoration(
+                      color: cyanColor,
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                    ),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('Attendance statement', style: textStyle(size: 10, isBold: true, color: PdfColors.white)),
+                        pw.Text(_ar('إفادة حضور'), style: textStyle(size: 10.5, isBold: true, color: PdfColors.white)),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: isLandscape ? 18 : 22),
+                  // Arabic statement (Full continuous margin-to-margin dynamic width wrapping)
+                  pw.Text(
+                    wrapArabicByWidth(fullStatementAr, availableContentWidth, stmtFontSize, ttfRegular.getFont(context)),
+                    style: textStyle(size: stmtFontSize, lineSpacing: stmtLineSpacing),
+                    textAlign: pw.TextAlign.right,
+                  ),
+                  pw.SizedBox(height: isLandscape ? 16 : 22),
+                  // English statement (natural LTR wrap)
+                  pw.Text(
+                    fullStatementEn,
+                    style: textStyle(size: stmtFontSize, lineSpacing: stmtLineSpacing),
+                    textAlign: pw.TextAlign.left,
+                  ),
+                  pw.Spacer(),
+                  // Dual Signatures matching ref_kidney_page_10.png (Clean dotted lines, no grey boxes)
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      // English block (Left)
+                      pw.Container(
+                        width: sigBlockWidth,
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Row(
+                              children: [
+                                pw.Text(
+                                  'Management ',
+                                  style: textStyle(size: sigFontSize + 0.5, isBold: true),
+                                ),
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    (rawFacNameEn.isNotEmpty && !ArabicReshaper.hasArabic(rawFacNameEn) && !rawFacNameEn.contains('Al-Etqan'))
+                                        ? rawFacNameEn
+                                        : '................................................................',
+                                    style: textStyle(size: sigFontSize),
+                                    maxLines: 1,
+                                    overflow: pw.TextOverflow.clip,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            pw.SizedBox(height: sigRowGap),
+                            pw.Row(
+                              children: [
+                                pw.Text('Name:  ', style: textStyle(size: sigFontSize, isBold: true)),
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    repNameEnText.isNotEmpty ? repNameEnText : '................................................................',
+                                    style: textStyle(size: sigFontSize),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            pw.SizedBox(height: sigRowGap),
+                            pw.Row(
+                              children: [
+                                pw.Text('Title:  ', style: textStyle(size: sigFontSize, isBold: true)),
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    repRoleEnText.isNotEmpty ? repRoleEnText : '................................................................',
+                                    style: textStyle(size: sigFontSize),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            pw.SizedBox(height: sigRowGap),
+                            pw.Row(
+                              children: [
+                                pw.Text('Date:  ', style: textStyle(size: sigFontSize, isBold: true)),
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    (dateText.isNotEmpty && !dateText.contains('......')) ? dateText : '................................................................',
+                                    style: textStyle(size: sigFontSize),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            pw.SizedBox(height: sigRowGap),
+                            pw.Row(
+                              crossAxisAlignment: pw.CrossAxisAlignment.center,
+                              children: [
+                                pw.Text('Signature: ', style: textStyle(size: sigFontSize, isBold: true)),
+                                if (beneficiarySigImage != null)
+                                  pw.Container(
+                                    height: isLandscape ? 38 : 32,
+                                    width: isLandscape ? 110 : 90,
+                                    child: pw.Image(beneficiarySigImage, fit: pw.BoxFit.contain),
+                                  )
+                                else
+                                  pw.Expanded(
+                                    child: pw.Text('................................................................', style: textStyle(size: sigFontSize)),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Center Stamp if present
+                      if (stampImage != null)
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 10),
+                          child: pw.Column(
+                            mainAxisSize: pw.MainAxisSize.min,
+                            children: [
+                              pw.Container(
+                                width: isLandscape ? 85 : 75,
+                                height: isLandscape ? 85 : 75,
+                                child: pw.Image(stampImage, fit: pw.BoxFit.contain),
+                              ),
+                              pw.SizedBox(height: 3),
+                              pw.Text(_ar('الختم الرسمي للمنشأة'), style: textStyle(size: 7.5, color: PdfColors.grey700)),
+                            ],
+                          ),
+                        ),
+
+                      // Arabic block (Right)
+                      pw.Container(
+                        width: sigBlockWidth,
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.end,
+                          children: [
+                            pw.Text(
+                              _ar('ادارة ................................................................'),
+                              style: textStyle(size: sigFontSize + 0.5, isBold: true),
+                              textAlign: pw.TextAlign.right,
+                            ),
+                            pw.SizedBox(height: sigRowGap),
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.end,
+                              children: [
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    (repName.isNotEmpty && repName != '.....................................................')
+                                        ? _ar(repName)
+                                        : '................................................................',
+                                    style: textStyle(size: sigFontSize),
+                                    textAlign: pw.TextAlign.right,
+                                  ),
+                                ),
+                                pw.SizedBox(width: 4),
+                                pw.Text(_ar('الاسم:'), style: textStyle(size: sigFontSize, isBold: true)),
+                              ],
+                            ),
+                            pw.SizedBox(height: sigRowGap),
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.end,
+                              children: [
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    (repRole.isNotEmpty && repRole != '.....................................................')
+                                        ? _ar(repRole)
+                                        : '................................................................',
+                                    style: textStyle(size: sigFontSize),
+                                    textAlign: pw.TextAlign.right,
+                                  ),
+                                ),
+                                pw.SizedBox(width: 4),
+                                pw.Text(_ar('المنصب:'), style: textStyle(size: sigFontSize, isBold: true)),
+                              ],
+                            ),
+                            pw.SizedBox(height: sigRowGap),
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.end,
+                              children: [
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    (dateText.isNotEmpty && !dateText.contains('......'))
+                                        ? dateText
+                                        : '................................................................',
+                                    style: textStyle(size: sigFontSize),
+                                    textAlign: pw.TextAlign.right,
+                                  ),
+                                ),
+                                pw.SizedBox(width: 4),
+                                pw.Text(_ar('التاريخ:'), style: textStyle(size: sigFontSize, isBold: true)),
+                              ],
+                            ),
+                            pw.SizedBox(height: sigRowGap),
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.end,
+                              crossAxisAlignment: pw.CrossAxisAlignment.center,
+                              children: [
+                                if (beneficiarySigImage != null)
+                                  pw.Container(
+                                    height: isLandscape ? 38 : 32,
+                                    width: isLandscape ? 110 : 90,
+                                    child: pw.Image(beneficiarySigImage, fit: pw.BoxFit.contain),
+                                  )
+                                else
+                                  pw.Expanded(
+                                    child: pw.Text('................................................................', style: textStyle(size: sigFontSize), textAlign: pw.TextAlign.right),
+                                  ),
+                                pw.SizedBox(width: 4),
+                                pw.Text(_ar('التوقيع:'), style: textStyle(size: sigFontSize, isBold: true)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  pw.Spacer(),
+                  buildRunningFooter(pNum),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // ================= PAGE 11: Team Attendance Sheet matching ref_page_11.png =================
+    if (pagesToExport == null || pagesToExport.contains(11)) {
+      final pNum = currentPageNumber++;
+      final pFormat = resolvePageFormat(11);
+      final isLandscape = pFormat.width > pFormat.height;
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pFormat,
+          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+          build: (pw.Context context) {
+            final projNameEn = report.projectInfo.projectName.isNotEmpty
+                ? _ar(report.projectInfo.projectName)
+                : 'The renewable energy for improved health services project in Yemen';
+
+            return wrapWithPageFrame(
+              context: context,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  buildRunningHeader(isLandscape: isLandscape),
+                  // Top Metadata Box with Dark Navy Blue Header (LTR Layout matching ref_page_11)
+                  pw.Table(
+                    border: pw.TableBorder.all(color: darkNavyColor, width: 0.8),
+                    columnWidths: const {
+                      0: pw.FixedColumnWidth(125), // Label (Col 0, Left)
+                      1: pw.FlexColumnWidth(3.8),   // Value (Col 1, Right)
+                    },
+                    children: [
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            color: darkNavyColor,
+                            padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                            child: pw.Text('Project Name', style: textStyle(size: 8.5, isBold: true, color: PdfColors.white)),
+                          ),
+                          pw.Container(
+                            color: darkNavyColor,
+                            padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                            child: pw.Text(projNameEn, style: textStyle(size: 8.5, isBold: true, color: PdfColors.white)),
+                          ),
+                        ],
+                      ),
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            color: darkNavyColor,
+                            padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                            child: pw.Text('Report Description', style: textStyle(size: 8.5, isBold: true, color: PdfColors.white)),
+                          ),
+                          pw.Container(
+                            color: darkNavyColor,
+                            padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                            child: pw.Text("Maintenance team's attendance", style: textStyle(size: 8.5, isBold: true, color: PdfColors.white)),
+                          ),
+                        ],
+                      ),
+                      pw.TableRow(
+                        children: [
+                          pw.Container(
+                            color: darkNavyColor,
+                            padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                            child: pw.Text('Contract NO', style: textStyle(size: 8.5, isBold: true, color: PdfColors.white)),
+                          ),
+                          pw.Container(
+                            color: darkNavyColor,
+                            padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                            child: pw.Text(report.contractNumber, style: textStyle(size: 8.5, isBold: true, color: PdfColors.white)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 8),
+                  // Date and Day (LTR)
+                  pw.Row(
+                    children: [
+                      pw.Text('Date : ${report.visitDate.isNotEmpty ? report.visitDate : "..... / ..... / 2025"}', style: textStyle(size: 8.5, isBold: true)),
+                      pw.SizedBox(width: 40),
+                      pw.Text('Day : .....................', style: textStyle(size: 8.5, isBold: true)),
+                    ],
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Text('We confirm that the following persons and representatives from our side have come for', style: textStyle(size: 8, isBold: true)),
+                  pw.SizedBox(height: 6),
+                  (() {
+                    final attCellPad = isLandscape ? const pw.EdgeInsets.symmetric(vertical: 6.5, horizontal: 6) : const pw.EdgeInsets.all(3.5);
+                    final attHeaderPad = isLandscape ? const pw.EdgeInsets.symmetric(vertical: 7.0, horizontal: 6) : const pw.EdgeInsets.all(4);
+                    final attFontSize = isLandscape ? 8.8 : 7.5;
+                    final targetRowCount = isLandscape ? 8 : 4;
+
+                    // Team Table (LTR Layout: NO | Trainee Name | Signature | Role)
+                    return pw.Table(
+                      border: pw.TableBorder.all(color: borderGrey, width: 0.5),
+                      columnWidths: const {
+                        0: pw.FixedColumnWidth(35), // NO
+                        1: pw.FlexColumnWidth(3.5), // Trainee Name
+                        2: pw.FlexColumnWidth(2.5), // Signature
+                        3: pw.FlexColumnWidth(2.5), // Role
+                      },
+                      children: [
+                        pw.TableRow(
+                          decoration: pw.BoxDecoration(color: darkNavyColor),
+                          children: [
+                            pw.Padding(padding: attHeaderPad, child: pw.Center(child: pw.Text('NO', style: textStyle(size: 8.5, isBold: true, color: PdfColors.white)))),
+                            pw.Padding(padding: attHeaderPad, child: pw.Center(child: pw.Text('Trainee Name', style: textStyle(size: 8.5, isBold: true, color: PdfColors.white)))),
+                            pw.Padding(padding: attHeaderPad, child: pw.Center(child: pw.Text('Signature', style: textStyle(size: 8.5, isBold: true, color: PdfColors.white)))),
+                            pw.Padding(padding: attHeaderPad, child: pw.Center(child: pw.Text('Role', style: textStyle(size: 8.5, isBold: true, color: PdfColors.white)))),
+                          ],
+                        ),
+                        ...report.attendanceList.map((att) {
+                          final attSigImg = safeMemoryImage(att.signatureBase64);
+                          return pw.TableRow(
+                            children: [
+                              pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text('${att.serialNo}', style: textStyle(size: attFontSize, isBold: true)))),
+                              pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text(_ar(att.name), style: textStyle(size: attFontSize + 0.5, isBold: true)))),
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.all(2),
+                                child: pw.Center(
+                                  child: attSigImg != null
+                                      ? pw.Container(
+                                          height: isLandscape ? 32 : 26,
+                                          child: pw.Image(attSigImg, fit: pw.BoxFit.contain),
+                                        )
+                                      : pw.Text('', style: textStyle(size: attFontSize)),
+                                ),
+                              ),
+                              pw.Padding(
+                                padding: attCellPad,
+                                child: pw.Center(
+                                  child: pw.Text(
+                                    _ar(att.role.isNotEmpty ? att.role : (att.notes.isNotEmpty ? att.notes : '')),
+                                    style: textStyle(size: attFontSize),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                        ...List.generate(
+                          (targetRowCount - report.attendanceList.length).clamp(0, targetRowCount),
+                          (padIdx) {
+                            final rowNo = report.attendanceList.length + padIdx + 1;
+                            return pw.TableRow(
+                              children: [
+                                pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text('$rowNo', style: textStyle(size: attFontSize, isBold: true)))),
+                                pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text('', style: textStyle(size: attFontSize + 0.5)))),
+                                pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text('', style: textStyle(size: attFontSize)))),
+                                pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text('', style: textStyle(size: attFontSize)))),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    );
+                  })(),
+                  pw.Spacer(),
+                  buildRunningFooter(pNum),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // ================= OPTIONAL PAGE 12+: Field Photos Appendix =================
+    if (report.photos.isNotEmpty && (pagesToExport == null || pagesToExport.contains(12))) {
+      final validPhotos = <ReportPhoto>[];
+      final photoImages = <String, pw.MemoryImage>{};
+      for (final photo in report.photos) {
+        final origBytes = photo.getBytesSync();
+        if (origBytes != null && origBytes.isNotEmpty) {
+          Uint8List bytes = origBytes;
+          try {
+            // Verify and adapt image bytes so the image itself is oriented horizontally or vertically
+            final decoded = image_pkg.decodeImage(bytes);
+            if (decoded != null) {
+              final isActuallyLandscape = decoded.width > decoded.height;
+              if (photo.isLandscape && !isActuallyLandscape) {
+                // Requested landscape (أفقي), but image is portrait -> rotate 90°
+                final rotated = image_pkg.copyRotate(decoded, angle: 90);
+                bytes = Uint8List.fromList(image_pkg.encodeJpg(rotated, quality: 85));
+              } else if (!photo.isLandscape && isActuallyLandscape) {
+                // Requested portrait (عمودي), but image is landscape -> rotate 90°
+                final rotated = image_pkg.copyRotate(decoded, angle: 90);
+                bytes = Uint8List.fromList(image_pkg.encodeJpg(rotated, quality: 85));
+              }
+            }
+            final img = pw.MemoryImage(bytes);
+            photoImages[photo.id] = img;
+            validPhotos.add(photo);
+          } catch (_) {
+            try {
+              final img = pw.MemoryImage(bytes);
+              photoImages[photo.id] = img;
+              validPhotos.add(photo);
+            } catch (_) {}
+          }
+        }
+      }
+
+      if (validPhotos.isNotEmpty) {
+        // Build rows: Landscape photo takes a full-width row, Portrait photos take 2 per row
+        final photoRows = <List<ReportPhoto>>[];
+        final isRowLandscape = <bool>[];
+
+        int i = 0;
+        while (i < validPhotos.length) {
+          final current = validPhotos[i];
+          if (current.isLandscape) {
+            photoRows.add([current]);
+            isRowLandscape.add(true);
+            i++;
+          } else {
+            if (i + 1 < validPhotos.length && !validPhotos[i + 1].isLandscape) {
+              photoRows.add([current, validPhotos[i + 1]]);
+              isRowLandscape.add(false);
+              i += 2;
+            } else {
+              photoRows.add([current]);
+              isRowLandscape.add(false);
+              i++;
+            }
+          }
+        }
+
+        pw.Widget buildPhotoCard(ReportPhoto photo) {
+          final img = photoImages[photo.id];
+          if (img == null) return pw.SizedBox();
+
+          return pw.Container(
+            decoration: pw.BoxDecoration(
+              color: PdfColors.white,
+              border: pw.Border.all(color: borderGrey, width: 0.6),
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+            ),
+            padding: const pw.EdgeInsets.all(5),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.Expanded(
+                  child: pw.Center(
+                    child: pw.ClipRRect(
+                      horizontalRadius: 4,
+                      verticalRadius: 4,
+                      child: pw.Image(img, fit: pw.BoxFit.contain),
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey100,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    border: pw.Border.all(color: PdfColors.grey300, width: 0.4),
+                  ),
+                  child: pw.Text(
+                    _ar(photo.title.isNotEmpty ? photo.title : (photo.caption.isNotEmpty ? photo.caption : 'صورة توثيقية')),
+                    style: textStyle(size: 8.5, isBold: true, color: darkNavyColor),
+                    textAlign: pw.TextAlign.center,
+                    maxLines: 1,
+                  ),
+                ),
+                if (photo.location.isNotEmpty || (photo.title.isNotEmpty && photo.caption.isNotEmpty)) ...[
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    _ar(photo.location.isNotEmpty
+                        ? (photo.title.isNotEmpty && photo.caption.isNotEmpty ? '${photo.location} - ${photo.caption}' : photo.location)
+                        : photo.caption),
+                    style: textStyle(size: 7.5, color: PdfColors.grey700),
+                    textAlign: pw.TextAlign.center,
+                    maxLines: 1,
+                  ),
+                ],
+              ],
+            ),
+          );
+        }
+
+        pw.Widget buildRow(int rowIndex) {
+          final photosInRow = photoRows[rowIndex];
+          final isLand = isRowLandscape[rowIndex];
+
+          if (isLand) {
+            return pw.Expanded(
+              child: buildPhotoCard(photosInRow.first),
+            );
+          } else {
+            if (photosInRow.length == 2) {
+              return pw.Expanded(
+                child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    pw.Expanded(child: buildPhotoCard(photosInRow[0])),
+                    pw.SizedBox(width: 8),
+                    pw.Expanded(child: buildPhotoCard(photosInRow[1])),
+                  ],
+                ),
+              );
+            } else {
+              return pw.Expanded(
+                child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    pw.Expanded(child: buildPhotoCard(photosInRow[0])),
+                    pw.SizedBox(width: 8),
+                    pw.Expanded(child: pw.SizedBox()),
+                  ],
+                ),
+              );
+            }
+          }
+        }
+
+        final totalPhotoPages = (photoRows.length / 2).ceil();
+        for (int pIdx = 0; pIdx < totalPhotoPages; pIdx++) {
+          final pNum = currentPageNumber++;
+          final rowStartIndex = pIdx * 2;
+          final hasSecondRow = rowStartIndex + 1 < photoRows.length;
+
+          final bannerTitle = totalPhotoPages > 1
+              ? 'ملحق التوثيق الفوتوغرافي للموقع والمنظومة (${pIdx + 1} / $totalPhotoPages)'
+              : 'ملحق التوثيق الفوتوغرافي للموقع والمنظومة';
+
+          final pFormat = resolvePageFormat(12);
+          final isLandscape = pFormat.width > pFormat.height;
+          pdf.addPage(
+            pw.Page(
+              pageFormat: pFormat,
+              margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+              build: (pw.Context context) {
+                return wrapWithPageFrame(
+                  context: context,
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                    children: [
+                      buildRunningHeader(isLandscape: isLandscape),
+                      buildSectionBanner('12', bannerTitle),
+                      pw.SizedBox(height: 8),
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                          children: [
+                            buildRow(rowStartIndex),
+                            pw.SizedBox(height: 8),
+                            if (hasSecondRow)
+                              buildRow(rowStartIndex + 1)
+                            else
+                              pw.Expanded(child: pw.SizedBox()),
+                          ],
+                        ),
+                      ),
+                      pw.SizedBox(height: 4),
+                      buildRunningFooter(pNum),
+                    ],
+                  ),
+                );
+              },
+            ),
+          );
+        }
+      }
+    }
+
+    // --- Section 13: Next Visit Materials & Spare Parts Requisition (Optional Official Annex) ---
+    final needsToPrint = report.requestedNeeds.where((n) => n.includeInPdf).toList();
+    if (report.showNeedsInReport &&
+        needsToPrint.isNotEmpty &&
+        (pagesToExport == null || pagesToExport.contains(13))) {
+      final nextVisitNum = ((int.tryParse(effectiveVisitNum) ?? 1) + 1).toString();
+      final pNum = currentPageNumber++;
+      final pFormat = resolvePageFormat(13);
+      final isLandscape = pFormat.width > pFormat.height;
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pFormat,
+          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+          build: (pw.Context context) {
+            return wrapWithPageFrame(
+              context: context,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  buildRunningHeader(isLandscape: isLandscape),
+                  buildSectionBanner('13', 'جدول الاحتياجات والمواد المقترحة للزيارة القادمة (الزيارة رقم $nextVisitNum)'),
+                  pw.SizedBox(height: 6),
+                  // Explanatory Banner
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: pw.BoxDecoration(
+                      color: cyanColor.withAlpha(0.1),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                    ),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          'Required Materials & Spare Parts for Next Visit ($nextVisitNum)',
+                          style: textStyle(size: 8, isBold: true),
+                        ),
+                        pw.Text(
+                          _ar('سجل بالمواد وقطع الغيار الواجب توفيرها واستكمالها في الزيارة الميدانية التالية'),
+                          style: textStyle(size: 8, isBold: true),
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: 6),
+                  // Table of Needs
+                  pw.Expanded(
+                    child: pw.Table(
+                      border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.7),
+                      columnWidths: const {
+                        0: pw.FlexColumnWidth(1.4), // ملاحظات وسبب الطلب
+                        1: pw.FlexColumnWidth(0.7), // الأولوية
+                        2: pw.FlexColumnWidth(0.7), // الكمية والوحدة
+                        3: pw.FlexColumnWidth(1.1), // التصنيف
+                        4: pw.FlexColumnWidth(1.8), // اسم المادة والمواصفة
+                        5: pw.FixedColumnWidth(22), // م
+                      },
+                      children: [
+                        // Header
+                        pw.TableRow(
+                          decoration: pw.BoxDecoration(color: darkNavyColor),
+                          children: [
+                            pw.Padding(
+                              padding: const pw.EdgeInsets.all(5),
+                              child: pw.Center(child: pw.Text(_ar('سبب الطلب والملاحظات'), style: textStyle(size: 7.5, isBold: true, color: PdfColors.white))),
+                            ),
+                            pw.Padding(
+                              padding: const pw.EdgeInsets.all(5),
+                              child: pw.Center(child: pw.Text(_ar('الأولوية'), style: textStyle(size: 7.5, isBold: true, color: PdfColors.white))),
+                            ),
+                            pw.Padding(
+                              padding: const pw.EdgeInsets.all(5),
+                              child: pw.Center(child: pw.Text(_ar('الكمية'), style: textStyle(size: 7.5, isBold: true, color: PdfColors.white))),
+                            ),
+                            pw.Padding(
+                              padding: const pw.EdgeInsets.all(5),
+                              child: pw.Center(child: pw.Text(_ar('التصنيف'), style: textStyle(size: 7.5, isBold: true, color: PdfColors.white))),
+                            ),
+                            pw.Padding(
+                              padding: const pw.EdgeInsets.all(5),
+                              child: pw.Center(child: pw.Text(_ar('اسم المادة / قطعة الغيار'), style: textStyle(size: 7.5, isBold: true, color: PdfColors.white))),
+                            ),
+                            pw.Padding(
+                              padding: const pw.EdgeInsets.all(5),
+                              child: pw.Center(child: pw.Text(_ar('م'), style: textStyle(size: 7.5, isBold: true, color: PdfColors.white))),
+                            ),
+                          ],
+                        ),
+                        // Data rows
+                        ...needsToPrint.asMap().entries.map((entry) {
+                          final idx = entry.key + 1;
+                          final need = entry.value;
+                          final isEven = idx % 2 == 0;
+                          final priorityColor = need.priority == NeedPriority.critical
+                              ? PdfColors.red800
+                              : (need.priority == NeedPriority.urgent ? PdfColors.orange800 : PdfColors.green800);
+
+                          return pw.TableRow(
+                            decoration: pw.BoxDecoration(
+                              color: isEven ? PdfColors.grey100 : PdfColors.white,
+                            ),
+                            children: [
+                              // Col 0: سبب الطلب والملاحظات (Aligned to the Right)
+                              pw.Container(
+                                alignment: pw.Alignment.centerRight,
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                                child: pw.Text(
+                                  _arNotes(need.reason.isNotEmpty ? need.reason : '-', 28),
+                                  style: textStyle(size: 7.5),
+                                  textAlign: pw.TextAlign.right,
+                                ),
+                              ),
+                              // Col 1: الأولوية
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.all(4),
+                                child: pw.Center(
+                                  child: pw.Text(_ar(need.priority.labelAr), style: textStyle(size: 7.5, isBold: true, color: priorityColor)),
+                                ),
+                              ),
+                              // Col 2: الكمية والوحدة
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.all(4),
+                                child: pw.Center(
+                                  child: pw.Text(
+                                    _ar('${need.quantity % 1 == 0 ? need.quantity.toInt() : need.quantity} ${need.unit}'),
+                                    style: textStyle(size: 7.5, isBold: true),
+                                  ),
+                                ),
+                              ),
+                              // Col 3: التصنيف
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.all(4),
+                                child: pw.Center(child: pw.Text(_ar(need.category), style: textStyle(size: 7.5))),
+                              ),
+                              // Col 4: اسم المادة / قطعة الغيار (Aligned to the Right)
+                              pw.Container(
+                                alignment: pw.Alignment.centerRight,
+                                padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                                child: pw.Text(
+                                  _arNotes(need.name, 35),
+                                  style: textStyle(size: 7.5, isBold: true),
+                                  textAlign: pw.TextAlign.right,
+                                ),
+                              ),
+                              // Col 5: م
+                              pw.Padding(
+                                padding: const pw.EdgeInsets.all(4),
+                                child: pw.Center(child: pw.Text('$idx', style: textStyle(size: 7.5, isBold: true))),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: 10),
+                  // Procurement & Handover Sign-off Box
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: pw.BoxDecoration(
+                      border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.8),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                    ),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
+                          children: [
+                            pw.Text(_ar('مسؤول المشتريات والمخازن'), style: textStyle(size: 7.5, isBold: true)),
+                            pw.SizedBox(height: 18),
+                            pw.Text(_ar('التوقيع: ............................'), style: textStyle(size: 7)),
+                          ],
+                        ),
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
+                          children: [
+                            pw.Text(_ar('مهندس الصيانة المسؤول'), style: textStyle(size: 7.5, isBold: true)),
+                            pw.SizedBox(height: 18),
+                            pw.Text(_ar('التوقيع: ............................'), style: textStyle(size: 7)),
+                          ],
+                        ),
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
+                          children: [
+                            pw.Text(_ar('اعتماد مدير المشروع'), style: textStyle(size: 7.5, isBold: true)),
+                            pw.SizedBox(height: 18),
+                            pw.Text(_ar('التوقيع والختم: ............................'), style: textStyle(size: 7)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  buildRunningFooter(pNum),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    return pdf.save();
+  }
+}
