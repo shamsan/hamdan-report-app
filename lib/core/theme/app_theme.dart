@@ -197,7 +197,7 @@ class AppTheme {
         backgroundColor: const Color(0xFFF1F5F9),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         side: const BorderSide(color: borderSubtle),
-        labelStyle: const TextStyle(fontFamily: 'Almarai', fontSize: 12),
+        labelStyle: const TextStyle(fontFamily: 'Almarai', fontSize: 12, color: textDark),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: solarGold,

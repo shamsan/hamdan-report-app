@@ -8,6 +8,7 @@ import '../../state/clients_provider.dart';
 import '../../state/sites_provider.dart';
 import '../../state/reports_provider.dart';
 import 'client_details_screen.dart';
+import '../../core/widgets/yemeni_phone_field.dart';
 
 class ClientsListScreen extends ConsumerStatefulWidget {
   const ClientsListScreen({super.key});
@@ -43,9 +44,12 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
           children: [
             Icon(Icons.business_center, color: AppTheme.solarGold, size: 22),
             SizedBox(width: 8),
-            Text(
-              'دليل العملاء والمواقع',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            Flexible(
+              child: Text(
+                'دليل العملاء والمواقع',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -400,6 +404,45 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
     );
   }
 
+  Widget _buildFormSectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: AppTheme.primaryNavy),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+
   void _showAddClientDialog(BuildContext context) {
     final nameArCtrl = TextEditingController();
     final nameEnCtrl = TextEditingController();
@@ -408,101 +451,251 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
     final addressCtrl = TextEditingController();
     String clientType = 'جهة حكومية / وزارة';
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.add_business, color: AppTheme.solarGold),
-              SizedBox(width: 8),
-              Text('إضافة عميل جديد', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
+        builder: (ctx, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          content: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            top: 16,
+            left: 20,
+            right: 20,
+          ),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.9,
+          ),
+          child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
-                  controller: nameArCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'اسم العميل / الجهة (عربي) *',
-                    hintText: 'مثال: وزارة الصحة العامة والسكان',
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: nameEnCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'اسم العميل (English)',
-                    hintText: 'e.g. Ministry of Public Health',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  initialValue: clientType,
-                  decoration: const InputDecoration(labelText: 'نوع العميل'),
-                  items: const [
-                    DropdownMenuItem(value: 'جهة حكومية / وزارة', child: Text('جهة حكومية / وزارة')),
-                    DropdownMenuItem(value: 'منظمة دولية / مانحة', child: Text('منظمة دولية / مانحة')),
-                    DropdownMenuItem(value: 'مؤسسة محلية / مجتمعية', child: Text('مؤسسة محلية / مجتمعية')),
-                    DropdownMenuItem(value: 'قطاع خاص / شركة', child: Text('قطاع خاص / شركة')),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.solarGold.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.add_business_rounded, color: AppTheme.solarGold, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'إضافة عميل جديد / جهة شريكة',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                          ),
+                          Text(
+                            'تسجيل بيانات الوزارة أو المنظمة أو المؤسسة والمواقع التابعة لها',
+                            style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
-                  onChanged: (v) {
-                    if (v != null) setDialogState(() => clientType = v);
-                  },
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: contactCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'ضابط الاتصال / المسؤول',
-                    hintText: 'مثال: د. طارق الحيدري',
-                  ),
+                const SizedBox(height: 18),
+
+                // Card 1: Basic Info
+                _buildFormSectionCard(
+                  title: 'معلومات الجهة الأساسية',
+                  icon: Icons.apartment_rounded,
+                  children: [
+                    TextField(
+                      controller: nameArCtrl,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                      decoration: InputDecoration(
+                        labelText: 'اسم العميل / الجهة (عربي) *',
+                        hintText: 'مثال: وزارة الصحة العامة والسكان',
+                        prefixIcon: const Icon(Icons.business_rounded, size: 18, color: AppTheme.primaryNavy),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: nameEnCtrl,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                      decoration: InputDecoration(
+                        labelText: 'اسم العميل (English)',
+                        hintText: 'e.g. Ministry of Public Health',
+                        prefixIcon: const Icon(Icons.language_rounded, size: 18, color: AppTheme.primaryNavy),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('تصنيف الجهة:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        'جهة حكومية / وزارة',
+                        'منظمة دولية / مانحة',
+                        'مؤسسة محلية / مجتمعية',
+                        'قطاع خاص / شركة',
+                      ].map((type) {
+                        final isSel = clientType == type;
+                        return ChoiceChip(
+                          label: Text(type),
+                          selected: isSel,
+                          backgroundColor: Colors.white,
+                          selectedColor: AppTheme.primaryNavy.withValues(alpha: 0.12),
+                          side: BorderSide(
+                            color: isSel ? AppTheme.primaryNavy : const Color(0xFFCBD5E1),
+                            width: isSel ? 1.5 : 1.0,
+                          ),
+                          labelStyle: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+                            color: isSel ? AppTheme.primaryNavy : AppTheme.textDark,
+                          ),
+                          onSelected: (sel) {
+                            if (sel) setModalState(() => clientType = type);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'رقم الهاتف / الاتصال',
-                    hintText: '+967 777 ...',
-                  ),
+                const SizedBox(height: 14),
+
+                // Card 2: Contact Person & Phone
+                _buildFormSectionCard(
+                  title: 'ضابط الاتصال والتواصل المباشر',
+                  icon: Icons.contact_phone_rounded,
+                  children: [
+                    TextField(
+                      controller: contactCtrl,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                      decoration: InputDecoration(
+                        labelText: 'ضابط الاتصال / المسؤول',
+                        hintText: 'مثال: د. طارق الحيدري',
+                        prefixIcon: const Icon(Icons.person_rounded, size: 18, color: AppTheme.primaryNavy),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    YemeniPhoneField(
+                      controller: phoneCtrl,
+                      label: 'رقم الهاتف / الاتصال المعتمد',
+                      hint: '777 123 456',
+                      onContactPicked: (contact) {
+                        if (contact.name != null && contactCtrl.text.trim().isEmpty) {
+                          setModalState(() {
+                            contactCtrl.text = contact.name!;
+                          });
+                        }
+                      },
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: addressCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'العنوان أو المقر الرئيسي',
-                    hintText: 'مثال: صنعاء - الحصبة',
-                  ),
+                const SizedBox(height: 14),
+
+                // Card 3: Address
+                _buildFormSectionCard(
+                  title: 'المقر الرئيسي والعنوان',
+                  icon: Icons.location_on_rounded,
+                  children: [
+                    TextField(
+                      controller: addressCtrl,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                      decoration: InputDecoration(
+                        labelText: 'العنوان أو المقر الرئيسي',
+                        hintText: 'مثال: صنعاء - شارع الستين - بجوار وزارة الصحة',
+                        prefixIcon: const Icon(Icons.place_rounded, size: 18, color: AppTheme.primaryNavy),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('إلغاء', style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryNavy,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.check_circle_rounded, size: 18),
+                        label: const Text('حفظ بيانات العميل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                        onPressed: () async {
+                          if (nameArCtrl.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('يرجى إدخال اسم العميل بالعربي على الأقل')),
+                            );
+                            return;
+                          }
+                          await ref.read(clientsProvider.notifier).addClient(
+                            nameAr: nameArCtrl.text.trim(),
+                            nameEn: nameEnCtrl.text.trim(),
+                            clientType: clientType,
+                            contactPerson: contactCtrl.text.trim(),
+                            phone: phoneCtrl.text.trim(),
+                            address: addressCtrl.text.trim(),
+                          );
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('إلغاء'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
-              onPressed: () async {
-                if (nameArCtrl.text.trim().isEmpty) return;
-                await ref.read(clientsProvider.notifier).addClient(
-                  nameAr: nameArCtrl.text,
-                  nameEn: nameEnCtrl.text,
-                  clientType: clientType,
-                  contactPerson: contactCtrl.text,
-                  phone: phoneCtrl.text,
-                  address: addressCtrl.text,
-                );
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('حفظ العميل'),
-            ),
-          ],
         ),
       ),
     );
@@ -516,88 +709,249 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
     final addressCtrl = TextEditingController(text: client.address);
     String clientType = client.clientType;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.edit, color: AppTheme.brandCyan),
-              SizedBox(width: 8),
-              Text('تعديل بيانات العميل', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
+        builder: (ctx, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          content: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            top: 16,
+            left: 20,
+            right: 20,
+          ),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.9,
+          ),
+          child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
-                  controller: nameArCtrl,
-                  decoration: const InputDecoration(labelText: 'اسم العميل / الجهة (عربي) *'),
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: nameEnCtrl,
-                  decoration: const InputDecoration(labelText: 'اسم العميل (English)'),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  initialValue: clientType,
-                  decoration: const InputDecoration(labelText: 'نوع العميل'),
-                  items: const [
-                    DropdownMenuItem(value: 'جهة حكومية / وزارة', child: Text('جهة حكومية / وزارة')),
-                    DropdownMenuItem(value: 'منظمة دولية / مانحة', child: Text('منظمة دولية / مانحة')),
-                    DropdownMenuItem(value: 'مؤسسة محلية / مجتمعية', child: Text('مؤسسة محلية / مجتمعية')),
-                    DropdownMenuItem(value: 'قطاع خاص / شركة', child: Text('قطاع خاص / شركة')),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.brandCyan.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.edit_rounded, color: AppTheme.brandCyan, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'تعديل بيانات العميل',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                          ),
+                          Text(
+                            'تحديث بيانات الاتصال والمسؤول والمقر الرئيسي للجهة',
+                            style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
-                  onChanged: (v) {
-                    if (v != null) setDialogState(() => clientType = v);
-                  },
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: contactCtrl,
-                  decoration: const InputDecoration(labelText: 'ضابط الاتصال / المسؤول'),
+                const SizedBox(height: 18),
+
+                // Card 1: Basic Info
+                _buildFormSectionCard(
+                  title: 'معلومات الجهة الأساسية',
+                  icon: Icons.apartment_rounded,
+                  children: [
+                    TextField(
+                      controller: nameArCtrl,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                      decoration: InputDecoration(
+                        labelText: 'اسم العميل / الجهة (عربي) *',
+                        prefixIcon: const Icon(Icons.business_rounded, size: 18, color: AppTheme.primaryNavy),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: nameEnCtrl,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                      decoration: InputDecoration(
+                        labelText: 'اسم العميل (English)',
+                        prefixIcon: const Icon(Icons.language_rounded, size: 18, color: AppTheme.primaryNavy),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('تصنيف الجهة:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        'جهة حكومية / وزارة',
+                        'منظمة دولية / مانحة',
+                        'مؤسسة محلية / مجتمعية',
+                        'قطاع خاص / شركة',
+                      ].map((type) {
+                        final isSel = clientType == type;
+                        return ChoiceChip(
+                          label: Text(type),
+                          selected: isSel,
+                          backgroundColor: Colors.white,
+                          selectedColor: AppTheme.primaryNavy.withValues(alpha: 0.12),
+                          side: BorderSide(
+                            color: isSel ? AppTheme.primaryNavy : const Color(0xFFCBD5E1),
+                            width: isSel ? 1.5 : 1.0,
+                          ),
+                          labelStyle: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+                            color: isSel ? AppTheme.primaryNavy : AppTheme.textDark,
+                          ),
+                          onSelected: (sel) {
+                            if (sel) setModalState(() => clientType = type);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'رقم الهاتف / الاتصال'),
+                const SizedBox(height: 14),
+
+                // Card 2: Contact Person & Phone
+                _buildFormSectionCard(
+                  title: 'ضابط الاتصال والتواصل المباشر',
+                  icon: Icons.contact_phone_rounded,
+                  children: [
+                    TextField(
+                      controller: contactCtrl,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                      decoration: InputDecoration(
+                        labelText: 'ضابط الاتصال / المسؤول',
+                        prefixIcon: const Icon(Icons.person_rounded, size: 18, color: AppTheme.primaryNavy),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    YemeniPhoneField(
+                      controller: phoneCtrl,
+                      label: 'رقم الهاتف / الاتصال المعتمد',
+                      hint: '777 123 456',
+                      onContactPicked: (contact) {
+                        if (contact.name != null && contactCtrl.text.trim().isEmpty) {
+                          setModalState(() {
+                            contactCtrl.text = contact.name!;
+                          });
+                        }
+                      },
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: addressCtrl,
-                  decoration: const InputDecoration(labelText: 'العنوان أو المقر الرئيسي'),
+                const SizedBox(height: 14),
+
+                // Card 3: Address
+                _buildFormSectionCard(
+                  title: 'المقر الرئيسي والعنوان',
+                  icon: Icons.location_on_rounded,
+                  children: [
+                    TextField(
+                      controller: addressCtrl,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                      decoration: InputDecoration(
+                        labelText: 'العنوان أو المقر الرئيسي',
+                        prefixIcon: const Icon(Icons.place_rounded, size: 18, color: AppTheme.primaryNavy),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('إلغاء', style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.brandCyan,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.save_rounded, size: 18),
+                        label: const Text('حفظ التعديلات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                        onPressed: () async {
+                          if (nameArCtrl.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('اسم العميل بالعربي مطلوب')),
+                            );
+                            return;
+                          }
+                          await ref.read(clientsProvider.notifier).updateClient(
+                            client.copyWith(
+                              nameAr: nameArCtrl.text.trim(),
+                              nameEn: nameEnCtrl.text.trim(),
+                              clientType: clientType,
+                              contactPerson: contactCtrl.text.trim(),
+                              phone: phoneCtrl.text.trim(),
+                              address: addressCtrl.text.trim(),
+                            ),
+                          );
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('إلغاء'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brandCyan),
-              onPressed: () async {
-                if (nameArCtrl.text.trim().isEmpty) return;
-                await ref.read(clientsProvider.notifier).updateClient(
-                  client.copyWith(
-                    nameAr: nameArCtrl.text,
-                    nameEn: nameEnCtrl.text,
-                    clientType: clientType,
-                    contactPerson: contactCtrl.text,
-                    phone: phoneCtrl.text,
-                    address: addressCtrl.text,
-                  ),
-                );
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('حفظ التعديلات'),
-            ),
-          ],
         ),
       ),
     );

@@ -51,7 +51,8 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
         cellNumber: i + 1,
         stringNumber: g,
         voltage: 0.0,
-        temperature: 28.0,
+        temperature: 0.0,
+        boltTorque: 0.0,
         internalResistance: 0.0,
         notes: '',
       ));
@@ -63,9 +64,11 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
     int cellIndex, {
     double? v,
     double? t,
+    double? torque,
     double? r,
     String? notes,
     bool clearV = false,
+    bool clearTorque = false,
     bool clearR = false,
     bool clearNotes = false,
   }) {
@@ -76,6 +79,7 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
     list[cellIndex] = current.copyWith(
       voltage: clearV ? 0.0 : (v ?? current.voltage),
       temperature: t ?? current.temperature,
+      boltTorque: clearTorque ? 0.0 : (torque ?? current.boltTorque),
       internalResistance: clearR ? 0.0 : (r ?? current.internalResistance),
       notes: clearNotes ? '' : (notes ?? current.notes),
     );
@@ -122,22 +126,55 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
     );
   }
 
-  void _fillTypicalValues() {
+  void _applyGroupTorque(double torque) {
     final list = _getNormalizedCells();
-    final updated = List<BatteryMeasurement>.generate(list.length, (i) {
-      final v = 2.14 + ((i % 5) * 0.01);
-      final t = 28.0 + ((i % 3) * 0.4);
-      final r = 0.32 + ((i % 2) * 0.02);
-      return list[i].copyWith(
-        voltage: double.parse(v.toStringAsFixed(2)),
-        temperature: double.parse(t.toStringAsFixed(1)),
-        internalResistance: double.parse(r.toStringAsFixed(2)),
-        notes: list[i].notes.isEmpty ? 'سليمة' : list[i].notes,
-      );
-    });
-    widget.onChanged(updated);
+    final startIndex = (_selectedGroup - 1) * 24;
+    for (int i = 0; i < 24; i++) {
+      final realIndex = startIndex + i;
+      if (realIndex < list.length) {
+        list[realIndex] = list[realIndex].copyWith(boltTorque: torque);
+      }
+    }
+    widget.onChanged(list);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم تعبئة قراءات نموذجية مطابقة لمعايير الفحص لجميع الخلايا الـ 96')),
+      SnackBar(
+        content: Text('تم تعيين عزم ربط ${torque.toStringAsFixed(1)} N.m لكافة خلايا المجموعة $_selectedGroup'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _clearGroupMeasurements() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('مسح قياسات المجموعة'),
+        content: Text('هل أنت متأكد من مسح جميع قياسات المجموعة $_selectedGroup؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(ctx);
+              final list = _getNormalizedCells();
+              final startIndex = (_selectedGroup - 1) * 24;
+              for (int i = 0; i < 24; i++) {
+                final realIndex = startIndex + i;
+                if (realIndex < list.length) {
+                  list[realIndex] = list[realIndex].copyWith(
+                    voltage: 0.0,
+                    boltTorque: 0.0,
+                    internalResistance: 0.0,
+                    notes: '',
+                  );
+                }
+              }
+              widget.onChanged(list);
+            },
+            child: const Text('مسح', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -270,7 +307,7 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
           ),
         ),
 
-        // Header & Typical Fill Action
+        // Header & Clear Action
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -278,14 +315,15 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
               'بيانات قياسات الخلايا (${widget.activeGroups.length * 24} خلية نشطة)',
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textDark),
             ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.solarGold,
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red.shade700,
+                side: BorderSide(color: Colors.red.shade200),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               ),
-              icon: const Icon(Icons.auto_fix_high, size: 14),
-              label: const Text('تعبئة نموذجية للمصفوفة', style: TextStyle(fontSize: 11)),
-              onPressed: _fillTypicalValues,
+              icon: const Icon(Icons.cleaning_services_rounded, size: 14),
+              label: Text('مسح قياسات المجموعة $_selectedGroup', style: const TextStyle(fontSize: 11)),
+              onPressed: _clearGroupMeasurements,
             ),
           ],
         ),
@@ -385,7 +423,7 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
         // Quick Voltage Action Bar for Active Group
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          margin: const EdgeInsets.only(bottom: 8),
+          margin: const EdgeInsets.only(bottom: 6),
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(8),
@@ -414,6 +452,46 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
                       _buildQuickVoltageChip(2.18),
                       const SizedBox(width: 6),
                       _buildQuickVoltageChip(2.20),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Quick Torque Action Bar for Active Group
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.borderSubtle),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.build_circle_rounded, size: 16, color: AppTheme.primaryNavy),
+              const SizedBox(width: 6),
+              Text(
+                'عزم ربط للمجموعة $_selectedGroup:',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.textDark),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildQuickTorqueChip(10.0),
+                      const SizedBox(width: 6),
+                      _buildQuickTorqueChip(11.0),
+                      const SizedBox(width: 6),
+                      _buildQuickTorqueChip(12.0),
+                      const SizedBox(width: 6),
+                      _buildQuickTorqueChip(13.0),
+                      const SizedBox(width: 6),
+                      _buildQuickTorqueChip(15.0),
                     ],
                   ),
                 ),
@@ -536,26 +614,26 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
                   ),
                   const SizedBox(width: 6),
 
-                  // Torque / Resistance Input (N.m)
+                  // Bolt Torque Input (N.m)
                   Expanded(
                     flex: 2,
                     child: TextFormField(
-                      key: ValueKey('r_${cell.cellNumber}_g_$_selectedGroup'),
-                      initialValue: cell.internalResistance > 0 ? '${cell.internalResistance}' : '',
+                      key: ValueKey('torque_${cell.cellNumber}_g_$_selectedGroup'),
+                      initialValue: cell.boltTorque > 0 ? '${cell.boltTorque}' : '',
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       style: const TextStyle(fontSize: 12),
                       decoration: const InputDecoration(
-                        hintText: '0.00',
+                        hintText: '0.0',
                         isDense: true,
                         contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                       ),
                       onChanged: (val) {
                         final trimmed = val.trim();
                         if (trimmed.isEmpty) {
-                          _updateCell(realIndex, clearR: true);
+                          _updateCell(realIndex, clearTorque: true);
                         } else {
-                          final r = double.tryParse(trimmed);
-                          if (r != null) _updateCell(realIndex, r: r);
+                          final t = double.tryParse(trimmed);
+                          if (t != null) _updateCell(realIndex, torque: t);
                         }
                       },
                     ),
@@ -637,6 +715,32 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
         ),
         child: Text(
           '${v.toStringAsFixed(2)}V',
+          style: const TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryNavy,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickTorqueChip(double torque) {
+    return InkWell(
+      onTap: () => _applyGroupTorque(torque),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: AppTheme.primaryNavy.withValues(alpha: 0.25),
+            width: 0.8,
+          ),
+        ),
+        child: Text(
+          '${torque.toStringAsFixed(0)} N.m',
           style: const TextStyle(
             fontSize: 10.5,
             fontWeight: FontWeight.bold,

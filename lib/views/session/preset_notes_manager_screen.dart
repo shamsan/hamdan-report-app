@@ -88,51 +88,53 @@ class _PresetNotesManagerScreenState extends State<PresetNotesManagerScreen> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.borderSubtle),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'البند: بند ${item.serialNo} - ${item.description}',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-                  ),
-                  if (item.subcategory != null) ...[
-                    const SizedBox(height: 4),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.borderSubtle),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      item.subcategory!,
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF1D4ED8)),
+                      'البند: بند ${item.serialNo} - ${item.description}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark),
                     ),
+                    if (item.subcategory != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        item.subcategory!,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF1D4ED8)),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'أدخل نص الملاحظة الجاهزة التي ترغب بظهورها لهذا السؤال دائماً:',
-              style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'مثال: تم الفحص والتأكد من سلامة التوصيلات...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              const SizedBox(height: 14),
+              const Text(
+                'أدخل نص الملاحظة الجاهزة التي ترغب بظهورها لهذا السؤال دائماً:',
+                style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'مثال: تم الفحص والتأكد من سلامة التوصيلات...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(

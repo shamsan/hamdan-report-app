@@ -234,82 +234,46 @@ class PdfExportService {
         ? report.visitNumber
         : (report.facilityInfo.visitNumber.isNotEmpty ? report.facilityInfo.visitNumber : '');
 
-    // Dynamic contractor branding (Report custom -> Global branding -> Fallback)
-    bool isLegacyAr(String? s) {
-      if (s == null || s.trim().isEmpty) return true;
-      if (s == 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة') return false;
-      return s.contains('بندر ناجي') || s.contains('شركة') || s.contains('الإتقان') || s.contains('الاتقان');
-    }
-    final contractorAr = !isLegacyAr(report.contractorNameAr)
-        ? report.contractorNameAr!
-        : (!isLegacyAr(report.projectInfo.implementingContractor)
-            ? report.projectInfo.implementingContractor
-            : (!isLegacyAr(branding.contractorNameAr)
-                ? branding.contractorNameAr
-                : 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة'));
+    // Dynamic contractor branding (Report custom -> Project info -> Global branding -> Empty)
+    final contractorAr = (report.contractorNameAr != null && report.contractorNameAr!.trim().isNotEmpty)
+        ? report.contractorNameAr!.trim()
+        : (report.projectInfo.implementingContractor.trim().isNotEmpty
+            ? report.projectInfo.implementingContractor.trim()
+            : branding.contractorNameAr.trim());
 
-    final contractorSub = (report.contractorSubtitleAr != null && report.contractorSubtitleAr!.isNotEmpty && !report.contractorSubtitleAr!.contains('المحدودة'))
-        ? report.contractorSubtitleAr!
-        : (branding.contractorSubtitleAr.isNotEmpty && !branding.contractorSubtitleAr.contains('المحدودة')
-            ? branding.contractorSubtitleAr
-            : '');
+    final contractorSub = (report.contractorSubtitleAr != null && report.contractorSubtitleAr!.trim().isNotEmpty)
+        ? report.contractorSubtitleAr!.trim()
+        : branding.contractorSubtitleAr.trim();
+
+    final contractorEn = (report.contractorNameEn != null && report.contractorNameEn!.trim().isNotEmpty)
+        ? report.contractorNameEn!.trim()
+        : branding.contractorNameEn.trim();
 
     // Dynamic ministry / entity branding
-    final isEducation = report.projectInfo.ownerEntity.contains('تربية') ||
-        report.projectInfo.ownerEntity.contains('تعليم') ||
-        report.facilityInfo.facilityType.contains('مدرس') ||
-        branding.ministryNameAr.contains('تربية') ||
-        (report.ministryNameAr != null && report.ministryNameAr!.contains('تربية'));
+    final ministryAr = (report.ministryNameAr != null && report.ministryNameAr!.trim().isNotEmpty)
+        ? report.ministryNameAr!.trim()
+        : (report.projectInfo.ownerEntity.trim().isNotEmpty
+            ? report.projectInfo.ownerEntity.trim()
+            : branding.ministryNameAr.trim());
 
-    final ministryAr = (report.ministryNameAr != null && report.ministryNameAr!.isNotEmpty)
-        ? report.ministryNameAr!
-        : (isEducation
-            ? 'وزارة التربية والتعليم'
-            : (report.projectInfo.ownerEntity.isNotEmpty
-                ? report.projectInfo.ownerEntity
-                : (branding.ministryNameAr.isNotEmpty
-                    ? branding.ministryNameAr
-                    : 'وزارة الصحة العامة و البيئة')));
+    final ministryEn = (report.ministryNameEn != null && report.ministryNameEn!.trim().isNotEmpty)
+        ? report.ministryNameEn!.trim()
+        : branding.ministryNameEn.trim();
 
     // Dynamic funder / right branding
     final showRight = report.showRightLogo ?? branding.showRightLogo;
-    final rightEn = (report.funderNameEn != null && report.funderNameEn!.isNotEmpty)
-        ? report.funderNameEn!
-        : (branding.rightLogoNameEn.isNotEmpty
-            ? branding.rightLogoNameEn
-            : 'UNITED NATIONS OFFICE FOR PROJECT SERVICES (UNOPS)');
+    final rightEn = (report.funderNameEn != null && report.funderNameEn!.trim().isNotEmpty)
+        ? report.funderNameEn!.trim()
+        : branding.rightLogoNameEn.trim();
 
-    final rightAr = (report.funderNameAr != null && report.funderNameAr!.isNotEmpty)
-        ? report.funderNameAr!
-        : ((report.projectInfo.funder.isNotEmpty)
-            ? report.projectInfo.funder
-            : (branding.rightLogoNameAr.isNotEmpty
-                ? branding.rightLogoNameAr
-                 : 'مكتب الأمم المتحدة لخدمات المشاريع'));
+    final rightAr = (report.funderNameAr != null && report.funderNameAr!.trim().isNotEmpty)
+        ? report.funderNameAr!.trim()
+        : (report.projectInfo.funder.trim().isNotEmpty
+            ? report.projectInfo.funder.trim()
+            : branding.rightLogoNameAr.trim());
 
     final headerArabicBlue = PdfColor.fromHex('1565C0');
     final headerEnglishBlack = PdfColors.black;
-
-    bool isLegacyEn(String? s) {
-      if (s == null || s.trim().isEmpty) return true;
-      final lower = s.toLowerCase();
-      if (lower.contains('al-etqan') || lower.contains('aletqan') || lower.contains('al etqan')) return false;
-      return lower.contains('bandar') || lower.contains('naji');
-    }
-
-    final contractorEn = !isLegacyEn(report.contractorNameEn)
-        ? report.contractorNameEn!
-        : (!isLegacyEn(branding.contractorNameEn)
-            ? branding.contractorNameEn
-            : 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions');
-
-    final ministryEn = (report.ministryNameEn != null && report.ministryNameEn!.isNotEmpty)
-        ? report.ministryNameEn!
-        : (isEducation
-            ? 'Ministry of Education'
-            : (branding.ministryNameEn.isNotEmpty
-                ? branding.ministryNameEn
-                : 'Ministry of Public Health and Population'));
 
 
     // Helper: Dynamically resolve page format and orientation based on engineer's choice (A4/A3, Portrait/Landscape)
@@ -338,199 +302,256 @@ class PdfExportService {
       return defaultFormat;
     }
 
-    // Helper: Smart English line formatting for long organizational names
-    List<pw.Widget> buildSmartEnglishLines(String text, {double fontSize = 5.2, bool isBold = false}) {
-      final clean = text.trim();
-      if (clean.isEmpty) return [];
+    // Helper: Formats lines under logos according to institutional typographic standards
+    // Supports:
+    // 1. Explicit line breaks (\n) if entered by the user (up to 3 lines).
+    // 2. Intelligent, balanced word wrapping into 1, 2, or 3 lines when entered on a single line.
+    // 3. Dynamic font scaling so that 1, 2, or 3 lines maintain clean visual balance and never overflow.
+    // 4. Proper Arabic character shaping (_ar) per line.
+    List<pw.Widget> buildHeaderLines(
+      String rawText, {
+      required bool isArabic,
+      required PdfColor color,
+      double? baseFontSize,
+      bool isBold = false,
+      double lineSpacing = 0.5,
+      bool isLandscape = false,
+    }) {
+      final text = rawText.trim();
+      if (text.isEmpty) return [];
 
-      if (clean.length <= 32) {
-        return [
-          pw.Text(
-            clean,
-            textAlign: pw.TextAlign.center,
-            style: textStyle(size: fontSize, isBold: isBold, color: headerEnglishBlack),
-          ),
-        ];
+      List<String> lines = [];
+
+      // Check if user explicitly used newlines
+      if (text.contains('\n')) {
+        lines = text
+            .split('\n')
+            .map((l) => l.trim())
+            .where((l) => l.isNotEmpty)
+            .take(3)
+            .toList();
       }
 
-      final words = clean.split(RegExp(r'\s+'));
-      if (words.length <= 1) {
-        return [
-          pw.Text(
-            clean,
-            textAlign: pw.TextAlign.center,
-            style: textStyle(size: fontSize - 0.6, isBold: isBold, color: headerEnglishBlack),
-          ),
-        ];
-      }
+      if (lines.isEmpty) {
+        // Single continuous string - determine optimal lines count (1, 2, or 3)
+        final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+        final length = text.length;
 
-      int bestSplit = 1;
-      int minDiff = 9999;
-      for (int i = 1; i < words.length; i++) {
-        final line1 = words.sublist(0, i).join(' ');
-        final line2 = words.sublist(i).join(' ');
-        final diff = (line1.length - line2.length).abs();
-        if (diff < minDiff) {
-          minDiff = diff;
-          bestSplit = i;
+        // Maximum single-line threshold calibrated to the full column width boundary
+        // (170pt portrait allows ~42 Arabic / ~48 English chars; 205pt landscape allows ~50 Arabic / ~58 English chars)
+        final int singleLineLimit = isLandscape
+            ? (isArabic ? 50 : 58)
+            : (isArabic ? 42 : 48);
+
+        final int doubleLineLimit = singleLineLimit * 2;
+
+        if (words.length <= 1 || length <= singleLineLimit) {
+          // 1 line - fills up to the maximum column limit without premature breaking
+          lines = [text];
+        } else if (words.length == 2 || length <= doubleLineLimit) {
+          // 2 balanced lines
+          int bestSplit = 1;
+          int minDiff = 99999;
+          for (int i = 1; i < words.length; i++) {
+            final l1 = words.sublist(0, i).join(' ');
+            final l2 = words.sublist(i).join(' ');
+            final diff = (l1.length - l2.length).abs();
+            if (diff < minDiff) {
+              minDiff = diff;
+              bestSplit = i;
+            }
+          }
+          lines = [
+            words.sublist(0, bestSplit).join(' '),
+            words.sublist(bestSplit).join(' '),
+          ];
+        } else {
+          // 3 balanced lines
+          int bestSplit1 = 1;
+          int bestSplit2 = 2;
+          double minVariance = 999999.0;
+          for (int i = 1; i < words.length - 1; i++) {
+            for (int j = i + 1; j < words.length; j++) {
+              final len1 = words.sublist(0, i).join(' ').length.toDouble();
+              final len2 = words.sublist(i, j).join(' ').length.toDouble();
+              final len3 = words.sublist(j).join(' ').length.toDouble();
+              final mean = (len1 + len2 + len3) / 3.0;
+              final variance = ((len1 - mean) * (len1 - mean) +
+                                (len2 - mean) * (len2 - mean) +
+                                (len3 - mean) * (len3 - mean));
+              if (variance < minVariance) {
+                minVariance = variance;
+                bestSplit1 = i;
+                bestSplit2 = j;
+              }
+            }
+          }
+          lines = [
+            words.sublist(0, bestSplit1).join(' '),
+            words.sublist(bestSplit1, bestSplit2).join(' '),
+            words.sublist(bestSplit2).join(' '),
+          ];
         }
       }
 
-      final line1 = words.sublist(0, bestSplit).join(' ');
-      final line2 = words.sublist(bestSplit).join(' ');
+      // Dynamic Font Scaling based on line count and language
+      final lineCount = lines.length;
+      final double defaultBaseSize = isArabic ? 6.8 : 5.2;
+      double calcFontSize = baseFontSize ?? defaultBaseSize;
 
-      return [
-        pw.Text(
-          line1,
-          textAlign: pw.TextAlign.center,
-          style: textStyle(size: fontSize, isBold: isBold, color: headerEnglishBlack),
-        ),
-        pw.SizedBox(height: 0.5),
-        pw.Text(
-          line2,
-          textAlign: pw.TextAlign.center,
-          style: textStyle(size: fontSize - 0.4, isBold: false, color: headerEnglishBlack),
-        ),
-      ];
+      if (lineCount == 2) {
+        calcFontSize = (baseFontSize ?? defaultBaseSize) * (isArabic ? 0.92 : 0.94);
+      } else if (lineCount >= 3) {
+        calcFontSize = (baseFontSize ?? defaultBaseSize) * (isArabic ? 0.82 : 0.84);
+      }
+
+      // Safeguard for ultra-long lines: scale font down if longest line exceeds column width capacity
+      int maxLineLength = 0;
+      for (final l in lines) {
+        if (l.length > maxLineLength) maxLineLength = l.length;
+      }
+      final int charThreshold = isLandscape
+          ? (isArabic ? 50 : 58)
+          : (isArabic ? 42 : 48);
+      if (maxLineLength > charThreshold) {
+        final scale = charThreshold / maxLineLength;
+        calcFontSize = (calcFontSize * scale).clamp(3.8, calcFontSize);
+      }
+
+      final widgets = <pw.Widget>[];
+      for (int i = 0; i < lines.length; i++) {
+        final lineStr = isArabic ? _ar(lines[i]) : lines[i];
+        if (i > 0) {
+          widgets.add(pw.SizedBox(height: lineSpacing));
+        }
+        widgets.add(
+          pw.Text(
+            lineStr,
+            textAlign: pw.TextAlign.center,
+            style: textStyle(
+              size: calcFontSize,
+              isBold: isBold,
+              color: color,
+            ),
+          ),
+        );
+      }
+      return widgets;
     }
 
     // Helper: Institutional Running Header (Top of every page)
     pw.Widget buildRunningHeader({bool isLandscape = false}) {
-      final logoColWidth = isLandscape ? 190.0 : 158.0;
+      final logoColWidth = isLandscape ? 205.0 : 170.0;
 
+      // 1. Left: Contractor Logo + English (Black) then Arabic (Blue)
       final contractorWidget = pw.SizedBox(
         width: logoColWidth,
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             if (logoContractor != null)
-              pw.Image(logoContractor, height: isLandscape ? 28 : 22, width: 80, fit: pw.BoxFit.contain)
+              pw.Image(logoContractor, height: isLandscape ? 36 : 30, width: 95, fit: pw.BoxFit.contain)
             else
-              pw.SizedBox(height: isLandscape ? 28 : 22, width: 80),
+              pw.SizedBox(height: isLandscape ? 36 : 30, width: 95),
             pw.SizedBox(height: 1.5),
-            // Arabic Name in Blue
-            if (contractorAr.contains('الأتقان') && (contractorAr.contains('الهندسية') || contractorAr.contains('طاقة'))) ...[
-              pw.Text(
-                _ar('مكتب الأتقان الهندسي'),
-                textAlign: pw.TextAlign.center,
-                style: textStyle(size: 6.8, isBold: true, color: headerArabicBlue),
-              ),
-              pw.Text(
-                _ar('للخدمات الهندسية وحلول الطاقة'),
-                textAlign: pw.TextAlign.center,
-                style: textStyle(size: 6.0, isBold: true, color: headerArabicBlue),
-              ),
-            ] else ...[
-              pw.Text(
-                _ar(contractorAr),
-                textAlign: pw.TextAlign.center,
-                style: textStyle(size: 6.6, isBold: true, color: headerArabicBlue),
-              ),
-            ],
-            if (contractorSub.isNotEmpty)
-              pw.Text(
-                _ar(contractorSub),
-                textAlign: pw.TextAlign.center,
-                style: textStyle(size: 5.8, isBold: true, color: headerArabicBlue),
-              ),
+            // English Name in Black FIRST (supports 1, 2, or 3 lines)
+            ...buildHeaderLines(
+              contractorEn,
+              isArabic: false,
+              color: headerEnglishBlack,
+              baseFontSize: 5.2,
+              isBold: true,
+              isLandscape: isLandscape,
+            ),
             pw.SizedBox(height: 1.0),
-            // English Name in Black
-            if (contractorEn.toLowerCase().contains('al-etqan') || contractorEn.toLowerCase().contains('aletqan')) ...[
-              pw.Text(
-                'Al-Etqan Engineering Office',
-                textAlign: pw.TextAlign.center,
-                style: textStyle(size: 5.2, isBold: true, color: headerEnglishBlack),
-              ),
+            // Arabic Name in Blue SECOND (supports 1, 2, or 3 lines)
+            ...buildHeaderLines(
+              contractorAr,
+              isArabic: true,
+              color: headerArabicBlue,
+              baseFontSize: 6.8,
+              isBold: true,
+              isLandscape: isLandscape,
+            ),
+            if (contractorSub.isNotEmpty) ...[
               pw.SizedBox(height: 0.5),
-              pw.Text(
-                'for Engineering Services & Energy Solutions',
-                textAlign: pw.TextAlign.center,
-                style: textStyle(size: 4.6, isBold: false, color: headerEnglishBlack),
+              ...buildHeaderLines(
+                contractorSub,
+                isArabic: true,
+                color: headerArabicBlue,
+                baseFontSize: 5.8,
+                isBold: true,
+                isLandscape: isLandscape,
               ),
-            ] else ...[
-              ...buildSmartEnglishLines(contractorEn, fontSize: 5.0, isBold: true),
             ],
           ],
         ),
       );
 
+      // 2. Middle (or Right when 2 logos): Ministry / Facility Logo + English (Black) then Arabic (Blue)
       final ministryWidget = pw.SizedBox(
         width: logoColWidth,
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             if (logoFacility != null)
-              pw.Image(logoFacility, height: isLandscape ? 30 : 23, width: 70, fit: pw.BoxFit.contain)
+              pw.Image(logoFacility, height: isLandscape ? 38 : 32, width: 85, fit: pw.BoxFit.contain)
             else
-              pw.SizedBox(height: isLandscape ? 30 : 23, width: 70),
+              pw.SizedBox(height: isLandscape ? 38 : 32, width: 85),
             pw.SizedBox(height: 1.5),
-            // Arabic Name in Blue
-            pw.Text(
-              _ar(ministryAr),
-              textAlign: pw.TextAlign.center,
-              style: textStyle(size: 6.8, isBold: true, color: headerArabicBlue),
+            // English Name in Black FIRST (supports 1, 2, or 3 lines)
+            ...buildHeaderLines(
+              ministryEn,
+              isArabic: false,
+              color: headerEnglishBlack,
+              baseFontSize: 5.2,
+              isBold: true,
+              isLandscape: isLandscape,
             ),
             pw.SizedBox(height: 1.0),
-            // English Name in Black
-            if (ministryEn.toLowerCase().contains('public health')) ...[
-              pw.Text(
-                'Ministry of Public Health & Population',
-                textAlign: pw.TextAlign.center,
-                style: textStyle(size: 5.2, isBold: true, color: headerEnglishBlack),
-              ),
-            ] else ...[
-              ...buildSmartEnglishLines(ministryEn, fontSize: 5.2, isBold: true),
-            ],
+            // Arabic Name in Blue SECOND (supports 1, 2, or 3 lines)
+            ...buildHeaderLines(
+              ministryAr,
+              isArabic: true,
+              color: headerArabicBlue,
+              baseFontSize: 6.8,
+              isBold: true,
+              isLandscape: isLandscape,
+            ),
           ],
         ),
       );
 
+      // 3. Right: Funder Logo + English (Black) then Arabic (Blue)
       final rightWidget = pw.SizedBox(
         width: logoColWidth,
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             if (logoUnops != null)
-              pw.Image(logoUnops, height: isLandscape ? 26 : 20, width: 80, fit: pw.BoxFit.contain)
+              pw.Image(logoUnops, height: isLandscape ? 34 : 28, width: 95, fit: pw.BoxFit.contain)
             else
-              pw.SizedBox(height: isLandscape ? 26 : 20, width: 80),
+              pw.SizedBox(height: isLandscape ? 34 : 28, width: 95),
             pw.SizedBox(height: 1.5),
-            // Arabic Name in Blue
-            if (rightAr.contains('الأمم المتحدة') && rightAr.contains('المشاريع')) ...[
-              pw.Text(
-                _ar('مكتب الأمم المتحدة'),
-                textAlign: pw.TextAlign.center,
-                style: textStyle(size: 6.8, isBold: true, color: headerArabicBlue),
-              ),
-              pw.Text(
-                _ar('لخدمات المشاريع - صنعاء'),
-                textAlign: pw.TextAlign.center,
-                style: textStyle(size: 6.0, isBold: true, color: headerArabicBlue),
-              ),
-            ] else ...[
-              pw.Text(
-                _ar(rightAr),
-                textAlign: pw.TextAlign.center,
-                style: textStyle(size: 6.6, isBold: true, color: headerArabicBlue),
-              ),
-            ],
+            // English Name in Black FIRST (supports 1, 2, or 3 lines)
+            ...buildHeaderLines(
+              rightEn,
+              isArabic: false,
+              color: headerEnglishBlack,
+              baseFontSize: 5.0,
+              isBold: true,
+              isLandscape: isLandscape,
+            ),
             pw.SizedBox(height: 1.0),
-            // English Name in Black
-            if (rightEn.toUpperCase().contains('UNOPS') || rightEn.toUpperCase().contains('PROJECT SERVICES')) ...[
-              pw.Text(
-                'United Nations Office for Project Services',
-                textAlign: pw.TextAlign.center,
-                style: textStyle(size: 4.8, isBold: false, color: headerEnglishBlack),
-              ),
-              pw.SizedBox(height: 0.5),
-              pw.Text(
-                '(UNOPS)',
-                textAlign: pw.TextAlign.center,
-                style: textStyle(size: 5.2, isBold: true, color: headerEnglishBlack),
-              ),
-            ] else ...[
-              ...buildSmartEnglishLines(rightEn, fontSize: 5.0, isBold: true),
-            ],
+            // Arabic Name in Blue SECOND (supports 1, 2, or 3 lines)
+            ...buildHeaderLines(
+              rightAr,
+              isArabic: true,
+              color: headerArabicBlue,
+              baseFontSize: 6.8,
+              isBold: true,
+              isLandscape: isLandscape,
+            ),
           ],
         ),
       );
@@ -595,7 +616,7 @@ class PdfExportService {
     }
 
     // Helper: Institutional Running Footer (Bottom of every page)
-    pw.Widget buildRunningFooter(int pageNum) {
+    pw.Widget buildRunningFooter(int pageNum, {bool hideBeneficiary = false}) {
       final facName = report.facilityInfo.facilityName.trim();
       return pw.Container(
         margin: const pw.EdgeInsets.only(top: 2),
@@ -618,15 +639,17 @@ class PdfExportService {
                       ),
                       child: pw.Text('Page $pageNum', style: textStyle(size: 8, isBold: true, color: PdfColors.white)),
                     ),
-                    pw.SizedBox(width: 6),
+                    pw.SizedBox(width: 8),
                     if (engineerSigImage != null) ...[
                       pw.Text('Engineer Signature: ', style: textStyle(size: 7.5)),
                       pw.Container(
-                        height: 18,
-                        width: 70,
-                        padding: const pw.EdgeInsets.only(bottom: 1),
-                        decoration: const pw.BoxDecoration(
-                          border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey600, width: 0.5)),
+                        height: 28,
+                        width: 90,
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: pw.BoxDecoration(
+                          color: PdfColors.white,
+                          border: pw.Border.all(color: cyanColor, width: 0.7),
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
                         ),
                         child: pw.Image(engineerSigImage, fit: pw.BoxFit.contain),
                       ),
@@ -638,29 +661,34 @@ class PdfExportService {
                     pw.Text(_ar('توقيع مهندس الصيانة'), style: textStyle(size: 7.5, isBold: true)),
                   ],
                 ),
-                // Right: Beneficiary Approval
-                pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
-                    if (beneficiarySigImage != null) ...[
-                      pw.Text('Beneficiary Approval: ', style: textStyle(size: 7.5)),
-                      pw.Container(
-                        height: 18,
-                        width: 70,
-                        padding: const pw.EdgeInsets.only(bottom: 1),
-                        decoration: const pw.BoxDecoration(
-                          border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey600, width: 0.5)),
+                // Right: Beneficiary Approval (hidden on Needs page)
+                if (!hideBeneficiary)
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      if (beneficiarySigImage != null) ...[
+                        pw.Text('Beneficiary Approval: ', style: textStyle(size: 7.5)),
+                        pw.Container(
+                          height: 28,
+                          width: 90,
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: pw.BoxDecoration(
+                            color: PdfColors.white,
+                            border: pw.Border.all(color: goldColor, width: 0.7),
+                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+                          ),
+                          child: pw.Image(beneficiarySigImage, fit: pw.BoxFit.contain),
                         ),
-                        child: pw.Image(beneficiarySigImage, fit: pw.BoxFit.contain),
-                      ),
-                    ] else ...[
-                      pw.Text('Beneficiary Approval ................................... ', style: textStyle(size: 7.5)),
+                      ] else ...[
+                        pw.Text('Beneficiary Approval ................................... ', style: textStyle(size: 7.5)),
+                      ],
+                      pw.Text(':', style: textStyle(size: 7.5, isBold: true)),
+                      pw.SizedBox(width: 3),
+                      pw.Text(_ar('مصادقة المستفيد'), style: textStyle(size: 7.5, isBold: true)),
                     ],
-                    pw.Text(':', style: textStyle(size: 7.5, isBold: true)),
-                    pw.SizedBox(width: 3),
-                    pw.Text(_ar('مصادقة المستفيد'), style: textStyle(size: 7.5, isBold: true)),
-                  ],
-                ),
+                  )
+                else
+                  pw.SizedBox(),
               ],
             ),
             pw.SizedBox(height: 2),
@@ -853,9 +881,9 @@ class PdfExportService {
               if (otherRaw.contains('مكيف')) {
                 otherType = 'مكيف هواء';
                 final tonMatch = RegExp(r'(\d+(?:\.\d+)?\s*طن)').firstMatch(otherRaw);
-                otherCap = tonMatch?.group(1) ?? '1 طن';
+                otherCap = tonMatch?.group(1) ?? '';
                 final countMatch = RegExp(r'عدد\s*(\d+)').firstMatch(otherRaw);
-                otherCount = countMatch?.group(1) ?? '2';
+                otherCount = countMatch?.group(1) ?? '';
               } else {
                 final parts = otherRaw.split(RegExp(r'[,،\n]|\s+عدد\s+'));
                 otherType = parts.isNotEmpty ? parts[0].trim() : otherRaw;
@@ -953,7 +981,7 @@ class PdfExportService {
                           children: [
                             pw.Expanded(
                               child: pw.Text(
-                                _ar(report.projectInfo.implementingContractor),
+                                _ar(contractorAr),
                                 style: textStyle(size: 9.5, isBold: true),
                                 textAlign: pw.TextAlign.right,
                               ),
@@ -1005,7 +1033,7 @@ class PdfExportService {
                         crossAxisAlignment: pw.CrossAxisAlignment.center,
                         children: [
                           pw.Text(
-                            _ar(report.visitDate.isNotEmpty ? 'تاريخ الزيارة : ${report.visitDate} م' : 'تاريخ الزيارة :      /    / 2025  م'),
+                            _ar(report.visitDate.isNotEmpty ? 'تاريخ الزيارة : ${report.visitDate} م' : 'تاريخ الزيارة :      /    / ${DateTime.now().year}  م'),
                             style: textStyle(size: 9, isBold: true),
                           ),
                           pw.SizedBox(width: 8),
@@ -1790,7 +1818,7 @@ class PdfExportService {
                 final cell = i < group.length ? group[i] : null;
                 final notes = cell?.notes ?? '';
                 final isAr = ArabicReshaper.hasArabic(notes);
-                final r = (cell != null && cell.internalResistance > 0) ? cell.internalResistance.toString() : '';
+                final torque = (cell != null && cell.boltTorque > 0) ? cell.boltTorque.toString() : '';
                 final v = (cell != null && cell.voltage > 0) ? cell.voltage.toStringAsFixed(2) : '';
 
                 return pw.TableRow(
@@ -1805,7 +1833,7 @@ class PdfExportService {
                               textAlign: isAr ? pw.TextAlign.right : pw.TextAlign.left,
                             ),
                           ),
-                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(r, style: textStyle(size: 7.8, isBold: true)))),
+                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(torque, style: textStyle(size: 7.8, isBold: true)))),
                     pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(v, style: textStyle(size: 8.2, isBold: true)))),
                     pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text('${i + 1}', style: textStyle(size: 7.8, isBold: true)))),
                   ],
@@ -1890,10 +1918,10 @@ class PdfExportService {
                 final notes = noteA.isNotEmpty ? noteA : noteB;
                 final isAr = ArabicReshaper.hasArabic(notes);
 
-                final rB = (cellB != null && cellB.internalResistance > 0) ? cellB.internalResistance.toString() : '';
+                final torqueB = (cellB != null && cellB.boltTorque > 0) ? cellB.boltTorque.toString() : '';
                 final vB = (cellB != null && cellB.voltage > 0) ? cellB.voltage.toStringAsFixed(2) : '';
 
-                final rA = (cellA != null && cellA.internalResistance > 0) ? cellA.internalResistance.toString() : '';
+                final torqueA = (cellA != null && cellA.boltTorque > 0) ? cellA.boltTorque.toString() : '';
                 final vA = (cellA != null && cellA.voltage > 0) ? cellA.voltage.toStringAsFixed(2) : '';
 
                 return pw.TableRow(
@@ -1910,11 +1938,11 @@ class PdfExportService {
                             ),
                           ),
                     // Group B
-                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(rB, style: textStyle(size: 7.2, isBold: true)))),
+                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(torqueB, style: textStyle(size: 7.2, isBold: true)))),
                     pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(vB, style: textStyle(size: 7.8, isBold: true)))),
                     pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text('${i + 1}', style: textStyle(size: 7.2, isBold: true)))),
                     // Group A
-                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(rA, style: textStyle(size: 7.2, isBold: true)))),
+                    pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(torqueA, style: textStyle(size: 7.2, isBold: true)))),
                     pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text(vA, style: textStyle(size: 7.8, isBold: true)))),
                     pw.Center(child: pw.Padding(padding: const pw.EdgeInsets.all(1.5), child: pw.Text('${i + 1}', style: textStyle(size: 7.2, isBold: true)))),
                   ],
@@ -1933,7 +1961,7 @@ class PdfExportService {
       } else if (report.batteryMeasurements.length > start) {
         return report.batteryMeasurements.skip(start).toList();
       }
-      return List.generate(24, (i) => BatteryMeasurement(cellNumber: start + i + 1, voltage: 0, internalResistance: 0));
+      return List.generate(24, (i) => BatteryMeasurement(cellNumber: start + i + 1, voltage: 0, boltTorque: 0, internalResistance: 0));
     }
 
     final activeBatGroups = report.activeBatteryGroups.isNotEmpty
@@ -2124,8 +2152,8 @@ class PdfExportService {
                           children: [
                             ...List.generate(totalCols, (i) {
                               final u = totalCols - i;
-                              final uLoad = getOpVal(['op_load_$u', 'inv_load_$u', 'load_$u', 'الحمل على الإنفرتر #$u', 'الحمل على الإنفرتر رقم $u']);
-                              final displayVal = uLoad.isNotEmpty ? uLoad : invLoadVal;
+                              final uLoad = getOpVal(['op_load_$u', 'inv_load_$u']);
+                              final displayVal = (u <= invCount && invCount > 0) ? (uLoad.isNotEmpty ? uLoad : (u == 1 ? invLoadVal : '')) : '';
                               return pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text((u <= invCount && invCount > 0) ? _ar(displayVal) : '', style: textStyle(size: unitFontSize, isBold: true))));
                             }),
                             pw.Padding(padding: cellPad, child: pw.Text(_ar('الحمل على الإنفرتر (وات)'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
@@ -2135,8 +2163,8 @@ class PdfExportService {
                           children: [
                             ...List.generate(totalCols, (i) {
                               final u = totalCols - i;
-                              final uAc = getOpVal(['op_ac_v_$u', 'inv_ac_$u', 'فرق جهد الخرج (متردد) #$u']);
-                              final displayVal = uAc.isNotEmpty ? uAc : invAcVal;
+                              final uAc = getOpVal(['op_ac_v_$u', 'inv_ac_$u']);
+                              final displayVal = (u <= invCount && invCount > 0) ? (uAc.isNotEmpty ? uAc : (u == 1 ? invAcVal : '')) : '';
                               return pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text((u <= invCount && invCount > 0) ? _ar(displayVal) : '', style: textStyle(size: unitFontSize, isBold: true))));
                             }),
                             pw.Padding(padding: cellPad, child: pw.Text(_ar('فرق جهد الخرج (متردد) بالفولت'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
@@ -2146,8 +2174,8 @@ class PdfExportService {
                           children: [
                             ...List.generate(totalCols, (i) {
                               final u = totalCols - i;
-                              final uDc = getOpVal(['op_dc_v_$u', 'inv_dc_$u', 'فرق جهد الدخول (مستمر) #$u']);
-                              final displayVal = uDc.isNotEmpty ? uDc : invDcVal;
+                              final uDc = getOpVal(['op_dc_v_$u', 'inv_dc_$u']);
+                              final displayVal = (u <= invCount && invCount > 0) ? (uDc.isNotEmpty ? uDc : (u == 1 ? invDcVal : '')) : '';
                               return pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text((u <= invCount && invCount > 0) ? _ar(displayVal) : '', style: textStyle(size: unitFontSize, isBold: true))));
                             }),
                             pw.Padding(padding: cellPad, child: pw.Text(_ar('فرق جهد الدخول (مستمر) بالفولت'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
@@ -2165,7 +2193,9 @@ class PdfExportService {
                           children: [
                             ...List.generate(totalCols, (i) {
                               final u = totalCols - i;
-                              return pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text((u <= ccCount && ccCount > 0) ? _ar(ccCurrentVal) : '', style: textStyle(size: unitFontSize, isBold: true))));
+                              final uCcI = getOpVal(['op_cc_i_$u', 'cc_i_$u']);
+                              final displayVal = (u <= ccCount && ccCount > 0) ? (uCcI.isNotEmpty ? uCcI : (u == 1 ? ccCurrentVal : '')) : '';
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text((u <= ccCount && ccCount > 0) ? _ar(displayVal) : '', style: textStyle(size: unitFontSize, isBold: true))));
                             }),
                             pw.Padding(padding: cellPad, child: pw.Text(_ar('التيار المنتج بمصفوفة الألواح (أمبير)'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
                           ],
@@ -2174,7 +2204,9 @@ class PdfExportService {
                           children: [
                             ...List.generate(totalCols, (i) {
                               final u = totalCols - i;
-                              return pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text((u <= ccCount && ccCount > 0) ? _ar(ccVoltageVal) : '', style: textStyle(size: unitFontSize, isBold: true))));
+                              final uCcV = getOpVal(['op_cc_v_$u', 'cc_v_$u']);
+                              final displayVal = (u <= ccCount && ccCount > 0) ? (uCcV.isNotEmpty ? uCcV : (u == 1 ? ccVoltageVal : '')) : '';
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: pw.Text((u <= ccCount && ccCount > 0) ? _ar(displayVal) : '', style: textStyle(size: unitFontSize, isBold: true))));
                             }),
                             pw.Padding(padding: cellPad, child: pw.Text(_ar('فرق جهد مصفوفة الألواح (فولت)'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
                           ],
@@ -2184,7 +2216,10 @@ class PdfExportService {
                           children: [
                             ...List.generate(totalCols, (i) {
                               final u = totalCols - i;
-                              return pw.Center(child: pw.Padding(padding: cellPad, child: (u <= ccCount && ccCount > 0 && monitorScreenGood) ? buildCheckmark(color: PdfColors.green900, size: 9) : pw.SizedBox()));
+                              final uCcMon = getOpVal(['op_cc_mon_$u', 'cc_mon_$u']);
+                              final isCcMon = (u <= ccCount && ccCount > 0) &&
+                                  (uCcMon.isEmpty ? monitorScreenGood : (uCcMon == 'true' || uCcMon == '1' || uCcMon == 'نعم'));
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: isCcMon ? buildCheckmark(color: PdfColors.green900, size: 9) : pw.SizedBox()));
                             }),
                             pw.Padding(padding: cellPad, child: pw.Text(_ar('شاشة المراقبة : كل منظمات الشحن متصلة بشاشة المراقبة'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
                           ],
@@ -2193,7 +2228,10 @@ class PdfExportService {
                           children: [
                             ...List.generate(totalCols, (i) {
                               final u = totalCols - i;
-                              return pw.Center(child: pw.Padding(padding: cellPad, child: (u <= invCount && invCount > 0 && monitorScreenGood) ? buildCheckmark(color: PdfColors.green900, size: 9) : pw.SizedBox()));
+                              final uInvMon = getOpVal(['op_inv_mon_$u', 'inv_mon_$u']);
+                              final isInvMon = (u <= invCount && invCount > 0) &&
+                                  (uInvMon.isEmpty ? monitorScreenGood : (uInvMon == 'true' || uInvMon == '1' || uInvMon == 'نعم'));
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: isInvMon ? buildCheckmark(color: PdfColors.green900, size: 9) : pw.SizedBox()));
                             }),
                             pw.Padding(padding: cellPad, child: pw.Text(_ar('كل أجهزة الإنفرترات متصلة بشاشة المراقبة'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
                           ],
@@ -2202,7 +2240,10 @@ class PdfExportService {
                           children: [
                             ...List.generate(totalCols, (i) {
                               final u = totalCols - i;
-                              return pw.Center(child: pw.Padding(padding: cellPad, child: (((u <= invCount && invCount > 0) || (u <= ccCount && ccCount > 0)) && monitorScreenGood) ? buildCheckmark(color: PdfColors.green900, size: 9) : pw.SizedBox()));
+                              final uMatch = getOpVal(['op_mon_match', 'mon_match']);
+                              final isMatched = ((u <= invCount && invCount > 0) || (u <= ccCount && ccCount > 0)) &&
+                                  (uMatch.isEmpty ? monitorScreenGood : (uMatch == 'true' || uMatch == '1' || uMatch == 'نعم'));
+                              return pw.Center(child: pw.Padding(padding: cellPad, child: isMatched ? buildCheckmark(color: PdfColors.green900, size: 9) : pw.SizedBox()));
                             }),
                             pw.Padding(padding: cellPad, child: pw.Text(_ar('مطابقة القراءات مع الواقع'), style: textStyle(size: labelFontSize, isBold: true), textAlign: pw.TextAlign.right)),
                           ],
@@ -2615,28 +2656,6 @@ class PdfExportService {
           pageFormat: pFormat,
           margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
           build: (pw.Context context) {
-            bool isLegacyContractorAr(String? s) {
-              if (s == null || s.trim().isEmpty) return true;
-              if (s == 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة') return false;
-              return s.contains('بندر ناجي') || s.contains('شركة') || s.contains('الإتقان') || s.contains('الاتقان');
-            }
-            bool isLegacyContractorEn(String? s) {
-              if (s == null || s.trim().isEmpty) return true;
-              if (s == 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions') return false;
-              return s.contains('Bandar Naji') || s.contains('Al-Etqan Al-Handasi') || s.contains('Co. Ltd') || s.contains('Ltd');
-            }
-
-            final contractorAr = !isLegacyContractorAr(report.projectInfo.implementingContractor)
-                ? report.projectInfo.implementingContractor
-                : (!isLegacyContractorAr(branding.contractorNameAr)
-                    ? branding.contractorNameAr
-                    : 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة');
-            final contractorEn = !isLegacyContractorEn(branding.contractorNameEn)
-                ? branding.contractorNameEn
-                : (!isLegacyContractorEn(report.projectInfo.implementingContractor)
-                    ? report.projectInfo.implementingContractor
-                    : 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions');
-
             // Clean facility name resolution to prevent contractor duplication
             final rawFacNameAr = report.facilityInfo.facilityName.trim();
             final facNameAr = rawFacNameAr.isNotEmpty && rawFacNameAr != contractorAr
@@ -2644,13 +2663,14 @@ class PdfExportService {
                 : (rawFacNameAr.isNotEmpty ? rawFacNameAr : '.....................................................');
 
             final rawFacNameEn = report.facilityInfo.facilityNameEn.trim();
-            final facNameEn = (rawFacNameEn.isNotEmpty && rawFacNameEn != contractorEn && !rawFacNameEn.contains('Al-Etqan'))
+            final facNameEn = (rawFacNameEn.isNotEmpty && rawFacNameEn != contractorEn)
                 ? rawFacNameEn
                 : (facNameAr != '.....................................................'
                     ? (ArabicReshaper.hasArabic(facNameAr) ? _ar(facNameAr) : facNameAr)
                     : '.....................................................');
 
-            final dateText = report.visitDate.isNotEmpty ? report.visitDate : '....../....../2025';
+            final currentYear = DateTime.now().year;
+            final dateText = report.visitDate.isNotEmpty ? report.visitDate : '....../....../$currentYear';
             final installDateStr = report.facilityInfo.installationDate.trim();
             final installDateDisplay = installDateStr.isNotEmpty ? installDateStr : '                            ';
 
@@ -2664,16 +2684,12 @@ class PdfExportService {
             final repNameEnText = report.approvalStatement.beneficiaryRepNameEn.trim();
             final repRoleEnText = report.approvalStatement.beneficiaryRepRoleEn.trim();
 
-            final hasFunder = showRight;
-            final funderSuffixAr = hasFunder
-                ? (rightAr.contains('مكتب الأمم المتحدة')
-                    ? '، والتي تم تمويلها من قبل البنك الدولي من خلال $rightAr.'
-                    : '، والتي تم تمويلها من قبل $rightAr.')
+            final hasFunder = showRight && (rightAr.isNotEmpty || rightEn.isNotEmpty);
+            final funderSuffixAr = (hasFunder && rightAr.isNotEmpty)
+                ? '، والتي تم تمويلها من قبل $rightAr.'
                 : '.';
-            final funderSuffixEn = hasFunder
-                ? (rightEn.contains('UNOPS')
-                    ? ', which was funded by the World Bank through the United Nations Office for Project Services (UNOPS).'
-                    : ', which was funded by $rightEn.')
+            final funderSuffixEn = (hasFunder && rightEn.isNotEmpty)
+                ? ', which was funded by $rightEn.'
                 : '.';
 
             final fullStatementAr = 'تؤكد إدارة $facNameAr أن مندوب $contractorAr قام بزيارة الموقع للصيانة الوقائية الدورية لمنظومة الطاقة الشمسية المركبة بتاريخ ($installDateDisplay). وخلال هذه الزيارة قاموا بإتمام كافة أعمال الصيانة الوقائية اللازمة لمنظومة الطاقة الشمسية$funderSuffixAr';
@@ -2895,8 +2911,14 @@ class PdfExportService {
                               children: [
                                 if (beneficiarySigImage != null)
                                   pw.Container(
-                                    height: isLandscape ? 38 : 32,
-                                    width: isLandscape ? 110 : 90,
+                                    height: isLandscape ? 44 : 38,
+                                    width: isLandscape ? 120 : 100,
+                                    padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                    decoration: pw.BoxDecoration(
+                                      color: PdfColors.white,
+                                      border: pw.Border.all(color: cyanColor, width: 0.8),
+                                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                                    ),
                                     child: pw.Image(beneficiarySigImage, fit: pw.BoxFit.contain),
                                   )
                                 else
@@ -2933,8 +2955,12 @@ class PdfExportService {
           margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
           build: (pw.Context context) {
             final projNameEn = report.projectInfo.projectName.isNotEmpty
-                ? _ar(report.projectInfo.projectName)
-                : 'The renewable energy for improved health services project in Yemen';
+                ? (ArabicReshaper.hasArabic(report.projectInfo.projectName)
+                    ? _ar(report.projectInfo.projectName)
+                    : report.projectInfo.projectName)
+                : '';
+
+            final currentYear = DateTime.now().year;
 
             return wrapWithPageFrame(
               context: context,
@@ -2998,7 +3024,7 @@ class PdfExportService {
                   // Date and Day (LTR)
                   pw.Row(
                     children: [
-                      pw.Text('Date : ${report.visitDate.isNotEmpty ? report.visitDate : "..... / ..... / 2025"}', style: textStyle(size: 8.5, isBold: true)),
+                      pw.Text('Date : ${report.visitDate.isNotEmpty ? report.visitDate : "..... / ..... / $currentYear"}', style: textStyle(size: 8.5, isBold: true)),
                       pw.SizedBox(width: 40),
                       pw.Text('Day : .....................', style: textStyle(size: 8.5, isBold: true)),
                     ],
@@ -3038,11 +3064,17 @@ class PdfExportService {
                               pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text('${att.serialNo}', style: textStyle(size: attFontSize, isBold: true)))),
                               pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text(_ar(att.name), style: textStyle(size: attFontSize + 0.5, isBold: true)))),
                               pw.Padding(
-                                padding: const pw.EdgeInsets.all(2),
+                                padding: const pw.EdgeInsets.all(2.5),
                                 child: pw.Center(
                                   child: attSigImg != null
                                       ? pw.Container(
-                                          height: isLandscape ? 32 : 26,
+                                          height: isLandscape ? 34 : 28,
+                                          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          decoration: pw.BoxDecoration(
+                                            color: PdfColors.white,
+                                            border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                                          ),
                                           child: pw.Image(attSigImg, fit: pw.BoxFit.contain),
                                         )
                                       : pw.Text('', style: textStyle(size: attFontSize)),
@@ -3124,27 +3156,13 @@ class PdfExportService {
       }
 
       if (validPhotos.isNotEmpty) {
-        // Build rows: Landscape photo takes a full-width row, Portrait photos take 2 per row
+        // Build rows: 2 photos per row regardless of orientation
         final photoRows = <List<ReportPhoto>>[];
-        final isRowLandscape = <bool>[];
-
-        int i = 0;
-        while (i < validPhotos.length) {
-          final current = validPhotos[i];
-          if (current.isLandscape) {
-            photoRows.add([current]);
-            isRowLandscape.add(true);
-            i++;
+        for (int i = 0; i < validPhotos.length; i += 2) {
+          if (i + 1 < validPhotos.length) {
+            photoRows.add([validPhotos[i], validPhotos[i + 1]]);
           } else {
-            if (i + 1 < validPhotos.length && !validPhotos[i + 1].isLandscape) {
-              photoRows.add([current, validPhotos[i + 1]]);
-              isRowLandscape.add(false);
-              i += 2;
-            } else {
-              photoRows.add([current]);
-              isRowLandscape.add(false);
-              i++;
-            }
+            photoRows.add([validPhotos[i]]);
           }
         }
 
@@ -3204,36 +3222,28 @@ class PdfExportService {
 
         pw.Widget buildRow(int rowIndex) {
           final photosInRow = photoRows[rowIndex];
-          final isLand = isRowLandscape[rowIndex];
-
-          if (isLand) {
+          if (photosInRow.length == 2) {
             return pw.Expanded(
-              child: buildPhotoCard(photosInRow.first),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Expanded(child: buildPhotoCard(photosInRow[0])),
+                  pw.SizedBox(width: 8),
+                  pw.Expanded(child: buildPhotoCard(photosInRow[1])),
+                ],
+              ),
             );
           } else {
-            if (photosInRow.length == 2) {
-              return pw.Expanded(
-                child: pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                  children: [
-                    pw.Expanded(child: buildPhotoCard(photosInRow[0])),
-                    pw.SizedBox(width: 8),
-                    pw.Expanded(child: buildPhotoCard(photosInRow[1])),
-                  ],
-                ),
-              );
-            } else {
-              return pw.Expanded(
-                child: pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                  children: [
-                    pw.Expanded(child: buildPhotoCard(photosInRow[0])),
-                    pw.SizedBox(width: 8),
-                    pw.Expanded(child: pw.SizedBox()),
-                  ],
-                ),
-              );
-            }
+            return pw.Expanded(
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Expanded(child: buildPhotoCard(photosInRow[0])),
+                  pw.SizedBox(width: 8),
+                  pw.Expanded(child: pw.SizedBox()),
+                ],
+              ),
+            );
           }
         }
 
@@ -3481,7 +3491,7 @@ class PdfExportService {
                     ),
                   ),
                   pw.SizedBox(height: 4),
-                  buildRunningFooter(pNum),
+                  buildRunningFooter(pNum, hideBeneficiary: true),
                 ],
               ),
             );

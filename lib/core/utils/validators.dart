@@ -49,11 +49,61 @@ class Validators {
     return null;
   }
 
-  /// التحقق من رقم هاتف يمني بسيط
-  static String? yemeniPhone(String? value) {
+  /// تنظيف وتوحيد رقم الهاتف اليمني واستخراج الأرقام الأساسية
+  static String cleanYemeniPhone(String raw) {
+    var s = raw.replaceAll(RegExp(r'[\s\-\(\)\.]'), '');
+    if (s.startsWith('+967')) {
+      s = s.substring(4);
+    } else if (s.startsWith('00967')) {
+      s = s.substring(5);
+    } else if (s.startsWith('967')) {
+      s = s.substring(3);
+    }
+    if (s.startsWith('0') && s.length >= 7) {
+      s = s.substring(1);
+    }
+    return s;
+  }
+
+  /// التعرف على مشغل شبكة الهاتف اليمني
+  static String? getYemeniCarrier(String? value) {
     if (value == null || value.trim().isEmpty) return null;
-    final cleaned = value.trim().replaceAll(' ', '').replaceAll('-', '');
-    if (cleaned.length < 9) return 'رقم الهاتف يبدو قصيراً جداً';
+    final cleaned = cleanYemeniPhone(value);
+    if (cleaned.startsWith('77') || cleaned.startsWith('78')) return 'يمن موبايل';
+    if (cleaned.startsWith('73')) return 'يو (YOU)';
+    if (cleaned.startsWith('71')) return 'سبأفون';
+    if (cleaned.startsWith('70')) return 'واي (Y)';
+    if (cleaned.startsWith('1')) return 'ثابت - صنعاء';
+    if (cleaned.startsWith('2')) return 'ثابت - عدن/لحج';
+    if (cleaned.startsWith('3')) return 'ثابت - الحديدة';
+    if (cleaned.startsWith('4')) return 'ثابت - تعز/إب';
+    if (cleaned.startsWith('5')) return 'ثابت - حضرموت/المهرة';
+    if (cleaned.startsWith('6')) return 'ثابت - ذمار/البيضاء/مأرب';
+    if (cleaned.startsWith('7') && cleaned.length <= 7) return 'ثابت - حجة/صعدة';
     return null;
+  }
+
+  /// تنسيق الرقم اليمني للعرض (مثال: 777 123 456)
+  static String formatYemeniPhone(String raw) {
+    final cleaned = cleanYemeniPhone(raw);
+    if (cleaned.length == 9 && (cleaned.startsWith('7'))) {
+      return '${cleaned.substring(0, 3)} ${cleaned.substring(3, 6)} ${cleaned.substring(6)}';
+    }
+    return raw;
+  }
+
+  /// التحقق الدقيق من صحة رقم الهاتف اليمني (محمول أو ثابت)
+  static String? yemeniPhone(String? value) {
+    if (value == null || value.trim().isEmpty) return null; // اختياري
+    final cleaned = cleanYemeniPhone(value);
+    // المحمول اليمني: 9 أرقام تبدأ بـ 70 أو 71 أو 73 أو 77 أو 78
+    if (RegExp(r'^7[01378]\d{7}$').hasMatch(cleaned)) {
+      return null;
+    }
+    // الثابت اليمني: مفتاح المحافظة (1-7) يليه 6 أرقام (إجمالي 7 أرقام)
+    if (RegExp(r'^[1-7]\d{6}$').hasMatch(cleaned)) {
+      return null;
+    }
+    return 'يرجى إدخال رقم يمني صحيح (يبدأ بـ 77، 78، 73، 71، 70 أو رقم ثابت)';
   }
 }

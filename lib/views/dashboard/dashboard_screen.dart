@@ -4,7 +4,7 @@ import 'package:intl/intl.dart' as intl;
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/responsive_layout.dart';
-import '../../core/utils/breadcrumb_widget.dart';
+import '../../services/default_templates.dart';
 import '../../state/reports_provider.dart';
 import '../../state/clients_provider.dart';
 import '../../state/sites_provider.dart';
@@ -14,6 +14,7 @@ import '../../models/organization.dart';
 import '../editor/report_editor_screen.dart';
 import '../session/dialogs/create_session_dialog.dart';
 import '../editor/widgets/stats_summary_card.dart';
+import '../onboarding/onboarding_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   final ValueChanged<int>? onNavigateTab;
@@ -33,15 +34,9 @@ class DashboardScreen extends ConsumerWidget {
       return Scaffold(
         appBar: _buildAppBar(branding),
         body: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
-            child: EmptyStateGuide(
-              icon: Icons.business_outlined,
-              title: 'ابدأ بإضافة عميلك الأول',
-              description: 'أنشئ عميلاً ثم أضف مواقعه لتبدأ تسجيل زيارات الصيانة',
-              actionLabel: 'إضافة عميل جديد',
-              onAction: () => onNavigateTab?.call(2), // Navigate to clients tab
-            ),
+            child: _EmptyDashboardExperience(onNavigateTab: onNavigateTab),
           ),
         ),
       );
@@ -625,3 +620,260 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 }
+
+/// تجربة البداية الاحترافية للوحة التحكم الفارغة
+class _EmptyDashboardExperience extends ConsumerStatefulWidget {
+  final ValueChanged<int>? onNavigateTab;
+
+  const _EmptyDashboardExperience({this.onNavigateTab});
+
+  @override
+  ConsumerState<_EmptyDashboardExperience> createState() => _EmptyDashboardExperienceState();
+}
+
+class _EmptyDashboardExperienceState extends ConsumerState<_EmptyDashboardExperience> {
+  bool _isLoadingDemo = false;
+
+  Future<void> _loadDemoReport() async {
+    if (_isLoadingDemo) return;
+    setState(() => _isLoadingDemo = true);
+
+    try {
+      final client = await ref.read(clientsProvider.notifier).addClient(
+        nameAr: 'وزارة الصحة العامة والسكان',
+        nameEn: 'Ministry of Public Health & Population',
+        clientType: 'جهة حكومية / وزارة',
+        contactPerson: 'د. عبد الله أحمد - ممثل المرفق',
+        phone: '777 123 456',
+        notes: 'عميل افتراضي للتقرير التجريبي النموذجي',
+      );
+
+      final site = await ref.read(sitesProvider.notifier).addSite(
+        clientId: client.id,
+        nameAr: 'مستشفى الثورة العام - مركز الغسيل الكلوي',
+        nameEn: 'Al-Thawra General Hospital - Dialysis Center',
+        governorate: 'صنعاء',
+        directorate: 'السبعين',
+        facilityType: 'مستشفى / مركز صحي',
+        category: 'CAT 8',
+        projectName: 'توريد وتركيب وصيانة 21 منظومة طاقة شمسية منفصلة عن الشبكة',
+        contactPerson: 'د. عبد الله أحمد',
+        phone: '777 123 456',
+        systemSpecs: const SystemSpecs(
+          systemType: 'منظومة طاقة شمسية منفصلة عن الشبكة Off-Grid',
+          capacityKw: '57.6 kW',
+          panelsCountAndWatt: '96 x 600Wp',
+          invertersCapacity: '10KVA',
+          invertersCount: '6',
+          chargeControllersCapacity: '100 A (150-250) Vdc',
+          chargeControllersCount: '13',
+          batteryUnitsCapacity: '2500Ah',
+          batteryUnitsCount: '96 x 2V',
+          otherAppliances: 'مكيف هواء 1 طن عدد 2',
+        ),
+      );
+
+      final sampleReport = DefaultTemplates.sampleDialysisReport.copyWith(
+        clientId: client.id,
+        siteId: site.id,
+        updatedAt: DateTime.now(),
+      );
+      await ref.read(reportsProvider.notifier).addReport(sampleReport);
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ReportEditorScreen(reportId: sampleReport.id),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء تحميل التقرير التجريبي: $e'),
+            backgroundColor: AppTheme.statusRejected,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingDemo = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 84,
+          height: 84,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppTheme.solarGold.withValues(alpha: 0.12),
+            border: Border.all(color: AppTheme.solarGold.withValues(alpha: 0.35), width: 2),
+          ),
+          child: const Icon(Icons.solar_power_rounded, size: 44, color: AppTheme.solarGold),
+        ),
+        const SizedBox(height: 18),
+        const Text(
+          'أهلاً بك في ReportCraft! ⚡',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: AppTheme.primaryNavy,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'منظومتك المتكاملة لتوثيق وإدارة تقارير صيانة الطاقة الشمسية.\nاختر كيف تود البدء اليوم:',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13, color: AppTheme.textMuted, height: 1.5),
+        ),
+        const SizedBox(height: 24),
+
+        // بطاقة المسار السريع: تقرير تجريبي
+        InkWell(
+          onTap: _isLoadingDemo ? null : _loadDemoReport,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppTheme.primaryNavy, Color(0xFF1E3C72)],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryNavy.withValues(alpha: 0.25),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.solarGold,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: _isLoadingDemo
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryNavy),
+                        )
+                      : const Icon(Icons.rocket_launch_rounded, color: AppTheme.primaryNavy, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'استكشاف تقرير تجريبي جاهز',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.solarGold,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'موصى به',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppTheme.primaryNavy),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'استعرض نموذج مركز الغسيل الكلوي (11 صفحة مع الـ PDF)',
+                        style: TextStyle(fontSize: 11.5, color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_back_ios_new_rounded, size: 14, color: Colors.white70),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // بطاقة إضافة أول عميل
+        InkWell(
+          onTap: () => widget.onNavigateTab?.call(2),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.borderSubtle),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.brandCyan.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.business_rounded, color: AppTheme.brandCyan, size: 22),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'إضافة عميل ومنشأة جديدة',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'سجّل بيانات الجهة ومواقع المنظومات لبدء عملك الميداني',
+                        style: TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_back_ios_new_rounded, size: 14, color: AppTheme.textMuted),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // زر تشغيل معالج الإعداد
+        TextButton.icon(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const OnboardingScreen(isFromSettings: true)),
+            );
+          },
+          icon: const Icon(Icons.tune_rounded, size: 16, color: AppTheme.textMuted),
+          label: const Text(
+            'تشغيل معالج الإعداد التفاعلي',
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppTheme.textMuted),
+          ),
+        ),
+      ],
+    );
+  }
+}
+

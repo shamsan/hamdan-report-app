@@ -50,7 +50,7 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
           decoration: BoxDecoration(
             color: const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.borderSubtle),
+            border: Border.all(color: const Color(0xFFCBD5E1), width: 1.1),
           ),
           child: Row(
             children: [
@@ -138,7 +138,7 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.borderSubtle),
+                border: Border.all(color: const Color(0xFFCBD5E1), width: 1.1),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

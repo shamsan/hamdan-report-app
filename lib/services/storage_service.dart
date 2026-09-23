@@ -185,48 +185,7 @@ class StorageService {
     for (final file in files) {
       try {
         final content = await file.readAsString();
-        var rep = Report.fromJson(jsonDecode(content) as Map<String, dynamic>);
-        bool needsUpdate = false;
-        if (rep.contractorNameAr != null &&
-            rep.contractorNameAr != 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة' &&
-            (rep.contractorNameAr!.contains('بندر ناجي') ||
-             rep.contractorNameAr!.contains('الإتقان') ||
-             rep.contractorNameAr!.contains('الاتقان') ||
-             rep.contractorNameAr!.contains('الأتقان'))) {
-          rep = rep.copyWith(
-            contractorNameAr: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة',
-            contractorSubtitleAr: '',
-            contractorNameEn: 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions',
-          );
-          needsUpdate = true;
-        }
-        if (rep.projectInfo.implementingContractor != 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة' &&
-            (rep.projectInfo.implementingContractor.contains('بندر ناجي') ||
-             rep.projectInfo.implementingContractor.contains('الإتقان') ||
-             rep.projectInfo.implementingContractor.contains('الاتقان') ||
-             rep.projectInfo.implementingContractor.contains('الأتقان'))) {
-          rep = rep.copyWith(
-            projectInfo: rep.projectInfo.copyWith(
-              implementingContractor: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة',
-            ),
-          );
-          needsUpdate = true;
-        }
-        if (rep.facilityInfo.facilityName != 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة' &&
-            (rep.facilityInfo.facilityName.contains('الإتقان') ||
-             rep.facilityInfo.facilityName.contains('الاتقان') ||
-             rep.facilityInfo.facilityName.contains('الأتقان'))) {
-          rep = rep.copyWith(
-            facilityInfo: rep.facilityInfo.copyWith(
-              facilityName: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة',
-              facilityNameEn: 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions',
-            ),
-          );
-          needsUpdate = true;
-        }
-        if (needsUpdate) {
-          await _writeReportFile(rep);
-        }
+        final rep = Report.fromJson(jsonDecode(content) as Map<String, dynamic>);
         reports.add(rep);
       } catch (_) {
         // ملف تالف — يُتجاهل
@@ -393,60 +352,17 @@ class StorageService {
     if (jsonString == null || jsonString.isEmpty) {
       const defaultProfile = OrganizationProfile(
         id: 'org_default',
-        name: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة',
-        subTitle: 'للخدمات الهندسية وحلول الطاقة',
-        contractorNameAr: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة',
-        contractorSubtitleAr: '',
-        contractorNameEn: 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions',
       );
       await saveBranding(defaultProfile);
       return defaultProfile;
     }
     try {
       final profile = OrganizationProfile.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
-      bool changed = false;
-      var updated = profile;
-      if (updated.name != 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة' &&
-          (updated.name.contains('الإتقان') ||
-           updated.name.contains('الاتقان') ||
-           updated.name.contains('الأتقان') ||
-           updated.name == 'مؤسسة الطاقة المتجددة' ||
-           updated.name == 'مشروع الطاقة المتجددة لدعم الخدمات الصحية' ||
-           updated.name == 'مكتب الأمم المتحدة لخدمات المشاريع ووزارة الصحة')) {
-        updated = updated.copyWith(
-          name: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة',
-          subTitle: 'للخدمات الهندسية وحلول الطاقة',
-        );
-        changed = true;
-      }
-      if (updated.contractorNameAr != 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة' &&
-          (updated.contractorNameAr.contains('بندر ناجي') ||
-           updated.contractorNameAr.contains('الإتقان') ||
-           updated.contractorNameAr.contains('الاتقان') ||
-           updated.contractorNameAr.contains('الأتقان') ||
-           updated.contractorNameAr.trim().isEmpty)) {
-        updated = updated.copyWith(
-          contractorNameAr: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة',
-          contractorSubtitleAr: '',
-          contractorNameEn: 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions',
-          clearContractorLogo: true,
-        );
-        changed = true;
-      }
-      if (changed) {
-        await saveBranding(updated);
-      }
-      return updated;
+      return profile;
     } catch (_) {
       const defaultProfile = OrganizationProfile(
         id: 'org_default',
-        name: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة',
-        subTitle: 'للخدمات الهندسية وحلول الطاقة',
-        contractorNameAr: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة',
-        contractorSubtitleAr: '',
-        contractorNameEn: 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions',
       );
-      await saveBranding(defaultProfile);
       return defaultProfile;
     }
   }

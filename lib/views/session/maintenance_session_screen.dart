@@ -35,6 +35,7 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
   bool _smartNavigation = true; // القفز التكيفي الذكي للبنود المعلقة
   final Set<int> _skippedIndices = <int>{};
   List<SessionQuestion> _questions = [];
+  late final AppLifecycleListener _lifecycleListener;
 
   @override
   void initState() {
@@ -42,10 +43,19 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
     _currentIndex = widget.initialQuestionIndex;
     _pageController = PageController(initialPage: _currentIndex);
     _loadReport();
+
+    // حفظ فوري للتقرير عند مغادرة التطبيق أو ورود مكالمة
+    _lifecycleListener = AppLifecycleListener(
+      onPause: () => ref.read(reportsProvider.notifier).updateReport(_report),
+      onInactive: () => ref.read(reportsProvider.notifier).updateReport(_report),
+      onDetach: () => ref.read(reportsProvider.notifier).updateReport(_report),
+      onHide: () => ref.read(reportsProvider.notifier).updateReport(_report),
+    );
   }
 
   @override
   void dispose() {
+    _lifecycleListener.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -781,12 +791,63 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
     final currentQ = _questions.isNotEmpty ? _questions[_currentIndex] : null;
     final isLastQuestion = _currentIndex == _questions.length - 1;
 
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, result) {
+    Future<bool?> showExitConfirmation() async {
+      final uninspected = _questions.where((q) => !q.isInspected).length;
+      if (uninspected == 0) {
         ref.read(reportsProvider.notifier).updateReport(_report);
+        return true;
+      }
+
+      return showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.pause_circle_outline_rounded, color: Color(0xFFD97706), size: 24),
+              SizedBox(width: 8),
+              Text('مغادرة جلسة الفحص', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            'يتبقى $uninspected بنداً لم يتم فحصها بعد. سيتم حفظ كافة الإجابات الحالية لتتمكن من متابعتها في أي وقت.',
+            style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('متابعة الفحص', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0B3A60),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () {
+                ref.read(reportsProvider.notifier).updateReport(_report);
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('حفظ وخروج'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldLeave = await showExitConfirmation();
+        if (shouldLeave == true && context.mounted) {
+          Navigator.of(context).pop();
+        }
       },
-      child: Scaffold(
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
           title: Column(
@@ -904,8 +965,9 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildBottomActionBar(
     SessionQuestion? currentQ,

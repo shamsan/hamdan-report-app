@@ -69,6 +69,7 @@ class YemenLocations {
       'باجل',
       'بيت الفقيه',
       'زبيد',
+      'الجراحي',
       'القناوص',
       'المراوعة',
       'الدريهمي',
@@ -86,7 +87,7 @@ class YemenLocations {
       'السخنة',
       'جبل راس',
       'المغلاف',
-      'حجلية',
+      'الحجيلة',
     ],
     'تعز': [
       'القاهرة',
@@ -104,7 +105,7 @@ class YemenLocations {
       'الوازعية',
       'موزع',
       'المخا',
-      'ذباب',
+      'ذباب (باب المندب)',
       'الصلو',
       'حيفان',
       'خدير',
@@ -157,6 +158,7 @@ class YemenLocations {
       'وصاب السافل',
       'ضوران أنس',
       'جبل الشرق',
+      'المنار',
     ],
     'صعدة': [
       'صعدة',
@@ -173,6 +175,7 @@ class YemenLocations {
       'حيدان',
       'ساقين',
       'الظاهر',
+      'الحشوة',
     ],
     'عمران': [
       'عمران',
@@ -192,6 +195,19 @@ class YemenLocations {
       'السودة',
       'السود',
       'صوير',
+      'جبل عيال يزيد',
+      'عيال سريح',
+    ],
+    'المحويت': [
+      'مدينة المحويت',
+      'المحويت',
+      'شبام كوكبان',
+      'الطويلة',
+      'الرجم',
+      'الخبت',
+      'بني سعد',
+      'ملحان',
+      'حفاش',
     ],
     'حضرموت': [
       'المكلا',
@@ -217,6 +233,9 @@ class YemenLocations {
       'ثمود',
       'رماه',
       'زمخ ومنوخ',
+      'غيل بن يمين',
+      'حجر الصيعر',
+      'قف العوامر',
     ],
     'مأرب': [
       'مدينة مأرب',
@@ -232,6 +251,7 @@ class YemenLocations {
       'رحبة',
       'ماهلية',
       'حريب القراميش',
+      'رغوان',
     ],
     'البيضاء': [
       'البيضاء',
@@ -300,6 +320,7 @@ class YemenLocations {
       'دهر',
       'الطلح',
       'عرماء',
+      'حطيب',
     ],
     'الجوف': [
       'الحزم',
@@ -362,6 +383,13 @@ class YemenLocations {
     final g = governorate.trim();
     if (governoratesAndDistricts.containsKey(g)) {
       return governoratesAndDistricts[g]!;
+    }
+    // Normalization for common aliases
+    if (g == 'صنعاء' || g.contains('أمانة العاصمة')) {
+      return governoratesAndDistricts['صنعاء (أمانة العاصمة)']!;
+    }
+    if (g.contains('سقطرى')) {
+      return governoratesAndDistricts['أرخبيل سقطرى']!;
     }
     for (final entry in governoratesAndDistricts.entries) {
       if (entry.key.contains(g) || g.contains(entry.key)) {

@@ -3,21 +3,24 @@ class BatteryMeasurement {
   final int stringNumber;
   final double voltage;           // Volts (e.g. 2.15V)
   final double temperature;       // Celsius (e.g. 28.5C)
+  final double boltTorque;        // N.m (عزم براغي الربط)
   final double internalResistance;// mOhm (e.g. 0.35)
   final String notes;
 
   const BatteryMeasurement({
     required this.cellNumber,
     this.stringNumber = 1,
-    this.voltage = 2.15,
-    this.temperature = 28.0,
-    this.internalResistance = 0.32,
+    this.voltage = 0.0,
+    this.temperature = 0.0,
+    this.boltTorque = 0.0,
+    this.internalResistance = 0.0,
     this.notes = '',
   });
 
   BatteryMeasurement copyWith({
     double? voltage,
     double? temperature,
+    double? boltTorque,
     double? internalResistance,
     String? notes,
   }) {
@@ -26,6 +29,7 @@ class BatteryMeasurement {
       stringNumber: stringNumber,
       voltage: voltage ?? this.voltage,
       temperature: temperature ?? this.temperature,
+      boltTorque: boltTorque ?? this.boltTorque,
       internalResistance: internalResistance ?? this.internalResistance,
       notes: notes ?? this.notes,
     );
@@ -36,6 +40,7 @@ class BatteryMeasurement {
     'stringNumber': stringNumber,
     'voltage': voltage,
     'temperature': temperature,
+    'boltTorque': boltTorque,
     'internalResistance': internalResistance,
     'notes': notes,
   };
@@ -43,9 +48,10 @@ class BatteryMeasurement {
   factory BatteryMeasurement.fromJson(Map<String, dynamic> json) => BatteryMeasurement(
     cellNumber: json['cellNumber'] ?? 1,
     stringNumber: json['stringNumber'] ?? 1,
-    voltage: (json['voltage'] as num?)?.toDouble() ?? 2.15,
-    temperature: (json['temperature'] as num?)?.toDouble() ?? 28.0,
-    internalResistance: (json['internalResistance'] as num?)?.toDouble() ?? 0.32,
+    voltage: (json['voltage'] as num?)?.toDouble() ?? 0.0,
+    temperature: (json['temperature'] as num?)?.toDouble() ?? 0.0,
+    boltTorque: (json['boltTorque'] as num?)?.toDouble() ?? 0.0,
+    internalResistance: (json['internalResistance'] as num?)?.toDouble() ?? 0.0,
     notes: json['notes'] ?? '',
   );
 }
@@ -65,7 +71,7 @@ class OperationalData {
     required this.unit,
     required this.measuredValue,
     required this.standardRange,
-    this.status = 'طبيعي',
+    this.status = '',
     this.notes = '',
   });
 
@@ -103,7 +109,7 @@ class OperationalData {
     unit: json['unit'] ?? '',
     measuredValue: json['measuredValue'] ?? '',
     standardRange: json['standardRange'] ?? '',
-    status: json['status'] ?? 'طبيعي',
+    status: json['status'] ?? '',
     notes: json['notes'] ?? '',
   );
 }
@@ -116,20 +122,25 @@ class StringMeasurement {
   final double operatingVoltageVmp;
   final double operatingCurrentImp;
   final double solarIrradiance; // W/m2
-  final double calculatedPower;
   final String notes;
 
   const StringMeasurement({
     required this.stringNumber,
-    this.panelCount = 8,
-    this.openCircuitVoltageVoc = 390.0,
-    this.shortCircuitCurrentIsc = 14.5,
-    this.operatingVoltageVmp = 320.0,
-    this.operatingCurrentImp = 13.8,
-    this.solarIrradiance = 850.0,
-    this.calculatedPower = 4416.0,
-    this.notes = 'أداء مطابق للمعايير',
+    this.panelCount = 0,
+    this.openCircuitVoltageVoc = 0.0,
+    this.shortCircuitCurrentIsc = 0.0,
+    this.operatingVoltageVmp = 0.0,
+    this.operatingCurrentImp = 0.0,
+    this.solarIrradiance = 0.0,
+    this.notes = '',
   });
+
+  /// Dynamic calculated power (W) = Vmp * Imp
+  double get calculatedPower => (operatingVoltageVmp > 0 && operatingCurrentImp > 0)
+      ? (operatingVoltageVmp * operatingCurrentImp).roundToDouble()
+      : 0.0;
+
+  bool get hasData => openCircuitVoltageVoc > 0 || shortCircuitCurrentIsc > 0 || operatingVoltageVmp > 0;
 
   StringMeasurement copyWith({
     int? panelCount,
@@ -149,7 +160,6 @@ class StringMeasurement {
       operatingVoltageVmp: operatingVoltageVmp ?? this.operatingVoltageVmp,
       operatingCurrentImp: operatingCurrentImp ?? this.operatingCurrentImp,
       solarIrradiance: solarIrradiance ?? this.solarIrradiance,
-      calculatedPower: calculatedPower ?? this.calculatedPower,
       notes: notes ?? this.notes,
     );
   }
@@ -168,13 +178,12 @@ class StringMeasurement {
 
   factory StringMeasurement.fromJson(Map<String, dynamic> json) => StringMeasurement(
     stringNumber: json['stringNumber'] ?? 1,
-    panelCount: json['panelCount'] ?? 8,
-    openCircuitVoltageVoc: (json['openCircuitVoltageVoc'] as num?)?.toDouble() ?? 390.0,
-    shortCircuitCurrentIsc: (json['shortCircuitCurrentIsc'] as num?)?.toDouble() ?? 14.5,
-    operatingVoltageVmp: (json['operatingVoltageVmp'] as num?)?.toDouble() ?? 320.0,
-    operatingCurrentImp: (json['operatingCurrentImp'] as num?)?.toDouble() ?? 13.8,
-    solarIrradiance: (json['solarIrradiance'] as num?)?.toDouble() ?? 850.0,
-    calculatedPower: (json['calculatedPower'] as num?)?.toDouble() ?? 4416.0,
+    panelCount: json['panelCount'] ?? 0,
+    openCircuitVoltageVoc: (json['openCircuitVoltageVoc'] as num?)?.toDouble() ?? 0.0,
+    shortCircuitCurrentIsc: (json['shortCircuitCurrentIsc'] as num?)?.toDouble() ?? 0.0,
+    operatingVoltageVmp: (json['operatingVoltageVmp'] as num?)?.toDouble() ?? 0.0,
+    operatingCurrentImp: (json['operatingCurrentImp'] as num?)?.toDouble() ?? 0.0,
+    solarIrradiance: (json['solarIrradiance'] as num?)?.toDouble() ?? 0.0,
     notes: json['notes'] ?? '',
   );
 }

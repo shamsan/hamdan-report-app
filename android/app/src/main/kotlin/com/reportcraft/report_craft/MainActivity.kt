@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.provider.ContactsContract
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -15,8 +16,11 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.reportcraft/camera"
+    private val CONTACTS_CHANNEL = "com.reportcraft/contacts"
     private val CAMERA_REQUEST_CODE = 8801
+    private val CONTACT_REQUEST_CODE = 8802
     private var pendingResult: MethodChannel.Result? = null
+    private var pendingContactResult: MethodChannel.Result? = null
     private var photoFile: File? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,6 +75,21 @@ class MainActivity : FlutterActivity() {
                 result.notImplemented()
             }
         }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CONTACTS_CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == "pickContact") {
+                try {
+                    val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
+                    pendingContactResult = result
+                    startActivityForResult(intent, CONTACT_REQUEST_CODE)
+                } catch (e: Exception) {
+                    pendingContactResult = null
+                    result.error("CONTACT_ERROR", e.message ?: "Failed to open contacts", null)
+                }
+            } else {
+                result.notImplemented()
+            }
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -86,6 +105,33 @@ class MainActivity : FlutterActivity() {
                     result?.success(null)
                 }
             } catch (e: Exception) {
+                result?.success(null)
+            }
+        } else if (requestCode == CONTACT_REQUEST_CODE) {
+            val result = pendingContactResult
+            pendingContactResult = null
+            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+                try {
+                    val contactUri: Uri = data.data!!
+                    val projection = arrayOf(
+                        ContactsContract.CommonDataKinds.Phone.NUMBER,
+                        ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
+                    )
+                    contentResolver.query(contactUri, projection, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val numberIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                            val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                            val number = if (numberIdx >= 0) cursor.getString(numberIdx) else null
+                            val name = if (nameIdx >= 0) cursor.getString(nameIdx) else null
+                            result?.success(mapOf("phone" to number, "name" to name))
+                            return
+                        }
+                    }
+                    result?.success(null)
+                } catch (e: Exception) {
+                    result?.success(null)
+                }
+            } else {
                 result?.success(null)
             }
         }

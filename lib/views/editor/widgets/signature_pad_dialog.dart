@@ -146,205 +146,226 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       backgroundColor: Colors.white,
-      child: Container(
-        width: 390,
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryNavy.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.draw_rounded, color: AppTheme.primaryNavy, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'التوقيع الرقمي: ${widget.role}',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppTheme.textDark),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      if (widget.signerName.isNotEmpty)
-                        Text('المعتمد: ${widget.signerName}', style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                      child: const Icon(Icons.draw_rounded, color: AppTheme.primaryNavy, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'التوقيع الرقمي: ${widget.role}',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppTheme.textDark),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (widget.signerName.isNotEmpty)
+                            Text(
+                              'المعتمد: ${widget.signerName}',
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: AppTheme.textMuted),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  height: 180,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.borderSubtle, width: 1.5),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Subtle guide baseline
+                      Positioned(
+                        bottom: 45,
+                        left: 24,
+                        right: 24,
+                        child: Container(
+                          height: 1,
+                          color: Colors.grey.shade300,
+                        ),
+                      ),
+                      if (_lines.isEmpty && _existingBytes != null && !_existingDismissed)
+                        Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppTheme.borderSubtle),
+                                ),
+                                child: Image.memory(_existingBytes!, height: 85, fit: BoxFit.contain),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                                ),
+                                child: const Text(
+                                  'توقيع معتمد حالياً — ارسم فوقه للتعديل أو اضغط حذف بالأسفل',
+                                  style: TextStyle(fontSize: 10.5, color: Color(0xFF1E40AF), fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else if (_lines.isEmpty)
+                        Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.gesture_rounded, color: AppTheme.textMuted.withValues(alpha: 0.4), size: 28),
+                              const SizedBox(height: 4),
+                              Text(
+                                'قم بالتوقيع هنا بإصبعك أو القلم',
+                                style: TextStyle(fontSize: 12, color: AppTheme.textMuted.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
+                      GestureDetector(
+                        onPanStart: (details) {
+                          setState(() {
+                            _existingDismissed = true;
+                            _lines.add([details.localPosition]);
+                          });
+                        },
+                        onPanUpdate: (details) {
+                          setState(() {
+                            if (_lines.isNotEmpty) {
+                              _lines.last.add(details.localPosition);
+                            }
+                          });
+                        },
+                        child: CustomPaint(
+                          painter: _SignatureCanvasPainter(_lines),
+                          size: Size.infinite,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: AppTheme.textMuted),
-                  onPressed: () => Navigator.pop(context),
+                const SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.brandCyan,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      ),
+                      icon: const Icon(Icons.upload_file_rounded, size: 16),
+                      label: const Text('إرفاق صورة توقيع', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      onPressed: _pickSignatureImage,
+                    ),
+                    if (widget.onCleared != null || (_existingBytes != null && !_existingDismissed))
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.statusRejected,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        ),
+                        icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                        label: const Text('حذف التوقيع', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          widget.onCleared?.call();
+                          if (mounted) Navigator.pop(context);
+                        },
+                      ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              height: 180,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.borderSubtle, width: 1.5),
-              ),
-              child: Stack(
-                children: [
-                  // Subtle guide baseline
-                  Positioned(
-                    bottom: 45,
-                    left: 24,
-                    right: 24,
-                    child: Container(
-                      height: 1,
-                      color: Colors.grey.shade300,
-                    ),
-                  ),
-                  if (_lines.isEmpty && _existingBytes != null && !_existingDismissed)
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppTheme.borderSubtle),
-                            ),
-                            child: Image.memory(_existingBytes!, height: 85, fit: BoxFit.contain),
-                          ),
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFBFDBFE)),
-                            ),
-                            child: const Text(
-                              'توقيع معتمد حالياً — ارسم فوقه للتعديل أو اضغط حذف بالأسفل',
-                              style: TextStyle(fontSize: 10.5, color: Color(0xFF1E40AF), fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.textMuted,
+                        side: const BorderSide(color: AppTheme.borderSubtle),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                    )
-                  else if (_lines.isEmpty)
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.gesture_rounded, color: AppTheme.textMuted.withValues(alpha: 0.4), size: 28),
-                          const SizedBox(height: 4),
-                          Text(
-                            'قم بالتوقيع هنا بإصبعك أو القلم',
-                            style: TextStyle(fontSize: 12, color: AppTheme.textMuted.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ),
-                  GestureDetector(
-                    onPanStart: (details) {
-                      setState(() {
+                      icon: const Icon(Icons.clear_rounded, size: 16),
+                      label: const Text('مسح', style: TextStyle(fontSize: 12)),
+                      onPressed: () => setState(() {
+                        _lines.clear();
                         _existingDismissed = true;
-                        _lines.add([details.localPosition]);
-                      });
-                    },
-                    onPanUpdate: (details) {
-                      setState(() {
-                        if (_lines.isNotEmpty) {
-                          _lines.last.add(details.localPosition);
-                        }
-                      });
-                    },
-                    child: CustomPaint(
-                      painter: _SignatureCanvasPainter(_lines),
-                      size: Size.infinite,
+                      }),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.brandCyan,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  ),
-                  icon: const Icon(Icons.upload_file_rounded, size: 16),
-                  label: const Text('إرفاق صورة توقيع من الهاتف', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                  onPressed: _pickSignatureImage,
-                ),
-                if (widget.onCleared != null || (_existingBytes != null && !_existingDismissed))
-                  TextButton.icon(
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.statusRejected,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.textMuted,
+                        side: const BorderSide(color: AppTheme.borderSubtle),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.undo_rounded, size: 16),
+                      label: const Text('تراجع', style: TextStyle(fontSize: 12)),
+                      onPressed: _lines.isNotEmpty
+                          ? () => setState(() => _lines.removeLast())
+                          : null,
                     ),
-                    icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                    label: const Text('إلغاء / حذف التوقيع', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                    onPressed: () {
-                      widget.onCleared?.call();
-                      if (mounted) Navigator.pop(context);
-                    },
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textMuted,
-                    side: const BorderSide(color: AppTheme.borderSubtle),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  icon: const Icon(Icons.clear_rounded, size: 16),
-                  label: const Text('مسح', style: TextStyle(fontSize: 12)),
-                  onPressed: () => setState(() {
-                    _lines.clear();
-                    _existingDismissed = true;
-                  }),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textMuted,
-                    side: const BorderSide(color: AppTheme.borderSubtle),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  icon: const Icon(Icons.undo_rounded, size: 16),
-                  label: const Text('تراجع', style: TextStyle(fontSize: 12)),
-                  onPressed: _lines.isNotEmpty
-                      ? () => setState(() => _lines.removeLast())
-                      : null,
-                ),
-                const Spacer(),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryNavy,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  icon: const Icon(Icons.check_rounded, size: 16),
-                  label: const Text('اعتماد التوقيع', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  onPressed: _exportSignature,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryNavy,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.check_rounded, size: 16),
+                        label: const Text(
+                          'اعتماد التوقيع',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onPressed: _exportSignature,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

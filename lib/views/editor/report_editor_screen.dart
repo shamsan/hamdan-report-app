@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/responsive_layout.dart';
@@ -15,11 +16,13 @@ import '../../services/default_templates.dart';
 import '../../state/branding_provider.dart';
 import '../../state/reports_provider.dart';
 import '../preview/pdf_preview_screen.dart';
+import '../common/page_layout_settings_sheet.dart';
 import 'widgets/inspection_table_widget.dart';
 import 'widgets/battery_matrix_widget.dart';
 import 'widgets/photo_section_widget.dart';
 import 'widgets/signature_pad_dialog.dart';
 import 'widgets/needs_section_widget.dart';
+import 'widgets/inverter_data_entry_widget.dart';
 import '../session/maintenance_session_screen.dart';
 
 class ReportEditorScreen extends ConsumerStatefulWidget {
@@ -35,9 +38,71 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
   late Report _report;
   bool _isLoaded = false;
   int _activePhase = 0;
+  int _opSectionTab = 0; // 0: الإنفرترات, 1: منظمات الشحن, 2: البارامترات العامة والمراقبة
   Timer? _saveDebounce;
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
+  bool _isNavigatingToPreview = false;
+  late final AppLifecycleListener _lifecycleListener;
+
+  void _flushPendingSave() {
+    if (_hasUnsavedChanges) {
+      _saveDebounce?.cancel();
+      ref.read(reportsProvider.notifier).updateReport(_report);
+      if (mounted) {
+        setState(() {
+          _hasUnsavedChanges = false;
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  String _getOpValue(String id, {String fallback = ''}) {
+    final match = _report.operationalData.firstWhere(
+      (o) => o.id == id,
+      orElse: () => OperationalData(id: id, parameter: '', unit: '', measuredValue: fallback, standardRange: ''),
+    );
+    return match.measuredValue;
+  }
+
+  void _setOpValue(String id, String val, {String parameter = '', String unit = '', String range = ''}) {
+    final list = List<OperationalData>.from(_report.operationalData);
+    final idx = list.indexWhere((o) => o.id == id);
+    if (idx != -1) {
+      list[idx] = list[idx].copyWith(measuredValue: val);
+    } else {
+      list.add(OperationalData(
+        id: id,
+        parameter: parameter,
+        unit: unit,
+        measuredValue: val,
+        standardRange: range,
+        status: 'طبيعي',
+      ));
+    }
+    _onReportUpdated(_report.copyWith(operationalData: list));
+  }
+
+  void _batchSetOpValues(Map<String, String> entries, {String unit = '', String range = ''}) {
+    final list = List<OperationalData>.from(_report.operationalData);
+    for (final e in entries.entries) {
+      final idx = list.indexWhere((o) => o.id == e.key);
+      if (idx != -1) {
+        list[idx] = list[idx].copyWith(measuredValue: e.value);
+      } else {
+        list.add(OperationalData(
+          id: e.key,
+          parameter: '',
+          unit: unit,
+          measuredValue: e.value,
+          standardRange: range,
+          status: 'طبيعي',
+        ));
+      }
+    }
+    _onReportUpdated(_report.copyWith(operationalData: list));
+  }
 
   late final TextEditingController _funderNameArController;
   late final TextEditingController _funderNameEnController;
@@ -59,10 +124,20 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
     _contractorNameArController = TextEditingController(text: _report.contractorNameAr ?? branding.contractorNameAr);
     _contractorSubtitleArController = TextEditingController(text: _report.contractorSubtitleAr ?? branding.contractorSubtitleAr);
     _contractorNameEnController = TextEditingController(text: _report.contractorNameEn ?? branding.contractorNameEn);
+
+    // معيار دورة حياة التطبيق: الحفظ الفوري عند تصغير التطبيق أو وضع السكون أو ورود مكالمة
+    _lifecycleListener = AppLifecycleListener(
+      onPause: _flushPendingSave,
+      onInactive: _flushPendingSave,
+      onDetach: _flushPendingSave,
+      onHide: _flushPendingSave,
+    );
   }
 
   @override
   void dispose() {
+    _flushPendingSave();
+    _lifecycleListener.dispose();
     _saveDebounce?.cancel();
     _funderNameArController.dispose();
     _funderNameEnController.dispose();
@@ -76,11 +151,23 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
 
   void _loadReport() {
     final reports = ref.read(reportsProvider);
-    final found = reports.firstWhere(
-      (r) => r.id == widget.reportId,
-      orElse: () => reports.first,
-    );
-    _report = found;
+    final match = reports.where((r) => r.id == widget.reportId);
+    if (match.isEmpty) {
+      if (reports.isNotEmpty) {
+        _report = reports.first;
+      }
+      _isLoaded = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('تعذر العثور على التقرير المطلوب')),
+          );
+          Navigator.of(context).pop();
+        }
+      });
+      return;
+    }
+    _report = match.first;
     _isLoaded = true;
   }
 
@@ -174,6 +261,139 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
     );
   }
 
+  Future<void> _openMaintenanceSession() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MaintenanceSessionScreen(reportId: _report.id),
+      ),
+    );
+    _loadReport();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openPdfPreview() async {
+    if (_isNavigatingToPreview) return;
+    _isNavigatingToPreview = true;
+    _flushPendingSave();
+    HapticFeedback.lightImpact();
+
+    try {
+      final updated = await Navigator.push<Report>(
+        context,
+        MaterialPageRoute(builder: (_) => PdfPreviewScreen(report: _report)),
+      );
+      if (updated != null && mounted) {
+        setState(() {
+          _report = updated;
+        });
+        ref.read(reportsProvider.notifier).updateReport(updated);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isNavigatingToPreview = false);
+      }
+    }
+  }
+
+  Future<bool?> _showUnsavedChangesDialog() async {
+    HapticFeedback.mediumImpact();
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppTheme.solarGold, size: 24),
+            SizedBox(width: 8),
+            Text('تغييرات غير محفوظة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'لديك تعديلات قيد الإدخال لم تُحفظ بعد على التقرير. كيف تود المتابعة؟',
+          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('متابعة التحرير', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppTheme.statusRejected),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('تجاهل التغييرات'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryNavy,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.save_rounded, size: 16),
+            label: const Text('حفظ وخروج', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () {
+              _flushPendingSave();
+              Navigator.pop(ctx, true);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showPageSetupSheet() async {
+    final result = await PageLayoutSettingsSheet.show(
+      context,
+      initialOrientations: _report.pageOrientations,
+    );
+    if (result != null && mounted) {
+      _onReportUpdated(_report.copyWith(pageOrientations: result.pageOrientations));
+    }
+  }
+
+  Widget _buildPageSetupControl(int pageNumber, String pageTitle) {
+    final ori = _report.pageOrientations[pageNumber] ?? (pageNumber == 8 ? 'landscape' : 'portrait');
+    final isLandscape = ori == 'landscape';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryNavy.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.primaryNavy.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isLandscape ? Icons.crop_landscape_rounded : Icons.crop_portrait_rounded,
+            size: 18,
+            color: AppTheme.primaryNavy,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$pageTitle: A4 - ${isLandscape ? "أفقي" : "عمودي"}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              foregroundColor: AppTheme.brandCyan,
+              visualDensity: VisualDensity.compact,
+            ),
+            icon: const Icon(Icons.tune_rounded, size: 15),
+            label: const Text('تغيير التنسيق', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+            onPressed: _showPageSetupSheet,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_isLoaded) {
@@ -183,89 +403,64 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
     final progress = _report.completionRatio;
 
     return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, result) {
-        if (_hasUnsavedChanges) {
-          _saveDebounce?.cancel();
-          ref.read(reportsProvider.notifier).updateReport(_report);
+      canPop: !_hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldLeave = await _showUnsavedChangesDialog();
+        if (shouldLeave == true && context.mounted) {
+          Navigator.of(context).pop();
         }
       },
-      child: Scaffold(
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: Scaffold(
         appBar: AppBar(
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 _report.facilityInfo.facilityName.isNotEmpty
                     ? _report.facilityInfo.facilityName
                     : _report.title,
                 style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               Text(
                 'عقد: ${_report.contractNumber} • تقرير: ${_report.reportNumber}',
                 style: const TextStyle(fontSize: 11, color: Colors.white70),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
           actions: [
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white70),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: const Icon(Icons.flash_on_rounded, size: 16, color: AppTheme.solarGold),
-              label: const Text('جلسة الفحص', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MaintenanceSessionScreen(reportId: _report.id),
-                  ),
-                );
-                _loadReport();
-                setState(() {});
-              },
-            ),
-            const SizedBox(width: 8),
             IconButton(
-              icon: const Icon(Icons.tune_rounded, color: Colors.white, size: 20),
+              icon: const Icon(Icons.flash_on_rounded, color: AppTheme.solarGold),
+              tooltip: 'جلسة الفحص الميداني',
+              onPressed: _openMaintenanceSession,
+            ),
+            IconButton(
+              icon: const Icon(Icons.tune_rounded, color: Colors.white),
               tooltip: 'إعدادات مقاسات وتنسيق الصفحات (A4 / A3)',
-              onPressed: _showPageSetupDialog,
+              onPressed: _showPageSetupSheet,
             ),
-            const SizedBox(width: 4),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.solarGold,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: const Icon(Icons.picture_as_pdf, size: 16),
-              label: const Text('معاينة وتصدير PDF', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-              onPressed: () async {
-                final updated = await Navigator.push<Report>(
-                  context,
-                  MaterialPageRoute(builder: (_) => PdfPreviewScreen(report: _report)),
-                );
-                if (updated != null && mounted) {
-                  setState(() {
-                    _report = updated;
-                  });
-                  ref.read(reportsProvider.notifier).updateReport(updated);
-                }
-              },
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
+              tooltip: 'معاينة وتصدير PDF',
+              onPressed: _openPdfPreview,
             ),
-            const SizedBox(width: 4),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.white),
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               tooltip: 'خيارات إضافية',
               onSelected: (val) {
-                if (val == 'duplicate') {
-                  _showDuplicateDialog();
-                }
+                if (val == 'duplicate') _showDuplicateDialog();
+                if (val == 'session') _openMaintenanceSession();
+                if (val == 'preview') _openPdfPreview();
+                if (val == 'pages') _showPageSetupSheet();
               },
               itemBuilder: (_) => [
                 const PopupMenuItem(
@@ -278,9 +473,39 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                     ],
                   ),
                 ),
+                const PopupMenuItem(
+                  value: 'session',
+                  child: Row(
+                    children: [
+                      Icon(Icons.flash_on_rounded, size: 18, color: AppTheme.solarGold),
+                      SizedBox(width: 8),
+                      Text('جلسة الفحص التفاعلية', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'preview',
+                  child: Row(
+                    children: [
+                      Icon(Icons.picture_as_pdf_rounded, size: 18, color: AppTheme.primaryNavy),
+                      SizedBox(width: 8),
+                      Text('معاينة وتصدير PDF', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'pages',
+                  child: Row(
+                    children: [
+                      Icon(Icons.tune_rounded, size: 18, color: AppTheme.primaryNavy),
+                      SizedBox(width: 8),
+                      Text('تنسيق ومقاسات الصفحات', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
               ],
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
           ],
         ),
         body: Column(
@@ -451,9 +676,64 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
             ),
           ],
         ),
+        bottomNavigationBar: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: const Border(top: BorderSide(color: AppTheme.borderSubtle)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryNavy,
+                      side: const BorderSide(color: AppTheme.primaryNavy, width: 1.4),
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.flash_on_rounded, size: 17, color: AppTheme.solarGold),
+                    label: const Text(
+                      'جلسة الفحص',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+                    ),
+                    onPressed: _openMaintenanceSession,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.solarGold,
+                      foregroundColor: AppTheme.textDark,
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 2,
+                    ),
+                    icon: const Icon(Icons.picture_as_pdf_rounded, size: 17, color: AppTheme.primaryNavy),
+                    label: const Text(
+                      'معاينة وتصدير PDF',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900),
+                    ),
+                    onPressed: _openPdfPreview,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildPhaseTab(int index, IconData icon, String title, {int incompleteCount = 0}) {
     final isSelected = _activePhase == index;
@@ -756,15 +1036,29 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
-                      controller: _funderNameArController,
-                      decoration: const InputDecoration(labelText: 'اسم الجهة الممولة (عربي)'),
-                      onChanged: (v) => _onReportUpdated(_report.copyWith(funderNameAr: v)),
+                      controller: _funderNameEnController,
+                      minLines: 1,
+                      maxLines: 3,
+                      keyboardType: TextInputType.multiline,
+                      decoration: const InputDecoration(
+                        labelText: 'اسم الجهة الممولة (إنجليزي) - يظهر أولاً بالأسود',
+                        hintText: 'e.g. United Nations Office for Project Services',
+                        helperText: 'يدعم 1 أو 2 أو 3 أسطر (اضغط Enter للتقسيم اليدوي)',
+                      ),
+                      onChanged: (v) => _onReportUpdated(_report.copyWith(funderNameEn: v)),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
-                      controller: _funderNameEnController,
-                      decoration: const InputDecoration(labelText: 'Funder Name (English)'),
-                      onChanged: (v) => _onReportUpdated(_report.copyWith(funderNameEn: v)),
+                      controller: _funderNameArController,
+                      minLines: 1,
+                      maxLines: 3,
+                      keyboardType: TextInputType.multiline,
+                      decoration: const InputDecoration(
+                        labelText: 'اسم الجهة الممولة (عربي) - يظهر ثانياً بالأزرق',
+                        hintText: 'مثال: مكتب الأمم المتحدة لخدمات المشاريع',
+                        helperText: 'يدعم 1 أو 2 أو 3 أسطر (اضغط Enter للتقسيم اليدوي)',
+                      ),
+                      onChanged: (v) => _onReportUpdated(_report.copyWith(funderNameAr: v)),
                     ),
                   ],
                 ],
@@ -908,15 +1202,29 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
-                    controller: _ministryNameArController,
-                    decoration: const InputDecoration(labelText: 'اسم الوزارة / الجهة المالكة (عربي)'),
-                    onChanged: (v) => _onReportUpdated(_report.copyWith(ministryNameAr: v)),
+                    controller: _ministryNameEnController,
+                    minLines: 1,
+                    maxLines: 3,
+                    keyboardType: TextInputType.multiline,
+                    decoration: const InputDecoration(
+                      labelText: 'اسم الوزارة / الجهة المالكة (إنجليزي) - يظهر أولاً بالأسود',
+                      hintText: 'e.g. Ministry of Public Health and Population',
+                      helperText: 'يدعم 1 أو 2 أو 3 أسطر (اضغط Enter للتقسيم اليدوي)',
+                    ),
+                    onChanged: (v) => _onReportUpdated(_report.copyWith(ministryNameEn: v)),
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
-                    controller: _ministryNameEnController,
-                    decoration: const InputDecoration(labelText: 'Ministry Name (English)'),
-                    onChanged: (v) => _onReportUpdated(_report.copyWith(ministryNameEn: v)),
+                    controller: _ministryNameArController,
+                    minLines: 1,
+                    maxLines: 3,
+                    keyboardType: TextInputType.multiline,
+                    decoration: const InputDecoration(
+                      labelText: 'اسم الوزارة / الجهة المالكة (عربي) - يظهر ثانياً بالأزرق',
+                      hintText: 'مثال: وزارة الصحة العامة والسكان',
+                      helperText: 'يدعم 1 أو 2 أو 3 أسطر (اضغط Enter للتقسيم اليدوي)',
+                    ),
+                    onChanged: (v) => _onReportUpdated(_report.copyWith(ministryNameAr: v)),
                   ),
                 ],
               ),
@@ -991,21 +1299,41 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
+                    controller: _contractorNameEnController,
+                    minLines: 1,
+                    maxLines: 3,
+                    keyboardType: TextInputType.multiline,
+                    decoration: const InputDecoration(
+                      labelText: 'اسم المقاول المنفذ (إنجليزي) - يظهر أولاً بالأسود',
+                      hintText: 'e.g. Al-Etqan Engineering Office',
+                      helperText: 'يدعم 1 أو 2 أو 3 أسطر (اضغط Enter للتقسيم اليدوي)',
+                    ),
+                    onChanged: (v) => _onReportUpdated(_report.copyWith(contractorNameEn: v)),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
                     controller: _contractorNameArController,
-                    decoration: const InputDecoration(labelText: 'اسم المقاول المنفذ (عربي)'),
-                    onChanged: (v) => _onReportUpdated(_report.copyWith(contractorNameAr: v)),
+                    minLines: 1,
+                    maxLines: 3,
+                    keyboardType: TextInputType.multiline,
+                    decoration: const InputDecoration(
+                      labelText: 'اسم المقاول المنفذ (عربي) - يظهر ثانياً بالأزرق',
+                      hintText: 'مثال: مكتب الأتقان الهندسي',
+                      helperText: 'يدعم 1 أو 2 أو 3 أسطر (اضغط Enter للتقسيم اليدوي)',
+                    ),
+                    onChanged: (v) => _onReportUpdated(_report.copyWith(
+                      contractorNameAr: v,
+                      projectInfo: _report.projectInfo.copyWith(implementingContractor: v),
+                    )),
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _contractorSubtitleArController,
-                    decoration: const InputDecoration(labelText: 'الصفة / التتمة (عربي مثل: للتجارة والمقاولات)'),
+                    decoration: const InputDecoration(
+                      labelText: 'الصفة / التتمة (عربي مثل: للخدمات الهندسية وحلول الطاقة)',
+                      hintText: 'للخدمات الهندسية وحلول الطاقة',
+                    ),
                     onChanged: (v) => _onReportUpdated(_report.copyWith(contractorSubtitleAr: v)),
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _contractorNameEnController,
-                    decoration: const InputDecoration(labelText: 'Contractor Name (English)'),
-                    onChanged: (v) => _onReportUpdated(_report.copyWith(contractorNameEn: v)),
                   ),
                 ],
               ),
@@ -1347,7 +1675,13 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
               child: TextFormField(
                 initialValue: p.implementingContractor,
                 decoration: const InputDecoration(labelText: 'المقاول المنفذ'),
-                onChanged: (v) => _onReportUpdated(_report.copyWith(projectInfo: p.copyWith(implementingContractor: v))),
+                onChanged: (v) {
+                  _contractorNameArController.text = v;
+                  _onReportUpdated(_report.copyWith(
+                    contractorNameAr: v,
+                    projectInfo: p.copyWith(implementingContractor: v),
+                  ));
+                },
               ),
             ),
           ],
@@ -1429,54 +1763,76 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
         Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
-                key: ValueKey('gov_$currentGov'),
-                initialValue: govList.contains(currentGov) ? currentGov : null,
-                decoration: const InputDecoration(
-                  labelText: 'المحافظة',
-                  prefixIcon: Icon(Icons.location_city_outlined, size: 20),
-                ),
-                items: govList.map((g) => DropdownMenuItem(
-                  value: g,
-                  child: Text(g, style: const TextStyle(fontSize: 13)),
-                )).toList(),
-                onChanged: (newGov) {
-                  if (newGov == null) return;
-                  final newDistricts = YemenLocations.getDistrictsFor(newGov);
-                  final defaultDist = newDistricts.isNotEmpty ? newDistricts.first : '';
-                  _onReportUpdated(_report.copyWith(
-                    facilityInfo: f.copyWith(
-                      governorate: newGov,
-                      directorate: defaultDist,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'المحافظة',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                  ),
+                  const SizedBox(height: 5),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('gov_$currentGov'),
+                    initialValue: govList.contains(currentGov) ? currentGov : null,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      hintText: 'اختر المحافظة',
+                      prefixIcon: Icon(Icons.location_city_outlined, size: 20),
                     ),
-                    projectInfo: _report.projectInfo.copyWith(
-                      governorate: newGov,
-                      district: defaultDist,
-                    ),
-                  ));
-                },
+                    items: govList.map((g) => DropdownMenuItem(
+                      value: g,
+                      child: Text(g, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+                    )).toList(),
+                    onChanged: (newGov) {
+                      if (newGov == null) return;
+                      final newDistricts = YemenLocations.getDistrictsFor(newGov);
+                      final defaultDist = newDistricts.isNotEmpty ? newDistricts.first : '';
+                      _onReportUpdated(_report.copyWith(
+                        facilityInfo: f.copyWith(
+                          governorate: newGov,
+                          directorate: defaultDist,
+                        ),
+                        projectInfo: _report.projectInfo.copyWith(
+                          governorate: newGov,
+                          district: defaultDist,
+                        ),
+                      ));
+                    },
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: DropdownButtonFormField<String>(
-                key: ValueKey('dist_${currentGov}_$currentDist'),
-                initialValue: distList.contains(currentDist) ? currentDist : (distList.isNotEmpty ? distList.first : null),
-                decoration: const InputDecoration(
-                  labelText: 'المديرية',
-                  prefixIcon: Icon(Icons.map_outlined, size: 20),
-                ),
-                items: distList.map((d) => DropdownMenuItem(
-                  value: d,
-                  child: Text(d, style: const TextStyle(fontSize: 13)),
-                )).toList(),
-                onChanged: (newDist) {
-                  if (newDist == null) return;
-                  _onReportUpdated(_report.copyWith(
-                    facilityInfo: f.copyWith(directorate: newDist),
-                    projectInfo: _report.projectInfo.copyWith(district: newDist),
-                  ));
-                },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'المديرية',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                  ),
+                  const SizedBox(height: 5),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('dist_${currentGov}_$currentDist'),
+                    initialValue: distList.contains(currentDist) ? currentDist : (distList.isNotEmpty ? distList.first : null),
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      hintText: 'اختر المديرية',
+                      prefixIcon: Icon(Icons.map_outlined, size: 20),
+                    ),
+                    items: distList.map((d) => DropdownMenuItem(
+                      value: d,
+                      child: Text(d, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+                    )).toList(),
+                    onChanged: (newDist) {
+                      if (newDist == null) return;
+                      _onReportUpdated(_report.copyWith(
+                        facilityInfo: f.copyWith(directorate: newDist),
+                        projectInfo: _report.projectInfo.copyWith(district: newDist),
+                      ));
+                    },
+                  ),
+                ],
               ),
             ),
           ],
@@ -1690,158 +2046,356 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
 
   Widget _buildOperationalDataForm() {
     // Parse inverters count from system specs
-    final match = RegExp(r'\d+').firstMatch(_report.systemSpecs.invertersCount);
-    final invCount = match != null ? (int.tryParse(match.group(0)!) ?? 1) : 1;
+    final invMatch = RegExp(r'\d+').firstMatch(_report.systemSpecs.invertersCount);
+    final invCount = invMatch != null ? (int.tryParse(invMatch.group(0)!) ?? 1) : 1;
     final effectiveInvCount = invCount > 0 ? (invCount > 13 ? 13 : invCount) : 1;
 
-    // Separate inverter load readings from general operational readings
-    final generalOps = _report.operationalData.where((op) => !op.id.startsWith('op_load')).toList();
+    // Parse charge controllers count from system specs
+    final ccMatch = RegExp(r'\d+').firstMatch(_report.systemSpecs.chargeControllersCount);
+    final ccCount = ccMatch != null ? (int.tryParse(ccMatch.group(0)!) ?? 0) : 0;
+    final effectiveCcCount = ccCount > 0 ? (ccCount > 13 ? 13 : ccCount) : (effectiveInvCount > 1 ? effectiveInvCount * 2 : 4);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildPageSetupControl(8, 'صفحة 8 (بيانات التشغيل)'),
-        // Section: Inverter loads
+        const SizedBox(height: 8),
+
+        // Navigation Tabs / Segmented switcher for operational data
         Container(
-          padding: const EdgeInsets.all(12),
-          margin: const EdgeInsets.only(bottom: 14),
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: const Color(0xFFF0FDF4),
+            color: const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFBBF7D0)),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _opSectionTab = 0),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _opSectionTab == 0 ? Colors.white : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: _opSectionTab == 0
+                          ? [const BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 1))]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.bolt, size: 16, color: _opSectionTab == 0 ? const Color(0xFF16A34A) : Colors.grey[600]),
+                        const SizedBox(width: 6),
+                        Text(
+                          'الإنفرترات ($effectiveInvCount)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: _opSectionTab == 0 ? FontWeight.bold : FontWeight.normal,
+                            color: _opSectionTab == 0 ? AppTheme.textDark : Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _opSectionTab = 1),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _opSectionTab == 1 ? Colors.white : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: _opSectionTab == 1
+                          ? [const BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 1))]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.wb_sunny_rounded, size: 16, color: _opSectionTab == 1 ? const Color(0xFFD97706) : Colors.grey[600]),
+                        const SizedBox(width: 6),
+                        Text(
+                          'منظمات الشحن ($effectiveCcCount)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: _opSectionTab == 1 ? FontWeight.bold : FontWeight.normal,
+                            color: _opSectionTab == 1 ? AppTheme.textDark : Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _opSectionTab = 2),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _opSectionTab == 2 ? Colors.white : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: _opSectionTab == 2
+                          ? [const BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 1))]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.tune_rounded, size: 16, color: _opSectionTab == 2 ? const Color(0xFF2563EB) : Colors.grey[600]),
+                        const SizedBox(width: 6),
+                        Text(
+                          'المراقبة والحرارة',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: _opSectionTab == 2 ? FontWeight.bold : FontWeight.normal,
+                            color: _opSectionTab == 2 ? AppTheme.textDark : Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // TAB 0: INVERTERS
+        if (_opSectionTab == 0) ...[
+          InverterDataEntryWidget(
+            report: _report,
+            onReportUpdated: _onReportUpdated,
+          ),
+        ],
+
+        // TAB 1: CHARGE CONTROLLERS
+        if (_opSectionTab == 1) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'أدخل قياسات كل منظم شحن بشكل مستقل (تيار المصفوفة، جهد المصفوفة، وحالة المراقبة):',
+                    style: TextStyle(fontSize: 11.5, color: Color(0xFF92400E), fontWeight: FontWeight.bold),
+                  ),
+                ),
+                if (effectiveCcCount > 1)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      backgroundColor: Colors.white,
+                      side: const BorderSide(color: Color(0xFFFCD34D)),
+                    ),
+                    icon: const Icon(Icons.copy_all, size: 14, color: Color(0xFFD97706)),
+                    label: const Text('نسخ #1 للكل', style: TextStyle(fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      final i1 = _getOpValue('op_cc_i_1', fallback: _getOpValue('op_cc_i'));
+                      final v1 = _getOpValue('op_cc_v_1', fallback: _getOpValue('op_cc_v'));
+                      final updates = <String, String>{};
+                      for (int u = 2; u <= effectiveCcCount; u++) {
+                        if (i1.isNotEmpty) updates['op_cc_i_$u'] = i1;
+                        if (v1.isNotEmpty) updates['op_cc_v_$u'] = v1;
+                      }
+                      if (updates.isNotEmpty) {
+                        _batchSetOpValues(updates);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('تم نسخ التيار والجهد من منظم الشحن #1 إلى باقي المنظمات ($effectiveCcCount)')),
+                        );
+                      }
+                    },
+                  ),
+              ],
+            ),
+          ),
+          ...List.generate(effectiveCcCount, (i) {
+            final u = i + 1;
+            final iVal = _getOpValue('op_cc_i_$u', fallback: u == 1 ? _getOpValue('op_cc_i') : '');
+            final vVal = _getOpValue('op_cc_v_$u', fallback: u == 1 ? _getOpValue('op_cc_v') : '');
+            final monVal = _getOpValue('op_cc_mon_$u', fallback: 'true');
+            final isMon = monVal != 'false' && monVal != '0' && monVal != 'لا';
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFCBD5E1), width: 1.1),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.bolt, color: Color(0xFF16A34A), size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'أحمال الإنفرترات المقاسة (لكل إنفرتر على حدة - عدد: $effectiveInvCount):',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('منظم الشحن #$u', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
+                      ),
+                      const Spacer(),
+                      InkWell(
+                        onTap: () {
+                          _setOpValue('op_cc_mon_$u', isMon ? 'false' : 'true', parameter: 'شاشة المراقبة منظم #$u');
+                        },
+                        child: Row(
+                          children: [
+                            Checkbox(
+                              value: isMon,
+                              activeColor: const Color(0xFFD97706),
+                              onChanged: (val) {
+                                _setOpValue('op_cc_mon_$u', val == true ? 'true' : 'false', parameter: 'شاشة المراقبة منظم #$u');
+                              },
+                            ),
+                            const Text('متصل بشاشة المراقبة', style: TextStyle(fontSize: 11.5, color: AppTheme.textDark)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'أدخل الحمل المقاس لكل إنفرتر على حدة ليعكس التقرير أداء كل وحدة بدقة.',
-                style: TextStyle(fontSize: 11, color: Color(0xFF4B5563)),
-              ),
-              const SizedBox(height: 12),
-              ...List.generate(effectiveInvCount, (i) {
-                final u = i + 1;
-                final opId = 'op_load_$u';
-                final existing = _report.operationalData.firstWhere(
-                  (o) => o.id == opId,
-                  orElse: () => _report.operationalData.firstWhere(
-                    (o) => o.id == 'op_load',
-                    orElse: () => const OperationalData(id: '', parameter: '', unit: 'W', measuredValue: '', standardRange: '< 5000'),
-                  ),
-                );
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  child: Row(
+                  const SizedBox(height: 8),
+                  Row(
                     children: [
                       Expanded(
-                        flex: 3,
-                        child: Text('حمولة الإنفرتر #$u', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 2,
                         child: TextFormField(
-                          initialValue: existing.measuredValue,
+                          initialValue: iVal,
                           keyboardType: TextInputType.number,
                           decoration: const InputDecoration(
-                            hintText: 'القيمة',
-                            suffixText: 'W',
+                            labelText: 'تيار المصفوفة (Adc)',
+                            hintText: '60 - 100',
+                            suffixText: 'Adc',
                             isDense: true,
                           ),
                           onChanged: (v) {
-                            final list = List<OperationalReading>.from(_report.operationalData);
-                            final existingIdx = list.indexWhere((o) => o.id == opId);
-                            if (existingIdx != -1) {
-                              list[existingIdx] = list[existingIdx].copyWith(measuredValue: v);
-                            } else {
-                              list.add(OperationalData(
-                                id: opId,
-                                parameter: 'الحمل على الإنفرتر #$u',
-                                unit: 'W',
-                                measuredValue: v,
-                                standardRange: '< 5000',
-                                status: 'طبيعي',
-                              ));
-                            }
-                            if (u == 1) {
-                              final baseIdx = list.indexWhere((o) => o.id == 'op_load');
-                              if (baseIdx != -1) {
-                                list[baseIdx] = list[baseIdx].copyWith(measuredValue: v);
-                              }
-                            }
-                            _onReportUpdated(_report.copyWith(operationalData: list));
+                            _setOpValue('op_cc_i_$u', v, parameter: 'التيار المنتج بمصفوفة الألواح #$u', unit: 'Adc');
+                            if (u == 1) _setOpValue('op_cc_i', v, parameter: 'التيار المنتج بمصفوفة الألواح لمنظم الشحن', unit: 'Adc');
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: vVal,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'جهد المصفوفة (Vdc)',
+                            hintText: '150 - 250',
+                            suffixText: 'Vdc',
+                            isDense: true,
+                          ),
+                          onChanged: (v) {
+                            _setOpValue('op_cc_v_$u', v, parameter: 'فرق جهد مصفوفة الألواح #$u', unit: 'Vdc');
+                            if (u == 1) _setOpValue('op_cc_v', v, parameter: 'فرق جهد مصفوفة الألواح لمنظم الشحن', unit: 'Vdc');
                           },
                         ),
                       ),
                     ],
                   ),
-                );
-              }),
-            ],
-          ),
-        ),
+                ],
+              ),
+            );
+          }),
+        ],
 
-        // Section: General operational telemetry
-        const Text(
-          'البارامترات التشغيلية لمنظومة الطاقة ومنظمات الشحن:',
-          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-        ),
-        const SizedBox(height: 10),
-        ...generalOps.map((op) {
-          final idx = _report.operationalData.indexWhere((o) => o.id == op.id);
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(10),
+        // TAB 2: GENERAL TELEMETRY & MONITORING
+        if (_opSectionTab == 2) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.borderSubtle),
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  flex: 3,
-                  child: Text(op.parameterName, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: TextFormField(
-                    initialValue: op.measuredValue,
-                    decoration: InputDecoration(
-                      hintText: 'القيمة',
-                      suffixText: op.unit,
-                      isDense: true,
+                const Row(
+                  children: [
+                    Icon(Icons.monitor_heart_outlined, color: Color(0xFF2563EB), size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'شاشة المراقبة والبارامترات العامة للموقع:',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
                     ),
-                    onChanged: (v) {
-                      final list = List<OperationalReading>.from(_report.operationalData);
-                      if (idx != -1) {
-                        list[idx] = op.copyWith(measuredValue: v);
-                        _onReportUpdated(_report.copyWith(operationalData: list));
-                      }
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        initialValue: _getOpValue('op_freq'),
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'تردد التيار (Frequency)',
+                          hintText: '49.8 - 50.2',
+                          suffixText: 'Hz',
+                          isDense: true,
+                        ),
+                        onChanged: (v) => _setOpValue('op_freq', v, parameter: 'تردد التيار المتردد (Frequency)', unit: 'Hz'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextFormField(
+                        initialValue: _getOpValue('op_temp'),
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'حرارة غرفة التحكم والبطاريات',
+                          hintText: '20 - 25',
+                          suffixText: '°C',
+                          isDense: true,
+                        ),
+                        onChanged: (v) => _setOpValue('op_temp', v, parameter: 'درجة حرارة غرفة البطاريات والتحكم', unit: '°C'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: const Text('مطابقة قراءات شاشة المراقبة مع الواقع الميداني', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+                    subtitle: const Text('تظهر كإشارة صح في السطر الأخير من نموذج التشغيل في التقرير', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    value: _getOpValue('op_mon_match', fallback: 'true') != 'false',
+                    activeThumbColor: const Color(0xFF16A34A),
+                    onChanged: (val) {
+                      _setOpValue('op_mon_match', val ? 'true' : 'false', parameter: 'مطابقة القراءات مع الواقع');
                     },
                   ),
                 ),
               ],
             ),
-          );
-        }),
+          ),
+        ],
       ],
     );
   }
@@ -1902,12 +2456,19 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
       children: [
         // Combiner Boxes Configuration Panel
         Container(
-          padding: const EdgeInsets.all(12),
-          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.borderSubtle),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFCBD5E1), width: 1.3),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1917,17 +2478,24 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.hub_rounded, size: 18, color: AppTheme.primaryNavy),
-                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryNavy.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.hub_rounded, size: 18, color: AppTheme.primaryNavy),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
                         'صناديق التجميع المضمنة بالتقرير (${activeBoxes.length} صناديق)',
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppTheme.primaryNavy),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppTheme.primaryNavy),
                       ),
                     ],
                   ),
                   PopupMenuButton<String>(
                     tooltip: 'تحديد سريع لعدد الصناديق',
-                    icon: const Icon(Icons.flash_on_rounded, size: 18, color: AppTheme.solarGold),
+                    icon: const Icon(Icons.flash_on_rounded, size: 20, color: AppTheme.solarGold),
                     onSelected: (val) {
                       if (val == 'b2') _onReportUpdated(_report.copyWith(activeCombinerBoxes: [1, 2]));
                       if (val == 'b3') _onReportUpdated(_report.copyWith(activeCombinerBoxes: [1, 2, 3]));
@@ -1945,22 +2513,26 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: List.generate(16, (i) => i + 1).map((b) {
                   final isSelected = activeBoxes.contains(b);
-                  // Highlight first 4 always, allow clicking others
                   return FilterChip(
                     label: Text('صندوق $b'),
                     selected: isSelected,
-                    selectedColor: AppTheme.primaryNavy.withValues(alpha: 0.18),
+                    backgroundColor: Colors.white,
+                    selectedColor: AppTheme.primaryNavy.withValues(alpha: 0.12),
                     checkmarkColor: AppTheme.primaryNavy,
+                    side: BorderSide(
+                      color: isSelected ? AppTheme.primaryNavy : const Color(0xFFCBD5E1),
+                      width: isSelected ? 1.5 : 1.0,
+                    ),
                     labelStyle: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? AppTheme.primaryNavy : AppTheme.textSecondary,
+                      fontSize: 11.5,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      color: isSelected ? AppTheme.primaryNavy : AppTheme.textDark,
                     ),
                     onSelected: (selected) {
                       final updated = List<int>.from(activeBoxes);
@@ -1981,7 +2553,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   const Icon(Icons.info_outline, size: 14, color: AppTheme.textMuted),
@@ -1994,7 +2566,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                   ),
                 ],
               ),
-              const Divider(height: 16),
+              const Divider(height: 20, color: Color(0xFFE2E8F0)),
               _buildPageSetupControl(9, 'صفحة 9 (قياسات أداء الألواح)'),
             ],
           ),
@@ -2006,15 +2578,15 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
           children: [
             Text(
               'قياسات سلاسل الألواح (${activeBoxes.length * 4} سلسلة نشطة):',
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.solarGold,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               icon: const Icon(Icons.auto_fix_high, size: 14),
-              label: const Text('تعبئة نموذجية للسلاسل', style: TextStyle(fontSize: 11)),
+              label: const Text('تعبئة نموذجية للسلاسل', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
               onPressed: fillTypicalValues,
             ),
           ],
@@ -2032,11 +2604,11 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
           }).toList();
 
           return Card(
-            elevation: 0,
-            margin: const EdgeInsets.only(bottom: 10),
+            elevation: 1,
+            margin: const EdgeInsets.only(bottom: 12),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: const BorderSide(color: AppTheme.borderSubtle),
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
             ),
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -2046,20 +2618,27 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryNavy,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text(
-                          'صندوق التجميع $bNum',
-                          style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.hub_rounded, size: 14, color: AppTheme.solarGold),
+                            const SizedBox(width: 6),
+                            Text(
+                              'صندوق التجميع #$bNum',
+                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Text(
                         'السلاسل: ${((bNum - 1) * 4) + 1} إلى ${bNum * 4}',
-                        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
                       ),
                     ],
                   ),
@@ -2067,27 +2646,33 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                   ...boxStrings.map((str) {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.borderSubtle),
+                        border: Border.all(color: const Color(0xFFCBD5E1)),
                       ),
                       child: Row(
                         children: [
                           CircleAvatar(
-                            radius: 12,
-                            backgroundColor: AppTheme.primaryNavy.withValues(alpha: 0.12),
+                            radius: 13,
+                            backgroundColor: AppTheme.primaryNavy,
                             child: Text(
                               '${str.stringNumber}',
-                              style: const TextStyle(color: AppTheme.primaryNavy, fontSize: 10, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: TextFormField(
                               initialValue: str.openCircuitVoltageVoc > 0 ? '${str.openCircuitVoltageVoc}' : '',
-                              decoration: const InputDecoration(labelText: 'Voc (V)', isDense: true),
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                              decoration: const InputDecoration(
+                                labelText: 'Voc (V)',
+                                labelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                                isDense: true,
+                                fillColor: Colors.white,
+                              ),
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               onChanged: (v) {
                                 final d = double.tryParse(v);
@@ -2101,7 +2686,13 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                           Expanded(
                             child: TextFormField(
                               initialValue: str.shortCircuitCurrentIsc > 0 ? '${str.shortCircuitCurrentIsc}' : '',
-                              decoration: const InputDecoration(labelText: 'Isc (A)', isDense: true),
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                              decoration: const InputDecoration(
+                                labelText: 'Isc (A)',
+                                labelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                                isDense: true,
+                                fillColor: Colors.white,
+                              ),
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               onChanged: (v) {
                                 final d = double.tryParse(v);
@@ -3160,289 +3751,6 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
     );
   }
 
-  Widget _buildPageSetupControl(int pageNum, String pageTitle) {
-    final currentVal = (_report.pageOrientations[pageNum] ?? (pageNum == 8 || pageNum == 9 ? 'a4_portrait' : 'a4_portrait')).toLowerCase();
-    final isA3 = currentVal.contains('a3');
-    final isLandscape = currentVal.contains('landscape') || currentVal.contains('horizontal');
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.tune_rounded, size: 16, color: AppTheme.primaryNavy),
-              const SizedBox(width: 6),
-              Text(
-                'تنسيق $pageTitle في PDF:',
-                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
-              ),
-            ],
-          ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              // A4 vs A3
-              SegmentedButton<String>(
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                segments: const [
-                  ButtonSegment(value: 'a4', label: Text('A4', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold))),
-                  ButtonSegment(value: 'a3', label: Text('A3', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold))),
-                ],
-                selected: {isA3 ? 'a3' : 'a4'},
-                onSelectionChanged: (set) {
-                  final updated = Map<int, String>.from(_report.pageOrientations);
-                  final newSize = set.first;
-                  final ori = isLandscape ? 'landscape' : 'portrait';
-                  updated[pageNum] = '${newSize}_$ori';
-                  _onReportUpdated(_report.copyWith(pageOrientations: updated));
-                },
-              ),
-              // Portrait vs Landscape
-              SegmentedButton<String>(
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                segments: const [
-                  ButtonSegment(
-                    value: 'portrait',
-                    icon: Icon(Icons.stay_current_portrait, size: 13),
-                    label: Text('عمودي', style: TextStyle(fontSize: 10.5)),
-                  ),
-                  ButtonSegment(
-                    value: 'landscape',
-                    icon: Icon(Icons.stay_current_landscape, size: 13),
-                    label: Text('أفقي', style: TextStyle(fontSize: 10.5)),
-                  ),
-                ],
-                selected: {isLandscape ? 'landscape' : 'portrait'},
-                onSelectionChanged: (set) {
-                  final updated = Map<int, String>.from(_report.pageOrientations);
-                  final newOri = set.first;
-                  final size = isA3 ? 'a3' : 'a4';
-                  updated[pageNum] = '${size}_$newOri';
-                  _onReportUpdated(_report.copyWith(pageOrientations: updated));
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showPageSetupDialog() {
-    final Map<int, String> pageLabels = {
-      1: 'صفحة 1: بيانات المشروع والمرفق',
-      2: 'صفحة 2: الفحص 1 (الألواح والبطاريات)',
-      3: 'صفحة 3: الفحص 2 (لوحات القواطع ومفاتيح التبديل)',
-      4: 'صفحة 4: الفحص 3 (الهياكل والتأريض والتهوية)',
-      5: 'صفحة 5: الفحص 4 (التوصيلات والسلامة)',
-      6: 'صفحة 6: مصفوفة خلايا البطاريات (م1 - م2)',
-      7: 'صفحة 7: مصفوفة خلايا البطاريات (م3 - م4)',
-      8: 'صفحة 8: بيانات التشغيل (تلقائي عريض في A4)',
-      9: 'صفحة 9: قياسات أداء الألواح (تلقائي عريض في A4)',
-      10: 'صفحة 10: محضر إفادة الحضور والتواقيع',
-      11: 'صفحة 11: كشف حضور فريق العمل الميداني',
-      12: 'صفحة 12: ملحق التوثيق الفوتوغرافي',
-      13: 'صفحة 13: جدول الاحتياجات والمواد',
-    };
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          void updateAll(String format) {
-            final updated = Map<int, String>.from(_report.pageOrientations);
-            for (final p in pageLabels.keys) {
-              updated[p] = format;
-            }
-            setDialogState(() {
-              _onReportUpdated(_report.copyWith(pageOrientations: updated));
-            });
-            setState(() {});
-          }
-
-          return Dialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            clipBehavior: Clip.antiAlias,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: 540,
-                maxHeight: MediaQuery.of(context).size.height * 0.85,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    color: AppTheme.primaryNavy,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: const [
-                            Icon(Icons.tune_rounded, color: Colors.white, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'إعدادات مقاسات وتنسيق الصفحات (A4 / A3)',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
-                            ),
-                          ],
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white, size: 20),
-                          onPressed: () => Navigator.pop(ctx),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Presets Row
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        ActionChip(
-                          avatar: const Icon(Icons.auto_awesome, size: 14, color: Color(0xFF1565C0)),
-                          label: const Text('مطابق للرسمي (A4 قياسي)', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
-                          onPressed: () => updateAll('a4_portrait'),
-                        ),
-                        ActionChip(
-                          avatar: const Icon(Icons.stay_current_landscape, size: 14, color: Color(0xFF00897B)),
-                          label: const Text('الكل A4 أفقي', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
-                          onPressed: () => updateAll('a4_landscape'),
-                        ),
-                        ActionChip(
-                          avatar: const Icon(Icons.photo_size_select_actual_outlined, size: 14, color: Color(0xFF6A1B9A)),
-                          label: const Text('الكل A3 أفقي (عريض)', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
-                          onPressed: () => updateAll('a3_landscape'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  // Pages List
-                  Flexible(
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: pageLabels.length,
-                      separatorBuilder: (_, index) => const SizedBox(height: 8),
-                      itemBuilder: (context, idx) {
-                        final pNum = pageLabels.keys.elementAt(idx);
-                        final pTitle = pageLabels[pNum]!;
-                        final val = (_report.pageOrientations[pNum] ?? 'a4_portrait').toLowerCase();
-                        final isA3 = val.contains('a3');
-                        final isLand = val.contains('landscape') || val.contains('horizontal');
-
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  pTitle,
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-                                ),
-                              ),
-                              Wrap(
-                                spacing: 6,
-                                children: [
-                                  SegmentedButton<String>(
-                                    style: const ButtonStyle(visualDensity: VisualDensity.compact, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                                    segments: const [
-                                      ButtonSegment(value: 'a4', label: Text('A4', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
-                                      ButtonSegment(value: 'a3', label: Text('A3', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
-                                    ],
-                                    selected: {isA3 ? 'a3' : 'a4'},
-                                    onSelectionChanged: (set) {
-                                      final updated = Map<int, String>.from(_report.pageOrientations);
-                                      final newSize = set.first;
-                                      final ori = isLand ? 'landscape' : 'portrait';
-                                      updated[pNum] = '${newSize}_$ori';
-                                      setDialogState(() {
-                                        _onReportUpdated(_report.copyWith(pageOrientations: updated));
-                                      });
-                                      setState(() {});
-                                    },
-                                  ),
-                                  SegmentedButton<String>(
-                                    style: const ButtonStyle(visualDensity: VisualDensity.compact, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                                    segments: const [
-                                      ButtonSegment(value: 'portrait', icon: Icon(Icons.stay_current_portrait, size: 12), label: Text('عمودي', style: TextStyle(fontSize: 9.5))),
-                                      ButtonSegment(value: 'landscape', icon: Icon(Icons.stay_current_landscape, size: 12), label: Text('أفقي', style: TextStyle(fontSize: 9.5))),
-                                    ],
-                                    selected: {isLand ? 'landscape' : 'portrait'},
-                                    onSelectionChanged: (set) {
-                                      final updated = Map<int, String>.from(_report.pageOrientations);
-                                      final newOri = set.first;
-                                      final size = isA3 ? 'a3' : 'a4';
-                                      updated[pNum] = '${size}_$newOri';
-                                      setDialogState(() {
-                                        _onReportUpdated(_report.copyWith(pageOrientations: updated));
-                                      });
-                                      setState(() {});
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryNavy,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('تم وحفظ الإعدادات', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   void _showDuplicateDialog() {
     final facilityCtrl = TextEditingController(
@@ -3473,142 +3781,144 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
             right: 20,
             bottom: MediaQuery.of(context).viewInsets.bottom + 20,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.brandCyan.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.copy_rounded, color: AppTheme.brandCyan, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'حفظ كتقرير جديد (استنساخ البيانات)',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.primaryNavy),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'سيتم حفظ نسخة جديدة ومستقلة برقم تسلسلي جديد لمتابعة التعديل عليها',
-                          style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text('اسم المنشأة / المرفق للتقرير الجديد:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: facilityCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'مثال: مركز صحي الرازي',
-                  prefixIcon: Icon(Icons.business_outlined, size: 20),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text('تاريخ الزيارة الجديد:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: dateCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'YYYY/MM/DD',
-                  prefixIcon: Icon(Icons.calendar_today_outlined, size: 18),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppTheme.bgSurface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.borderSubtle),
-                ),
-                child: Column(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    CheckboxListTile(
-                      dense: true,
-                      title: const Text('تصفير التواقيع لبدء توقيع معتمد جديد', style: TextStyle(fontSize: 12)),
-                      subtitle: const Text('يحتفظ بأسماء وصفات الموقعين ويزيل صور التواقيع القديمة', style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
-                      value: clearSignatures,
-                      onChanged: (val) => setModalState(() => clearSignatures = val ?? true),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.brandCyan.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.copy_rounded, color: AppTheme.brandCyan, size: 22),
                     ),
-                    const Divider(height: 1),
-                    CheckboxListTile(
-                      dense: true,
-                      title: const Text('تصفير صور الفحص السابقة', style: TextStyle(fontSize: 12)),
-                      subtitle: const Text('لإتاحة التقاط صور فوتوغرافية جديدة للزيارة الحالية', style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
-                      value: clearPhotos,
-                      onChanged: (val) => setModalState(() => clearPhotos = val ?? true),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'حفظ كتقرير جديد (استنساخ البيانات)',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.primaryNavy),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'سيتم حفظ نسخة جديدة ومستقلة برقم تسلسلي جديد لمتابعة التعديل عليها',
+                            style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('إلغاء'),
-                    ),
+                const SizedBox(height: 16),
+                const Text('اسم المنشأة / المرفق للتقرير الجديد:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: facilityCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'مثال: مركز صحي الرازي',
+                    prefixIcon: Icon(Icons.business_outlined, size: 20),
+                    isDense: true,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryNavy,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                const SizedBox(height: 12),
+                const Text('تاريخ الزيارة الجديد:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: dateCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'YYYY/MM/DD',
+                    prefixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.bgSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.borderSubtle),
+                  ),
+                  child: Column(
+                    children: [
+                      CheckboxListTile(
+                        dense: true,
+                        title: const Text('تصفير التواقيع لبدء توقيع معتمد جديد', style: TextStyle(fontSize: 12)),
+                        subtitle: const Text('يحتفظ بأسماء وصفات الموقعين ويزيل صور التواقيع القديمة', style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
+                        value: clearSignatures,
+                        onChanged: (val) => setModalState(() => clearSignatures = val ?? true),
                       ),
-                      icon: const Icon(Icons.edit_note_rounded, size: 20),
-                      label: const Text('إنشاء ومتابعة التعديل', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                      onPressed: () async {
-                        final navigator = Navigator.of(context);
-                        final scaffoldMessenger = ScaffoldMessenger.of(context);
-                        final modalNavigator = Navigator.of(ctx);
-
-                        final newRep = await ref.read(reportsProvider.notifier).duplicateReport(
-                          _report,
-                          newFacilityName: facilityCtrl.text.trim(),
-                          newVisitDate: dateCtrl.text.trim(),
-                          clearSignatures: clearSignatures,
-                          clearPhotos: clearPhotos,
-                        );
-
-                        modalNavigator.pop();
-                        scaffoldMessenger.showSnackBar(
-                          SnackBar(
-                            content: Text('تم إنشاء التقرير الجديد بنجاح (${newRep.reportNumber})'),
-                            backgroundColor: AppTheme.statusGood,
-                          ),
-                        );
-                        navigator.pushReplacement(
-                          MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: newRep.id)),
-                        );
-                      },
-                    ),
+                      const Divider(height: 1),
+                      CheckboxListTile(
+                        dense: true,
+                        title: const Text('تصفير صور الفحص السابقة', style: TextStyle(fontSize: 12)),
+                        subtitle: const Text('لإتاحة التقاط صور فوتوغرافية جديدة للزيارة الحالية', style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
+                        value: clearPhotos,
+                        onChanged: (val) => setModalState(() => clearPhotos = val ?? true),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('إلغاء'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryNavy,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.edit_note_rounded, size: 20),
+                        label: const Text('إنشاء وفتح للتعديل', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        onPressed: () async {
+                          final navigator = Navigator.of(context);
+                          final scaffoldMessenger = ScaffoldMessenger.of(context);
+                          final modalNavigator = Navigator.of(ctx);
+
+                          final newRep = await ref.read(reportsProvider.notifier).duplicateReport(
+                            _report,
+                            newFacilityName: facilityCtrl.text.trim(),
+                            newVisitDate: dateCtrl.text.trim(),
+                            clearSignatures: clearSignatures,
+                            clearPhotos: clearPhotos,
+                          );
+
+                          modalNavigator.pop();
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text('تم إنشاء التقرير الجديد بنجاح (${newRep.reportNumber})'),
+                              backgroundColor: AppTheme.statusGood,
+                            ),
+                          );
+                          navigator.pushReplacement(
+                            MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: newRep.id)),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

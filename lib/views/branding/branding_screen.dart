@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../core/utils/responsive_layout.dart';
 import '../../core/theme/app_theme.dart';
 import '../../state/branding_provider.dart';
+import '../../core/widgets/yemeni_phone_field.dart';
 
 class BrandingScreen extends ConsumerStatefulWidget {
   const BrandingScreen({super.key});
@@ -264,11 +265,29 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
                     const Text('هذه النصوص تظهر أسفل شعار المقاول في ترويسة كل صفحة من صفحات التقرير.', style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
                     const SizedBox(height: 14),
                     TextFormField(
-                      controller: _contractorNameArController,
+                      controller: _contractorNameEnController,
+                      textDirection: TextDirection.ltr,
+                      minLines: 1,
+                      maxLines: 3,
+                      keyboardType: TextInputType.multiline,
                       decoration: const InputDecoration(
-                        labelText: 'اسم المقاول / المكتب بالعربي',
+                        labelText: 'اسم المقاول بالإنجليزي (يظهر أولاً بالأسود)',
+                        hintText: 'e.g. Al-Etqan Engineering Office for Engineering Services and Energy Solutions',
+                        prefixIcon: Icon(Icons.language_rounded, size: 18),
+                        helperText: 'يدعم 1 أو 2 أو 3 أسطر (اضغط Enter للتقسيم اليدوي)',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _contractorNameArController,
+                      minLines: 1,
+                      maxLines: 3,
+                      keyboardType: TextInputType.multiline,
+                      decoration: const InputDecoration(
+                        labelText: 'اسم المقاول بالعربي (يظهر ثانياً بالأزرق)',
                         hintText: 'مثال: مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة',
                         prefixIcon: Icon(Icons.badge_outlined, size: 18),
+                        helperText: 'يدعم 1 أو 2 أو 3 أسطر (اضغط Enter للتقسيم اليدوي)',
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -278,16 +297,6 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
                         labelText: 'المسمى الفرعي أو التجاري بالعربي (اختياري)',
                         hintText: 'مثال: للخدمات الهندسية وحلول الطاقة',
                         prefixIcon: Icon(Icons.subtitles_outlined, size: 18),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      controller: _contractorNameEnController,
-                      textDirection: TextDirection.ltr,
-                      decoration: const InputDecoration(
-                        labelText: 'اسم المقاول بالإنجليزي (Contractor Name EN)',
-                        hintText: 'e.g. Al-Etqan Engineering Office for Engineering Services and Energy Solutions',
-                        prefixIcon: Icon(Icons.language_rounded, size: 18),
                       ),
                     ),
                   ],
@@ -323,21 +332,29 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
-                    controller: _ministryNameArController,
+                    controller: _ministryNameEnController,
+                    textDirection: TextDirection.ltr,
+                    minLines: 1,
+                    maxLines: 3,
+                    keyboardType: TextInputType.multiline,
                     decoration: const InputDecoration(
-                      labelText: 'اسم الوزارة بالعربي',
-                      hintText: 'مثال: وزارة التربية والتعليم أو وزارة الصحة العامة والسكان',
-                      prefixIcon: Icon(Icons.domain_rounded, size: 18),
+                      labelText: 'اسم الوزارة بالإنجليزي (يظهر أولاً بالأسود)',
+                      hintText: 'e.g. Ministry of Education / Ministry of Public Health',
+                      prefixIcon: Icon(Icons.language_rounded, size: 18),
+                      helperText: 'يدعم 1 أو 2 أو 3 أسطر (اضغط Enter للتقسيم اليدوي)',
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    controller: _ministryNameEnController,
-                    textDirection: TextDirection.ltr,
+                    controller: _ministryNameArController,
+                    minLines: 1,
+                    maxLines: 3,
+                    keyboardType: TextInputType.multiline,
                     decoration: const InputDecoration(
-                      labelText: 'اسم الوزارة بالإنجليزي (Ministry EN)',
-                      hintText: 'e.g. Ministry of Education / Ministry of Public Health',
-                      prefixIcon: Icon(Icons.language_rounded, size: 18),
+                      labelText: 'اسم الوزارة بالعربي (يظهر ثانياً بالأزرق)',
+                      hintText: 'مثال: وزارة التربية والتعليم أو وزارة الصحة العامة والسكان',
+                      prefixIcon: Icon(Icons.domain_rounded, size: 18),
+                      helperText: 'يدعم 1 أو 2 أو 3 أسطر (اضغط Enter للتقسيم اليدوي)',
                     ),
                   ),
                 ],
@@ -438,21 +455,29 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
                   if (branding.showRightLogo) ...[
                     const SizedBox(height: 14),
                     TextFormField(
-                      controller: _rightLogoNameArController,
+                      controller: _rightLogoNameEnController,
+                      textDirection: TextDirection.ltr,
+                      minLines: 1,
+                      maxLines: 3,
+                      keyboardType: TextInputType.multiline,
                       decoration: const InputDecoration(
-                        labelText: 'اسم الجهة بالعربي (يظهر تحت الشعار الأيمن)',
-                        hintText: 'مثال: مكتب الأمم المتحدة لخدمات المشاريع',
-                        prefixIcon: Icon(Icons.badge_outlined, size: 18),
+                        labelText: 'اسم الجهة بالإنجليزي (يظهر أولاً بالأسود)',
+                        hintText: 'e.g. UNITED NATIONS OFFICE FOR PROJECT SERVICES (UNOPS)',
+                        prefixIcon: Icon(Icons.language_rounded, size: 18),
+                        helperText: 'يدعم 1 أو 2 أو 3 أسطر (اضغط Enter للتقسيم اليدوي)',
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
-                      controller: _rightLogoNameEnController,
-                      textDirection: TextDirection.ltr,
+                      controller: _rightLogoNameArController,
+                      minLines: 1,
+                      maxLines: 3,
+                      keyboardType: TextInputType.multiline,
                       decoration: const InputDecoration(
-                        labelText: 'اسم الجهة بالإنجليزي (Right Logo EN)',
-                        hintText: 'e.g. UNITED NATIONS OFFICE FOR PROJECT SERVICES (UNOPS)',
-                        prefixIcon: Icon(Icons.language_rounded, size: 18),
+                        labelText: 'اسم الجهة بالعربي (يظهر ثانياً بالأزرق)',
+                        hintText: 'مثال: مكتب الأمم المتحدة لخدمات المشاريع',
+                        prefixIcon: Icon(Icons.badge_outlined, size: 18),
+                        helperText: 'يدعم 1 أو 2 أو 3 أسطر (اضغط Enter للتقسيم اليدوي)',
                       ),
                     ),
                   ],
@@ -575,13 +600,10 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: TextFormField(
+                        child: YemeniPhoneField(
                           controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          decoration: const InputDecoration(
-                            labelText: 'رقم الهاتف المعتمد',
-                            prefixIcon: Icon(Icons.phone_outlined, size: 18),
-                          ),
+                          label: 'رقم الهاتف المعتمد',
+                          hint: '777 123 456',
                         ),
                       ),
                       const SizedBox(width: 10),

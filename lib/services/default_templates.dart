@@ -326,65 +326,14 @@ class DefaultTemplates {
     ];
   }
 
-  /// Generates 96 battery cells (4 strings x 24 cells) matching reference PDF
-  static List<BatteryMeasurement> get defaultBatteryMeasurements {
-    final list = <BatteryMeasurement>[];
-    for (int i = 1; i <= 96; i++) {
-      final stringNum = ((i - 1) ~/ 24) + 1;
-      final v = 2.14 + ((i % 5) * 0.01);
-      final t = 24.5 + ((i % 3) * 0.3);
-      final r = 0.31 + ((i % 4) * 0.02);
-      list.add(BatteryMeasurement(
-        cellNumber: i,
-        stringNumber: stringNum,
-        voltage: double.parse(v.toStringAsFixed(2)),
-        temperature: double.parse(t.toStringAsFixed(1)),
-        internalResistance: double.parse(r.toStringAsFixed(2)),
-        notes: 'سليمة',
-      ));
-    }
-    return list;
-  }
+  /// 96 battery cells (4 strings x 24 cells) with 0.0 values for engineer input
+  static List<BatteryMeasurement> get defaultBatteryMeasurements => blankBatteryMeasurements;
 
-  /// System operational telemetry measurements matching Page 8 fields
-  static List<OperationalData> get defaultOperationalData {
-    return [
-      const OperationalData(id: 'op_load', parameter: 'الحمل على الإنفرتر', unit: 'W', measuredValue: '3400', standardRange: '< 5000', status: 'طبيعي', notes: 'في حدود السعة'),
-      const OperationalData(id: 'op_load_1', parameter: 'الحمل على الإنفرتر #1', unit: 'W', measuredValue: '3450', standardRange: '< 5000', status: 'طبيعي', notes: 'في حدود السعة'),
-      const OperationalData(id: 'op_load_2', parameter: 'الحمل على الإنفرتر #2', unit: 'W', measuredValue: '3380', standardRange: '< 5000', status: 'طبيعي', notes: 'في حدود السعة'),
-      const OperationalData(id: 'op_load_3', parameter: 'الحمل على الإنفرتر #3', unit: 'W', measuredValue: '3520', standardRange: '< 5000', status: 'طبيعي', notes: 'في حدود السعة'),
-      const OperationalData(id: 'op_load_4', parameter: 'الحمل على الإنفرتر #4', unit: 'W', measuredValue: '3410', standardRange: '< 5000', status: 'طبيعي', notes: 'في حدود السعة'),
-      const OperationalData(id: 'op_load_5', parameter: 'الحمل على الإنفرتر #5', unit: 'W', measuredValue: '3390', standardRange: '< 5000', status: 'طبيعي', notes: 'في حدود السعة'),
-      const OperationalData(id: 'op_load_6', parameter: 'الحمل على الإنفرتر #6', unit: 'W', measuredValue: '3460', standardRange: '< 5000', status: 'طبيعي', notes: 'في حدود السعة'),
-      const OperationalData(id: 'op_ac_v', parameter: 'فرق جهد الخرج (متردد) للإنفرتر', unit: 'Vac', measuredValue: '228.0', standardRange: '220 - 230', status: 'طبيعي', notes: 'مستقر'),
-      const OperationalData(id: 'op_dc_v', parameter: 'فرق جهد الدخول (مستمر) للإنفرتر', unit: 'Vdc', measuredValue: '51.8', standardRange: '48.0 - 54.0', status: 'طبيعي', notes: 'شحن عائم Float'),
-      const OperationalData(id: 'op_cc_i', parameter: 'التيار المنتج بمصفوفة الألواح لمنظم الشحن', unit: 'Adc', measuredValue: '78.4', standardRange: '60 - 100', status: 'طبيعي', notes: 'في ذروة الإشعاع'),
-      const OperationalData(id: 'op_cc_v', parameter: 'فرق جهد مصفوفة الألواح لمنظم الشحن', unit: 'Vdc', measuredValue: '185.0', standardRange: '150 - 250', status: 'طبيعي', notes: 'مطابق للمواصفات'),
-      const OperationalData(id: 'op_freq', parameter: 'تردد التيار المتردد (Frequency)', unit: 'Hz', measuredValue: '50.01', standardRange: '49.8 - 50.2', status: 'طبيعي', notes: 'موجة جيبية نقية Pure Sine'),
-      const OperationalData(id: 'op_temp', parameter: 'درجة حرارة غرفة البطاريات والتحكم', unit: '°C', measuredValue: '24.2', standardRange: '20 - 25', status: 'طبيعي', notes: 'التكييف يعمل بكفاءة'),
-    ];
-  }
+  /// System operational telemetry measurements with blank measured values
+  static List<OperationalData> get defaultOperationalData => blankOperationalData;
 
-  /// 16 Solar PV Strings measurements
-  static List<StringMeasurement> get defaultStringMeasurements {
-    final list = <StringMeasurement>[];
-    for (int i = 1; i <= 16; i++) {
-      final voc = 214.0 + (i % 3) * 0.5;
-      final isc = 12.8 + (i % 4) * 0.1;
-      list.add(StringMeasurement(
-        stringNumber: i,
-        panelCount: 24,
-        openCircuitVoltageVoc: voc,
-        shortCircuitCurrentIsc: isc,
-        operatingVoltageVmp: voc - 15.0,
-        operatingCurrentImp: isc - 0.5,
-        solarIrradiance: 850.0,
-        calculatedPower: (voc * isc).roundToDouble(),
-        notes: 'سليمة ومطابقة',
-      ));
-    }
-    return list;
-  }
+  /// 16 Solar PV Strings measurements with 0.0 values for engineer input
+  static List<StringMeasurement> get defaultStringMeasurements => blankStringMeasurements;
 
   /// Blank inspection groups for fresh inspection sessions (no pre-filled statuses)
   static List<InspectionGroup> get blankInspectionGroups {
@@ -410,6 +359,7 @@ class DefaultTemplates {
         stringNumber: stringNum,
         voltage: 0.0,
         temperature: 0.0,
+        boltTorque: 0.0,
         internalResistance: 0.0,
         notes: '',
       ));
@@ -419,13 +369,21 @@ class DefaultTemplates {
 
   /// Blank operational telemetry for new sessions
   static List<OperationalData> get blankOperationalData {
-    return defaultOperationalData.map((op) {
-      return op.copyWith(
-        measuredValue: '',
-        status: '',
-        notes: '',
-      );
-    }).toList();
+    return [
+      const OperationalData(id: 'op_load', parameter: 'الحمل على الإنفرتر', unit: 'W', measuredValue: '', standardRange: '< 5000', status: '', notes: ''),
+      const OperationalData(id: 'op_load_1', parameter: 'الحمل على الإنفرتر #1', unit: 'W', measuredValue: '', standardRange: '< 5000', status: '', notes: ''),
+      const OperationalData(id: 'op_load_2', parameter: 'الحمل على الإنفرتر #2', unit: 'W', measuredValue: '', standardRange: '< 5000', status: '', notes: ''),
+      const OperationalData(id: 'op_load_3', parameter: 'الحمل على الإنفرتر #3', unit: 'W', measuredValue: '', standardRange: '< 5000', status: '', notes: ''),
+      const OperationalData(id: 'op_load_4', parameter: 'الحمل على الإنفرتر #4', unit: 'W', measuredValue: '', standardRange: '< 5000', status: '', notes: ''),
+      const OperationalData(id: 'op_load_5', parameter: 'الحمل على الإنفرتر #5', unit: 'W', measuredValue: '', standardRange: '< 5000', status: '', notes: ''),
+      const OperationalData(id: 'op_load_6', parameter: 'الحمل على الإنفرتر #6', unit: 'W', measuredValue: '', standardRange: '< 5000', status: '', notes: ''),
+      const OperationalData(id: 'op_ac_v', parameter: 'فرق جهد الخرج (متردد) للإنفرتر', unit: 'Vac', measuredValue: '', standardRange: '220 - 230', status: '', notes: ''),
+      const OperationalData(id: 'op_dc_v', parameter: 'فرق جهد الدخول (مستمر) للإنفرتر', unit: 'Vdc', measuredValue: '', standardRange: '48.0 - 54.0', status: '', notes: ''),
+      const OperationalData(id: 'op_cc_i', parameter: 'التيار المنتج بمصفوفة الألواح لمنظم الشحن', unit: 'Adc', measuredValue: '', standardRange: '60 - 100', status: '', notes: ''),
+      const OperationalData(id: 'op_cc_v', parameter: 'فرق جهد مصفوفة الألواح لمنظم الشحن', unit: 'Vdc', measuredValue: '', standardRange: '150 - 250', status: '', notes: ''),
+      const OperationalData(id: 'op_freq', parameter: 'تردد التيار المتردد (Frequency)', unit: 'Hz', measuredValue: '', standardRange: '49.8 - 50.2', status: '', notes: ''),
+      const OperationalData(id: 'op_temp', parameter: 'درجة حرارة غرفة البطاريات والتحكم', unit: '°C', measuredValue: '', standardRange: '20 - 25', status: '', notes: ''),
+    ];
   }
 
   /// Blank 16 PV strings measurements with zero values for new sessions
@@ -434,13 +392,12 @@ class DefaultTemplates {
     for (int i = 1; i <= 16; i++) {
       list.add(StringMeasurement(
         stringNumber: i,
-        panelCount: 24,
+        panelCount: 0,
         openCircuitVoltageVoc: 0.0,
         shortCircuitCurrentIsc: 0.0,
         operatingVoltageVmp: 0.0,
         operatingCurrentImp: 0.0,
         solarIrradiance: 0.0,
-        calculatedPower: 0.0,
         notes: '',
       ));
     }
@@ -457,15 +414,8 @@ class DefaultTemplates {
     ];
   }
 
-  /// Team attendance list
-  static List<AttendanceRecord> get defaultAttendanceList {
-    return [
-      const AttendanceRecord(serialNo: 1, name: 'م. أحمد سعيد العنسي', role: 'مهندس صيانة المنظومة (رئيس الفريق)', affiliation: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة', notes: 'حاضر'),
-      const AttendanceRecord(serialNo: 2, name: 'فني. علي ناصر شوعي', role: 'فني كهرباء وطاقة شمسية', affiliation: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة', notes: 'حاضر'),
-      const AttendanceRecord(serialNo: 3, name: 'فني. محمد عبد الجليل', role: 'فني بطاريات وتكييف', affiliation: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة', notes: 'حاضر'),
-      const AttendanceRecord(serialNo: 4, name: 'د. عبد الله أحمد', role: 'مدير المنشأة (ممثل المستفيد)', affiliation: 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة', notes: 'حاضر ومصادق'),
-    ];
-  }
+  /// Team attendance list with blank names
+  static List<AttendanceRecord> get defaultAttendanceList => blankAttendanceList;
 
   /// Default full report matching the institutional solar maintenance report 1:1
   static Report get sampleDialysisReport {

@@ -94,6 +94,8 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
         title: Text(
           site.nameAr,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         backgroundColor: AppTheme.primaryNavy,
         foregroundColor: Colors.white,

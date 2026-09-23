@@ -56,20 +56,6 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('إدارة تقارير الصيانة'),
-        actions: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.solarGold,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('تقرير جديد', style: TextStyle(fontSize: 12)),
-            onPressed: () => _showNewReportModal(context),
-          ),
-          const SizedBox(width: 12),
-        ],
       ),
       body: Column(
         children: [
@@ -360,6 +346,16 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                   ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showNewReportModal(context),
+        backgroundColor: AppTheme.solarGold,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text(
+          'تقرير جديد',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -723,142 +719,144 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
             right: 20,
             bottom: MediaQuery.of(context).viewInsets.bottom + 20,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.brandCyan.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.copy_rounded, color: AppTheme.brandCyan, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'نسخ وتعديل كتقرير جديد',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.primaryNavy),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'سيتم نسخ بيانات المشروع والمنظومة وجداول الفحص لتقرير جديد مستقل',
-                          style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text('اسم المنشأة / المرفق للتقرير الجديد:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: facilityCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'مثال: مركز صحي الرازي',
-                  prefixIcon: Icon(Icons.business_outlined, size: 20),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text('تاريخ الزيارة الجديد:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: dateCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'YYYY/MM/DD',
-                  prefixIcon: Icon(Icons.calendar_today_outlined, size: 18),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppTheme.bgSurface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.borderSubtle),
-                ),
-                child: Column(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    CheckboxListTile(
-                      dense: true,
-                      title: const Text('تصفير التواقيع لبدء توقيع معتمد جديد', style: TextStyle(fontSize: 12)),
-                      subtitle: const Text('يحتفظ بأسماء وصفات الموقعين ويزيل صور التواقيع القديمة', style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
-                      value: clearSignatures,
-                      onChanged: (val) => setModalState(() => clearSignatures = val ?? true),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.brandCyan.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.copy_rounded, color: AppTheme.brandCyan, size: 22),
                     ),
-                    const Divider(height: 1),
-                    CheckboxListTile(
-                      dense: true,
-                      title: const Text('تصفير صور الفحص السابقة', style: TextStyle(fontSize: 12)),
-                      subtitle: const Text('لإتاحة التقاط صور فوتوغرافية جديدة للزيارة الحالية', style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
-                      value: clearPhotos,
-                      onChanged: (val) => setModalState(() => clearPhotos = val ?? true),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'نسخ وتعديل كتقرير جديد',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.primaryNavy),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'سيتم نسخ بيانات المشروع والمنظومة وجداول الفحص لتقرير جديد مستقل',
+                            style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('إلغاء'),
-                    ),
+                const SizedBox(height: 16),
+                const Text('اسم المنشأة / المرفق للتقرير الجديد:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: facilityCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'مثال: مركز صحي الرازي',
+                    prefixIcon: Icon(Icons.business_outlined, size: 20),
+                    isDense: true,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryNavy,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                const SizedBox(height: 12),
+                const Text('تاريخ الزيارة الجديد:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: dateCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'YYYY/MM/DD',
+                    prefixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.bgSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.borderSubtle),
+                  ),
+                  child: Column(
+                    children: [
+                      CheckboxListTile(
+                        dense: true,
+                        title: const Text('تصفير التواقيع لبدء توقيع معتمد جديد', style: TextStyle(fontSize: 12)),
+                        subtitle: const Text('يحتفظ بأسماء وصفات الموقعين ويزيل صور التواقيع القديمة', style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
+                        value: clearSignatures,
+                        onChanged: (val) => setModalState(() => clearSignatures = val ?? true),
                       ),
-                      icon: const Icon(Icons.edit_note_rounded, size: 20),
-                      label: const Text('إنشاء وفتح للتعديل', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                      onPressed: () async {
-                        final navigator = Navigator.of(context);
-                        final scaffoldMessenger = ScaffoldMessenger.of(context);
-                        final modalNavigator = Navigator.of(ctx);
-
-                        final newRep = await ref.read(reportsProvider.notifier).duplicateReport(
-                          source,
-                          newFacilityName: facilityCtrl.text.trim(),
-                          newVisitDate: dateCtrl.text.trim(),
-                          clearSignatures: clearSignatures,
-                          clearPhotos: clearPhotos,
-                        );
-
-                        modalNavigator.pop();
-                        scaffoldMessenger.showSnackBar(
-                          SnackBar(
-                            content: Text('تم إنشاء التقرير الجديد بنجاح (${newRep.reportNumber})'),
-                            backgroundColor: AppTheme.statusGood,
-                          ),
-                        );
-                        navigator.push(
-                          MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: newRep.id)),
-                        );
-                      },
-                    ),
+                      const Divider(height: 1),
+                      CheckboxListTile(
+                        dense: true,
+                        title: const Text('تصفير صور الفحص السابقة', style: TextStyle(fontSize: 12)),
+                        subtitle: const Text('لإتاحة التقاط صور فوتوغرافية جديدة للزيارة الحالية', style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
+                        value: clearPhotos,
+                        onChanged: (val) => setModalState(() => clearPhotos = val ?? true),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('إلغاء'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryNavy,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.edit_note_rounded, size: 20),
+                        label: const Text('إنشاء وفتح للتعديل', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        onPressed: () async {
+                          final navigator = Navigator.of(context);
+                          final scaffoldMessenger = ScaffoldMessenger.of(context);
+                          final modalNavigator = Navigator.of(ctx);
+
+                          final newRep = await ref.read(reportsProvider.notifier).duplicateReport(
+                            source,
+                            newFacilityName: facilityCtrl.text.trim(),
+                            newVisitDate: dateCtrl.text.trim(),
+                            clearSignatures: clearSignatures,
+                            clearPhotos: clearPhotos,
+                          );
+
+                          modalNavigator.pop();
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text('تم إنشاء التقرير الجديد بنجاح (${newRep.reportNumber})'),
+                              backgroundColor: AppTheme.statusGood,
+                            ),
+                          );
+                          navigator.push(
+                            MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: newRep.id)),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

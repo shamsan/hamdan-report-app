@@ -98,22 +98,24 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
             Text('إضافة ملاحظة مسبقة', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('بند: ${item.description}', style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: addCtrl,
-              autofocus: true,
-              maxLines: 2,
-              decoration: InputDecoration(
-                hintText: 'أدخل نص الملاحظة الفنية المسبقة...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('بند: ${item.description}', style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: addCtrl,
+                autofocus: true,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  hintText: 'أدخل نص الملاحظة الفنية المسبقة...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
