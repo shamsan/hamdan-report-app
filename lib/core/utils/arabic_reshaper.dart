@@ -215,7 +215,7 @@ class ArabicReshaper {
     // Tokenize text into LTR tokens (English words, units, measurement parentheticals like "(32°C)")
     // and Arabic / punctuation tokens.
     final tokenPattern = RegExp(
-      r'[A-Za-z0-9][A-Za-z0-9\s\.\,\:\;\-\_\/\(\)\%\$\°\*\+\=]*[A-Za-z0-9\%\°\)]|\([0-9A-Za-z\s\.\-\/\°\%]+\)|[A-Za-z0-9]',
+      r'\([0-9A-Za-z\s\.\-\/\°\%\$\*\+\=]+\)|[A-Za-z0-9][A-Za-z0-9\s\.\,\:\;\-\_\/\%\$\°\*\+\=]*[A-Za-z0-9\%\°]|[A-Za-z0-9]',
     );
 
     final matches = tokenPattern.allMatches(reshaped).toList();

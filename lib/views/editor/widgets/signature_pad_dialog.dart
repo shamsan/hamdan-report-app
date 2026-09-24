@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/ui_helpers.dart';
 
@@ -53,7 +54,7 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
       return;
     }
 
-    // Calculate bounding box of the drawn signature to crop tight with padding
+    // Calculate bounding box of the drawn signature to crop tight with equal padding
     double minX = double.infinity, minY = double.infinity;
     double maxX = double.negativeInfinity, maxY = double.negativeInfinity;
 
@@ -67,26 +68,24 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
     }
 
     if (minX.isInfinite || maxX.isInfinite) {
-      minX = 0; minY = 0; maxX = 350; maxY = 180;
+      minX = 0; minY = 0; maxX = 200; maxY = 100;
     }
 
-    // Add padding around signature
-    const pad = 14.0;
-    final srcRect = Rect.fromLTRB(
-      max(0.0, minX - pad),
-      max(0.0, minY - pad),
-      min(360.0, maxX + pad),
-      min(200.0, maxY + pad),
-    );
+    // Add clean symmetric padding around signature
+    const pad = 12.0;
+    final strokeW = maxX - minX;
+    final strokeH = maxY - minY;
 
-    final outWidth = max(60.0, srcRect.width);
-    final outHeight = max(40.0, srcRect.height);
+    final outWidth = max(20.0, strokeW + pad * 2);
+    final outHeight = max(20.0, strokeH + pad * 2);
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
 
-    // Shift canvas origin so cropped signature is top-left
-    canvas.translate(-srcRect.left, -srcRect.top);
+    // Shift canvas origin so cropped signature has exactly equal padding on all sides
+    final extraX = (outWidth - (strokeW + pad * 2)) / 2.0;
+    final extraY = (outHeight - (strokeH + pad * 2)) / 2.0;
+    canvas.translate(-minX + pad + extraX, -minY + pad + extraY);
 
     // Deep elegant blue pen ink
     final strokePaint = Paint()
@@ -125,7 +124,22 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
     try {
       final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
       if (res != null && res.files.isNotEmpty && res.files.first.bytes != null) {
-        final b64 = base64Encode(res.files.first.bytes!);
+        var rawBytes = res.files.first.bytes!;
+        try {
+          final decoded = img.decodeImage(rawBytes);
+          if (decoded != null) {
+            img.Image trimmed;
+            if (decoded.hasAlpha) {
+              trimmed = img.trim(decoded, mode: img.TrimMode.transparent, padding: 8);
+            } else {
+              trimmed = img.trim(decoded, mode: img.TrimMode.topLeftColor, fuzzy: 0.08, padding: 8);
+            }
+            if (trimmed.width > 0 && trimmed.height > 0) {
+              rawBytes = Uint8List.fromList(img.encodePng(trimmed));
+            }
+          }
+        } catch (_) {}
+        final b64 = base64Encode(rawBytes);
         widget.onSaved(b64);
         if (mounted) {
           Navigator.pop(context);

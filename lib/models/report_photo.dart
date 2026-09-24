@@ -8,6 +8,13 @@ enum PhotoPlacement {
   appendix,         // ملحق نهاية التقرير
 }
 
+enum PhotoDisplaySize {
+  halfWidth,   // نصف سطر (صورتان في السطر 50%) - الافتراضي
+  fullWidth,   // سطر كامل (عرض كامل 100%)
+  compact,     // ثلث سطر (3 صور في السطر 33%)
+  beforeAfter, // زوج مقارنة قبل وبعد
+}
+
 class ReportPhoto {
   final String id;
   final String? filePath;
@@ -18,6 +25,9 @@ class ReportPhoto {
   final String timestamp;
   final PhotoPlacement placement;
   final bool isLandscape; // true: أفقي (عرض كامل الصفحة), false: عمودي (شبكي نصف صفحة)
+  final PhotoDisplaySize displaySize;
+  final String beforeAfterStage; // 'none', 'before', 'after'
+  final double widthFactor; // 0.33 .. 1.0 (سحب العرض: 33% حتى 100%)
 
   const ReportPhoto({
     required this.id,
@@ -29,6 +39,9 @@ class ReportPhoto {
     this.timestamp = '',
     this.placement = PhotoPlacement.grid,
     this.isLandscape = false,
+    this.displaySize = PhotoDisplaySize.halfWidth,
+    this.beforeAfterStage = 'none',
+    this.widthFactor = 0.5,
   });
 
   static Uint8List? _safeDecode(String raw) {
@@ -91,7 +104,18 @@ class ReportPhoto {
     String? location,
     PhotoPlacement? placement,
     bool? isLandscape,
+    PhotoDisplaySize? displaySize,
+    String? beforeAfterStage,
+    double? widthFactor,
   }) {
+    final effectiveDisplaySize = displaySize ?? this.displaySize;
+    final effectiveWidthFactor = widthFactor ??
+        (displaySize != null
+            ? (effectiveDisplaySize == PhotoDisplaySize.fullWidth
+                ? 1.0
+                : (effectiveDisplaySize == PhotoDisplaySize.compact ? 0.33 : 0.5))
+            : this.widthFactor);
+
     return ReportPhoto(
       id: id,
       filePath: filePath ?? this.filePath,
@@ -101,7 +125,10 @@ class ReportPhoto {
       location: location ?? this.location,
       timestamp: timestamp,
       placement: placement ?? this.placement,
-      isLandscape: isLandscape ?? this.isLandscape,
+      isLandscape: isLandscape ?? (effectiveDisplaySize == PhotoDisplaySize.fullWidth || effectiveWidthFactor >= 0.85),
+      displaySize: effectiveDisplaySize,
+      beforeAfterStage: beforeAfterStage ?? this.beforeAfterStage,
+      widthFactor: effectiveWidthFactor,
     );
   }
 
@@ -115,20 +142,41 @@ class ReportPhoto {
     'timestamp': timestamp,
     'placement': placement.name,
     'isLandscape': isLandscape,
+    'displaySize': displaySize.name,
+    'beforeAfterStage': beforeAfterStage,
+    'widthFactor': widthFactor,
   };
 
-  factory ReportPhoto.fromJson(Map<String, dynamic> json) => ReportPhoto(
-    id: json['id'] ?? '',
-    filePath: json['filePath'],
-    base64Data: json['base64Data'] ?? '',
-    title: json['title'] ?? '',
-    caption: json['caption'] ?? '',
-    location: json['location'] ?? '',
-    timestamp: json['timestamp'] ?? '',
-    placement: PhotoPlacement.values.firstWhere(
-      (e) => e.name == json['placement'],
-      orElse: () => PhotoPlacement.grid,
-    ),
-    isLandscape: json['isLandscape'] ?? false,
-  );
+  factory ReportPhoto.fromJson(Map<String, dynamic> json) {
+    final legacyLandscape = json['isLandscape'] == true;
+    final displaySize = json['displaySize'] != null
+        ? PhotoDisplaySize.values.firstWhere(
+            (e) => e.name == json['displaySize'],
+            orElse: () => legacyLandscape ? PhotoDisplaySize.fullWidth : PhotoDisplaySize.halfWidth,
+          )
+        : (legacyLandscape ? PhotoDisplaySize.fullWidth : PhotoDisplaySize.halfWidth);
+
+    final rawWidth = (json['widthFactor'] as num?)?.toDouble();
+    final defaultWidth = displaySize == PhotoDisplaySize.fullWidth
+        ? 1.0
+        : (displaySize == PhotoDisplaySize.compact ? 0.33 : 0.5);
+
+    return ReportPhoto(
+      id: json['id'] ?? '',
+      filePath: json['filePath'],
+      base64Data: json['base64Data'] ?? '',
+      title: json['title'] ?? '',
+      caption: json['caption'] ?? '',
+      location: json['location'] ?? '',
+      timestamp: json['timestamp'] ?? '',
+      placement: PhotoPlacement.values.firstWhere(
+        (e) => e.name == json['placement'],
+        orElse: () => PhotoPlacement.grid,
+      ),
+      isLandscape: json['isLandscape'] ?? (displaySize == PhotoDisplaySize.fullWidth),
+      displaySize: displaySize,
+      beforeAfterStage: json['beforeAfterStage'] ?? 'none',
+      widthFactor: rawWidth ?? defaultWidth,
+    );
+  }
 }

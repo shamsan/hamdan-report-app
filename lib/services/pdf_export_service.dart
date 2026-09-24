@@ -51,6 +51,36 @@ class PdfExportService {
     return null;
   }
 
+  /// Safely trims any excess transparent or solid whitespace around signatures and returns pw.MemoryImage
+  static pw.MemoryImage? safeSignatureImage(String? base64Str) {
+    final bytes = safeDecodeBase64(base64Str);
+    if (bytes != null && bytes.isNotEmpty) {
+      try {
+        final decoded = image_pkg.decodeImage(bytes);
+        if (decoded != null) {
+          image_pkg.Image trimmed;
+          if (decoded.hasAlpha) {
+            trimmed = image_pkg.trim(decoded, mode: image_pkg.TrimMode.transparent, padding: 6);
+          } else {
+            trimmed = image_pkg.trim(decoded, mode: image_pkg.TrimMode.topLeftColor, fuzzy: 0.08, padding: 6);
+          }
+          if (trimmed.width > 0 && trimmed.height > 0) {
+            final trimmedBytes = Uint8List.fromList(image_pkg.encodePng(trimmed));
+            return pw.MemoryImage(trimmedBytes);
+          }
+        }
+        return pw.MemoryImage(bytes);
+      } catch (_) {
+        try {
+          return pw.MemoryImage(bytes);
+        } catch (_) {
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
   /// Helper to reshape and bidi Arabic text for PDF
   static String _ar(String? text, [int? maxCharsPerLine]) {
     if (text == null || text.trim().isEmpty) return '';
@@ -167,7 +197,7 @@ class PdfExportService {
             ),
           )?.signatureBase64;
 
-    final pw.MemoryImage? engineerSigImage = safeMemoryImage(engSigBase64);
+    final pw.MemoryImage? engineerSigImage = safeSignatureImage(engSigBase64);
 
     final effectiveRepName = report.approvalStatement.beneficiaryRepName.isNotEmpty
         ? report.approvalStatement.beneficiaryRepName
@@ -188,7 +218,7 @@ class PdfExportService {
             orElse: () => null,
           )?.signatureBase64);
 
-    final pw.MemoryImage? beneficiarySigImage = safeMemoryImage(benSigBase64);
+    final pw.MemoryImage? beneficiarySigImage = safeSignatureImage(benSigBase64);
 
     final pw.MemoryImage? stampImage = safeMemoryImage(report.approvalStatement.stampBase64);
 
@@ -450,9 +480,9 @@ class PdfExportService {
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             if (logoContractor != null)
-              pw.Image(logoContractor, height: isLandscape ? 36 : 30, width: 95, fit: pw.BoxFit.contain)
+              pw.Image(logoContractor, height: isLandscape ? 42 : 36, width: 95, fit: pw.BoxFit.contain)
             else
-              pw.SizedBox(height: isLandscape ? 36 : 30, width: 95),
+              pw.SizedBox(height: isLandscape ? 42 : 36, width: 95),
             pw.SizedBox(height: 1.5),
             // English Name in Black FIRST (supports 1, 2, or 3 lines)
             ...buildHeaderLines(
@@ -495,9 +525,9 @@ class PdfExportService {
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             if (logoFacility != null)
-              pw.Image(logoFacility, height: isLandscape ? 38 : 32, width: 85, fit: pw.BoxFit.contain)
+              pw.Image(logoFacility, height: isLandscape ? 40 : 34, width: 85, fit: pw.BoxFit.contain)
             else
-              pw.SizedBox(height: isLandscape ? 38 : 32, width: 85),
+              pw.SizedBox(height: isLandscape ? 40 : 34, width: 85),
             pw.SizedBox(height: 1.5),
             // English Name in Black FIRST (supports 1, 2, or 3 lines)
             ...buildHeaderLines(
@@ -644,14 +674,17 @@ class PdfExportService {
                       pw.Text('Engineer Signature: ', style: textStyle(size: 7.5)),
                       pw.Container(
                         height: 28,
-                        width: 90,
+                        width: 92,
+                        alignment: pw.Alignment.center,
                         padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                         decoration: pw.BoxDecoration(
                           color: PdfColors.white,
                           border: pw.Border.all(color: cyanColor, width: 0.7),
                           borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
                         ),
-                        child: pw.Image(engineerSigImage, fit: pw.BoxFit.contain),
+                        child: pw.Center(
+                          child: pw.Image(engineerSigImage, fit: pw.BoxFit.contain, alignment: pw.Alignment.center),
+                        ),
                       ),
                     ] else ...[
                       pw.Text('Engineer Signature ................................... ', style: textStyle(size: 7.5)),
@@ -670,14 +703,17 @@ class PdfExportService {
                         pw.Text('Beneficiary Approval: ', style: textStyle(size: 7.5)),
                         pw.Container(
                           height: 28,
-                          width: 90,
+                          width: 92,
+                          alignment: pw.Alignment.center,
                           padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                           decoration: pw.BoxDecoration(
                             color: PdfColors.white,
                             border: pw.Border.all(color: goldColor, width: 0.7),
                             borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
                           ),
-                          child: pw.Image(beneficiarySigImage, fit: pw.BoxFit.contain),
+                          child: pw.Center(
+                            child: pw.Image(beneficiarySigImage, fit: pw.BoxFit.contain, alignment: pw.Alignment.center),
+                          ),
                         ),
                       ] else ...[
                         pw.Text('Beneficiary Approval ................................... ', style: textStyle(size: 7.5)),
@@ -2812,7 +2848,10 @@ class PdfExportService {
                                   pw.Container(
                                     height: isLandscape ? 38 : 32,
                                     width: isLandscape ? 110 : 90,
-                                    child: pw.Image(beneficiarySigImage, fit: pw.BoxFit.contain),
+                                     alignment: pw.Alignment.center,
+                                     child: pw.Center(
+                                       child: pw.Image(beneficiarySigImage, fit: pw.BoxFit.contain, alignment: pw.Alignment.center),
+                                     ),
                                   )
                                 else
                                   pw.Expanded(
@@ -2834,7 +2873,10 @@ class PdfExportService {
                               pw.Container(
                                 width: isLandscape ? 85 : 75,
                                 height: isLandscape ? 85 : 75,
-                                child: pw.Image(stampImage, fit: pw.BoxFit.contain),
+                                 alignment: pw.Alignment.center,
+                                 child: pw.Center(
+                                   child: pw.Image(stampImage, fit: pw.BoxFit.contain, alignment: pw.Alignment.center),
+                                 ),
                               ),
                               pw.SizedBox(height: 3),
                               pw.Text(_ar('الختم الرسمي للمنشأة'), style: textStyle(size: 7.5, color: PdfColors.grey700)),
@@ -2911,6 +2953,7 @@ class PdfExportService {
                               children: [
                                 if (beneficiarySigImage != null)
                                   pw.Container(
+                                     alignment: pw.Alignment.center,
                                     height: isLandscape ? 44 : 38,
                                     width: isLandscape ? 120 : 100,
                                     padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -2919,7 +2962,9 @@ class PdfExportService {
                                       border: pw.Border.all(color: cyanColor, width: 0.8),
                                       borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                                     ),
-                                    child: pw.Image(beneficiarySigImage, fit: pw.BoxFit.contain),
+                                     child: pw.Center(
+                                       child: pw.Image(beneficiarySigImage, fit: pw.BoxFit.contain, alignment: pw.Alignment.center),
+                                     ),
                                   )
                                 else
                                   pw.Expanded(
@@ -3058,7 +3103,7 @@ class PdfExportService {
                           ],
                         ),
                         ...report.attendanceList.map((att) {
-                          final attSigImg = safeMemoryImage(att.signatureBase64);
+                          final attSigImg = safeSignatureImage(att.signatureBase64);
                           return pw.TableRow(
                             children: [
                               pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text('${att.serialNo}', style: textStyle(size: attFontSize, isBold: true)))),
@@ -3068,16 +3113,30 @@ class PdfExportService {
                                 child: pw.Center(
                                   child: attSigImg != null
                                       ? pw.Container(
+                                           alignment: pw.Alignment.center,
                                           height: isLandscape ? 34 : 28,
                                           padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                           decoration: pw.BoxDecoration(
                                             color: PdfColors.white,
-                                            border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                                            border: pw.Border.all(color: PdfColor.fromHex('#2E7D32'), width: 0.8),
                                             borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                                           ),
-                                          child: pw.Image(attSigImg, fit: pw.BoxFit.contain),
+                                           child: pw.Center(
+                                             child: pw.Image(attSigImg, fit: pw.BoxFit.contain, alignment: pw.Alignment.center),
+                                           ),
                                         )
-                                      : pw.Text('', style: textStyle(size: attFontSize)),
+                                      : pw.Container(
+                                          height: isLandscape ? 30 : 24,
+                                          alignment: pw.Alignment.center,
+                                          child: pw.Column(
+                                            mainAxisAlignment: pw.MainAxisAlignment.center,
+                                            children: [
+                                              pw.Text('................................', style: textStyle(size: 6, color: PdfColors.grey500)),
+                                              pw.SizedBox(height: 1),
+                                              pw.Text(_ar('التوقيع اليدوي / Signature'), style: textStyle(size: 5.5, color: PdfColors.grey600)),
+                                            ],
+                                          ),
+                                        ),
                                 ),
                               ),
                               pw.Padding(
@@ -3128,16 +3187,11 @@ class PdfExportService {
         if (origBytes != null && origBytes.isNotEmpty) {
           Uint8List bytes = origBytes;
           try {
-            // Verify and adapt image bytes so the image itself is oriented horizontally or vertically
             final decoded = image_pkg.decodeImage(bytes);
             if (decoded != null) {
               final isActuallyLandscape = decoded.width > decoded.height;
-              if (photo.isLandscape && !isActuallyLandscape) {
-                // Requested landscape (أفقي), but image is portrait -> rotate 90°
-                final rotated = image_pkg.copyRotate(decoded, angle: 90);
-                bytes = Uint8List.fromList(image_pkg.encodeJpg(rotated, quality: 85));
-              } else if (!photo.isLandscape && isActuallyLandscape) {
-                // Requested portrait (عمودي), but image is landscape -> rotate 90°
+              if (photo.displaySize == PhotoDisplaySize.fullWidth && !isActuallyLandscape) {
+                // Requested full-width landscape, but image is portrait -> rotate 90°
                 final rotated = image_pkg.copyRotate(decoded, angle: 90);
                 bytes = Uint8List.fromList(image_pkg.encodeJpg(rotated, quality: 85));
               }
@@ -3156,102 +3210,245 @@ class PdfExportService {
       }
 
       if (validPhotos.isNotEmpty) {
-        // Build rows: 2 photos per row regardless of orientation
-        final photoRows = <List<ReportPhoto>>[];
-        for (int i = 0; i < validPhotos.length; i += 2) {
-          if (i + 1 < validPhotos.length) {
-            photoRows.add([validPhotos[i], validPhotos[i + 1]]);
-          } else {
-            photoRows.add([validPhotos[i]]);
-          }
+        // Build visual rows based on PhotoDisplaySize
+        final photoRows = <_PhotoRowData>[];
+        var pendingPhotos = <ReportPhoto>[];
+        var pendingType = PhotoDisplaySize.halfWidth;
+
+        void flushPending() {
+          if (pendingPhotos.isEmpty) return;
+          final isCompact = pendingType == PhotoDisplaySize.compact;
+          photoRows.add(_PhotoRowData(
+            List<ReportPhoto>.from(pendingPhotos),
+            isCompact ? 0.68 : 1.0,
+          ));
+          pendingPhotos.clear();
         }
 
-        pw.Widget buildPhotoCard(ReportPhoto photo) {
+        for (final p in validPhotos) {
+          final isFull = p.displaySize == PhotoDisplaySize.fullWidth || p.widthFactor >= 0.85;
+          final isComp = p.displaySize == PhotoDisplaySize.compact || p.widthFactor <= 0.40;
+          if (isFull) {
+            flushPending();
+            photoRows.add(_PhotoRowData([p], 1.0));
+          } else if (isComp) {
+            if (pendingPhotos.isNotEmpty && pendingType != PhotoDisplaySize.compact) {
+              flushPending();
+            }
+            pendingType = PhotoDisplaySize.compact;
+            pendingPhotos.add(p);
+            if (pendingPhotos.length == 3) {
+              flushPending();
+            }
+          } else {
+            // halfWidth, 67% or beforeAfter
+            if (pendingPhotos.isNotEmpty && pendingType == PhotoDisplaySize.compact) {
+              flushPending();
+            }
+            pendingType = PhotoDisplaySize.halfWidth;
+            pendingPhotos.add(p);
+            if (pendingPhotos.length == 2) {
+              flushPending();
+            }
+          }
+        }
+        flushPending();
+
+        // Pack rows into pages (Max weight per page ~2.05)
+        final photoPages = <List<_PhotoRowData>>[];
+        var currentPageRows = <_PhotoRowData>[];
+        double currentPageWeight = 0.0;
+
+        for (final row in photoRows) {
+          if (currentPageRows.isNotEmpty && (currentPageWeight + row.heightWeight > 2.05)) {
+            photoPages.add(currentPageRows);
+            currentPageRows = [row];
+            currentPageWeight = row.heightWeight;
+          } else {
+            currentPageRows.add(row);
+            currentPageWeight += row.heightWeight;
+          }
+        }
+        if (currentPageRows.isNotEmpty) {
+          photoPages.add(currentPageRows);
+        }
+
+        pw.Widget buildPhotoCard(ReportPhoto photo, {bool isFullWidth = false, bool isCompact = false}) {
           final img = photoImages[photo.id];
           if (img == null) return pw.SizedBox();
+
+          final isBeforeAfter = photo.displaySize == PhotoDisplaySize.beforeAfter;
+          final isAfter = photo.beforeAfterStage == 'after';
+
+          PdfColor cardBorderColor = borderGrey;
+          double cardBorderWidth = 0.6;
+          if (isBeforeAfter) {
+            cardBorderColor = isAfter ? PdfColor.fromHex('#2E7D32') : PdfColor.fromHex('#E65100');
+            cardBorderWidth = 1.2;
+          } else if (isFullWidth) {
+            cardBorderColor = PdfColor.fromHex('#00838F');
+            cardBorderWidth = 1.0;
+          }
+
+          final titleText = photo.title.isNotEmpty
+              ? photo.title
+              : (photo.caption.isNotEmpty ? photo.caption : 'صورة توثيقية');
+          final subText = photo.location.isNotEmpty
+              ? (photo.title.isNotEmpty && photo.caption.isNotEmpty ? '${photo.location} - ${photo.caption}' : photo.location)
+              : (photo.title.isNotEmpty ? photo.caption : '');
 
           return pw.Container(
             decoration: pw.BoxDecoration(
               color: PdfColors.white,
-              border: pw.Border.all(color: borderGrey, width: 0.6),
+              border: pw.Border.all(color: cardBorderColor, width: cardBorderWidth),
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
             ),
-            padding: const pw.EdgeInsets.all(5),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
+                // Top Before / After Badge
+                if (isBeforeAfter)
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(vertical: 2.5, horizontal: 6),
+                    decoration: pw.BoxDecoration(
+                      color: isAfter ? PdfColor.fromHex('#E8F5E9') : PdfColor.fromHex('#FFF3E0'),
+                      borderRadius: const pw.BorderRadius.only(
+                        topLeft: pw.Radius.circular(5),
+                        topRight: pw.Radius.circular(5),
+                      ),
+                      border: pw.Border(
+                        bottom: pw.BorderSide(
+                          color: isAfter ? PdfColor.fromHex('#A5D6A7') : PdfColor.fromHex('#FFCC80'),
+                          width: 0.6,
+                        ),
+                      ),
+                    ),
+                    child: pw.Text(
+                      _ar(isAfter ? 'بعد الصيانة / After Maintenance' : 'قبل الصيانة / Before Maintenance'),
+                      style: textStyle(
+                        size: 8,
+                        isBold: true,
+                        color: isAfter ? PdfColor.fromHex('#1B5E20') : PdfColor.fromHex('#BF360C'),
+                      ),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                  ),
+
+                // Photo Image
                 pw.Expanded(
-                  child: pw.Center(
-                    child: pw.ClipRRect(
-                      horizontalRadius: 4,
-                      verticalRadius: 4,
-                      child: pw.Image(img, fit: pw.BoxFit.contain),
+                  child: pw.Padding(
+                    padding: const pw.EdgeInsets.all(4),
+                    child: pw.Center(
+                      child: pw.ClipRRect(
+                        horizontalRadius: 3,
+                        verticalRadius: 3,
+                        child: pw.Image(img, fit: pw.BoxFit.contain),
+                      ),
                     ),
                   ),
                 ),
-                pw.SizedBox(height: 4),
+
+                // Caption / Title Footer
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                  padding: pw.EdgeInsets.symmetric(horizontal: 5, vertical: isCompact ? 2 : 3),
                   decoration: pw.BoxDecoration(
                     color: PdfColors.grey100,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                    border: pw.Border.all(color: PdfColors.grey300, width: 0.4),
+                    borderRadius: const pw.BorderRadius.only(
+                      bottomLeft: pw.Radius.circular(5),
+                      bottomRight: pw.Radius.circular(5),
+                    ),
+                    border: pw.Border(
+                      top: pw.BorderSide(color: PdfColors.grey300, width: 0.4),
+                    ),
                   ),
-                  child: pw.Text(
-                    _ar(photo.title.isNotEmpty ? photo.title : (photo.caption.isNotEmpty ? photo.caption : 'صورة توثيقية')),
-                    style: textStyle(size: 8.5, isBold: true, color: darkNavyColor),
-                    textAlign: pw.TextAlign.center,
-                    maxLines: 1,
+                  child: pw.Column(
+                    mainAxisSize: pw.MainAxisSize.min,
+                    children: [
+                      pw.Text(
+                        _ar(titleText),
+                        style: textStyle(
+                          size: isCompact ? 7.5 : (isFullWidth ? 9.5 : 8.5),
+                          isBold: true,
+                          color: darkNavyColor,
+                        ),
+                        textAlign: pw.TextAlign.center,
+                        maxLines: 1,
+                      ),
+                      if (subText.isNotEmpty && !isCompact) ...[
+                        pw.SizedBox(height: 1.5),
+                        pw.Text(
+                          _ar(subText),
+                          style: textStyle(size: 7.0, color: PdfColors.grey700),
+                          textAlign: pw.TextAlign.center,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                if (photo.location.isNotEmpty || (photo.title.isNotEmpty && photo.caption.isNotEmpty)) ...[
-                  pw.SizedBox(height: 2),
-                  pw.Text(
-                    _ar(photo.location.isNotEmpty
-                        ? (photo.title.isNotEmpty && photo.caption.isNotEmpty ? '${photo.location} - ${photo.caption}' : photo.location)
-                        : photo.caption),
-                    style: textStyle(size: 7.5, color: PdfColors.grey700),
-                    textAlign: pw.TextAlign.center,
-                    maxLines: 1,
-                  ),
-                ],
               ],
             ),
           );
         }
 
-        pw.Widget buildRow(int rowIndex) {
-          final photosInRow = photoRows[rowIndex];
-          if (photosInRow.length == 2) {
+        pw.Widget buildRowWidget(_PhotoRowData row) {
+          final isCompact = row.photos.any((p) => p.displaySize == PhotoDisplaySize.compact);
+          final isFullWidth = row.photos.length == 1 && row.photos[0].displaySize == PhotoDisplaySize.fullWidth;
+
+          if (isFullWidth) {
             return pw.Expanded(
+              flex: (row.heightWeight * 100).round(),
+              child: buildPhotoCard(row.photos[0], isFullWidth: true),
+            );
+          } else if (isCompact) {
+            final widgets = <pw.Widget>[];
+            for (int i = 0; i < 3; i++) {
+              if (i < row.photos.length) {
+                widgets.add(pw.Expanded(
+                  child: buildPhotoCard(row.photos[i], isCompact: true),
+                ));
+              } else {
+                widgets.add(pw.Expanded(child: pw.SizedBox()));
+              }
+              if (i < 2) {
+                widgets.add(pw.SizedBox(width: 6));
+              }
+            }
+            return pw.Expanded(
+              flex: (row.heightWeight * 100).round(),
               child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                children: [
-                  pw.Expanded(child: buildPhotoCard(photosInRow[0])),
-                  pw.SizedBox(width: 8),
-                  pw.Expanded(child: buildPhotoCard(photosInRow[1])),
-                ],
+                children: widgets,
               ),
             );
           } else {
+            final widgets = <pw.Widget>[];
+            for (int i = 0; i < 2; i++) {
+              if (i < row.photos.length) {
+                widgets.add(pw.Expanded(
+                  child: buildPhotoCard(row.photos[i]),
+                ));
+              } else {
+                widgets.add(pw.Expanded(child: pw.SizedBox()));
+              }
+              if (i < 1) {
+                widgets.add(pw.SizedBox(width: 8));
+              }
+            }
             return pw.Expanded(
+              flex: (row.heightWeight * 100).round(),
               child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                children: [
-                  pw.Expanded(child: buildPhotoCard(photosInRow[0])),
-                  pw.SizedBox(width: 8),
-                  pw.Expanded(child: pw.SizedBox()),
-                ],
+                children: widgets,
               ),
             );
           }
         }
 
-        final totalPhotoPages = (photoRows.length / 2).ceil();
+        final totalPhotoPages = photoPages.length;
         for (int pIdx = 0; pIdx < totalPhotoPages; pIdx++) {
           final pNum = currentPageNumber++;
-          final rowStartIndex = pIdx * 2;
-          final hasSecondRow = rowStartIndex + 1 < photoRows.length;
+          final pageRows = photoPages[pIdx];
 
           final bannerTitle = totalPhotoPages > 1
               ? 'ملحق التوثيق الفوتوغرافي للموقع والمنظومة (${pIdx + 1} / $totalPhotoPages)'
@@ -3259,6 +3456,19 @@ class PdfExportService {
 
           final pFormat = resolvePageFormat(12);
           final isLandscape = pFormat.width > pFormat.height;
+
+          final rowWidgets = <pw.Widget>[];
+          for (int r = 0; r < pageRows.length; r++) {
+            rowWidgets.add(buildRowWidget(pageRows[r]));
+            if (r < pageRows.length - 1) {
+              rowWidgets.add(pw.SizedBox(height: 8));
+            }
+          }
+          double totalWeightOnPage = pageRows.fold(0.0, (sum, r) => sum + r.heightWeight);
+          if (totalWeightOnPage < 1.5) {
+            rowWidgets.add(pw.Expanded(flex: 100, child: pw.SizedBox()));
+          }
+
           pdf.addPage(
             pw.Page(
               pageFormat: pFormat,
@@ -3275,14 +3485,7 @@ class PdfExportService {
                       pw.Expanded(
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                          children: [
-                            buildRow(rowStartIndex),
-                            pw.SizedBox(height: 8),
-                            if (hasSecondRow)
-                              buildRow(rowStartIndex + 1)
-                            else
-                              pw.Expanded(child: pw.SizedBox()),
-                          ],
+                          children: rowWidgets,
                         ),
                       ),
                       pw.SizedBox(height: 4),
@@ -3502,4 +3705,10 @@ class PdfExportService {
 
     return pdf.save();
   }
+}
+
+class _PhotoRowData {
+  final List<ReportPhoto> photos;
+  final double heightWeight;
+  const _PhotoRowData(this.photos, this.heightWeight);
 }

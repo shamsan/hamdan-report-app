@@ -3231,16 +3231,28 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
 
   Widget _buildAttendanceTeamSection() {
     final list = _report.attendanceList;
+    final signedCount = list.where((a) => a.signatureBase64 != null && a.signatureBase64!.isNotEmpty).length;
+    final totalCount = list.length;
+    final progressRatio = totalCount > 0 ? (signedCount / totalCount) : 0.0;
+    final isAllSigned = totalCount > 0 && signedCount == totalCount;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildPageSetupControl(11, 'صفحة 11 (كشف حضور الفريق)'),
+        _buildPageSetupControl(11, 'صفحة 11 (كشف حضور وتوقيعات الفريق)'),
+        // Header with Actions
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'أعضاء الفريق المسجلون (${list.length}):',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textDark),
+            Row(
+              children: [
+                const Icon(Icons.people_alt_rounded, size: 18, color: AppTheme.primaryNavy),
+                const SizedBox(width: 6),
+                Text(
+                  'أعضاء الفريق المسجلون ($totalCount):',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark),
+                ),
+              ],
             ),
             Wrap(
               spacing: 6,
@@ -3270,7 +3282,72 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
+
+        // Signatures Progress & Status Overview Bar
+        if (totalCount > 0)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isAllSigned ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isAllSigned ? Colors.green.shade300 : Colors.amber.shade300,
+                width: 1.2,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      isAllSigned ? Icons.verified_rounded : Icons.pending_actions_rounded,
+                      size: 18,
+                      color: isAllSigned ? Colors.green.shade700 : Colors.amber.shade900,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isAllSigned
+                          ? 'اكتملت جميع توقيعات أعضاء الفريق بنجاح ($signedCount من $totalCount)'
+                          : 'اكتمال التوقيعات: $signedCount من أصل $totalCount عضو',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: isAllSigned ? Colors.green.shade800 : Colors.amber.shade900,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isAllSigned ? Colors.green.shade700 : Colors.amber.shade800,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${(progressRatio * 100).round()}% تم التوقيع',
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: progressRatio,
+                    minHeight: 6,
+                    backgroundColor: Colors.black.withValues(alpha: 0.08),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isAllSigned ? Colors.green.shade600 : Colors.amber.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         if (list.isEmpty)
           Container(
             padding: const EdgeInsets.all(16),
@@ -3299,132 +3376,338 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
             final idx = entry.key;
             final att = entry.value;
             final hasSig = att.signatureBase64 != null && att.signatureBase64!.isNotEmpty;
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-                side: const BorderSide(color: AppTheme.borderSubtle),
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: hasSig ? Colors.green.shade600 : Colors.amber.shade400,
+                  width: hasSig ? 1.6 : 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: hasSig ? Colors.green.withValues(alpha: 0.06) : Colors.amber.withValues(alpha: 0.06),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 14,
-                      backgroundColor: AppTheme.primaryNavy.withValues(alpha: 0.1),
-                      child: Text('${att.serialNo}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Card Header: Serial, Name, Status Badge & Actions
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+                    decoration: BoxDecoration(
+                      color: hasSig ? const Color(0xFFF0FDF4) : const Color(0xFFFFFDF5),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            att.name.isNotEmpty ? att.name : 'لم يتم إدخال الاسم',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textDark),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 13,
+                          backgroundColor: hasSig ? Colors.green.shade700 : Colors.amber.shade800,
+                          child: Text(
+                            '${att.serialNo}',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
-                          Text(
-                            att.role.isNotEmpty ? att.role : 'الصفة غير محددة',
-                            style: const TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
-                          ),
-                          if (att.affiliation.isNotEmpty)
-                            Text(
-                              'الجهة: ${att.affiliation}',
-                              style: const TextStyle(fontSize: 10.5, color: AppTheme.primaryNavy),
-                            ),
-                          if (hasSig)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 2),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.verified, size: 13, color: AppTheme.statusGood),
-                                  SizedBox(width: 4),
-                                  Text('التوقيع معتمد', style: TextStyle(fontSize: 9.5, color: AppTheme.statusGood, fontWeight: FontWeight.bold)),
-                                ],
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                att.name.isNotEmpty ? att.name : 'لم يتم إدخال الاسم',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark),
                               ),
-                            ),
-                        ],
-                      ),
+                              const SizedBox(height: 2),
+                              // Status pill badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: hasSig ? Colors.green.shade100 : Colors.amber.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: hasSig ? Colors.green.shade400 : Colors.amber.shade400, width: 0.8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      hasSig ? Icons.verified_rounded : Icons.schedule_rounded,
+                                      size: 11,
+                                      color: hasSig ? Colors.green.shade800 : Colors.amber.shade900,
+                                    ),
+                                    const SizedBox(width: 3.5),
+                                    Text(
+                                      hasSig ? 'معتمد بالتوقيع الرقمي ✅' : 'في انتظار التوقيع ⏳',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: hasSig ? Colors.green.shade800 : Colors.amber.shade900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Quick Action Buttons
+                        IconButton(
+                          icon: const Icon(Icons.edit_note_rounded, size: 20, color: AppTheme.primaryNavy),
+                          tooltip: 'تعديل البيانات',
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                          onPressed: () => _showAddAttendanceDialog(existing: att, index: idx),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, size: 19, color: Colors.redAccent),
+                          tooltip: 'حذف العضو',
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                          onPressed: () {
+                            final updated = List<AttendanceRecord>.from(_report.attendanceList);
+                            updated.removeAt(idx);
+                            final finalList = <AttendanceRecord>[];
+                            for (int i = 0; i < updated.length; i++) {
+                              final item = updated[i];
+                              finalList.add(AttendanceRecord(
+                                serialNo: i + 1,
+                                name: item.name,
+                                role: item.role,
+                                affiliation: item.affiliation,
+                                signatureBase64: item.signatureBase64,
+                                notes: item.notes,
+                              ));
+                            }
+                            _onReportUpdated(_report.copyWith(attendanceList: finalList));
+                          },
+                        ),
+                      ],
                     ),
-                    if (hasSig) ...[
-                      Builder(builder: (context) {
+                  ),
+
+                  // Member Chips: Role & Affiliation
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 5,
+                      children: [
+                        if (att.role.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppTheme.borderSubtle),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.engineering_outlined, size: 12, color: AppTheme.primaryNavy),
+                                const SizedBox(width: 4),
+                                Text(att.role, style: const TextStyle(fontSize: 10.5, color: AppTheme.textDark, fontWeight: FontWeight.w500)),
+                              ],
+                            ),
+                          ),
+                        if (att.affiliation.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.brandCyan.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppTheme.brandCyan.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.business_outlined, size: 12, color: AppTheme.brandCyan),
+                                const SizedBox(width: 4),
+                                Text(att.affiliation, style: const TextStyle(fontSize: 10.5, color: AppTheme.primaryNavy)),
+                              ],
+                            ),
+                          ),
+                        if (att.notes.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Text(att.notes, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700)),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // State-dependent Signing Panel
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                    child: Builder(builder: (context) {
+                      if (!hasSig) {
+                        // BEFORE SIGNING STATE: Inviting, high-visibility Action Button
+                        return InkWell(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => SignaturePadDialog(
+                                role: att.role,
+                                signerName: att.name,
+                                existingSignatureBase64: att.signatureBase64,
+                                onCleared: () {
+                                  final updated = List<AttendanceRecord>.from(_report.attendanceList);
+                                  updated[idx] = att.copyWith(signatureBase64: '');
+                                  _onReportUpdated(_report.copyWith(attendanceList: updated));
+                                },
+                                onSaved: (base64) {
+                                  final updated = List<AttendanceRecord>.from(_report.attendanceList);
+                                  updated[idx] = att.copyWith(signatureBase64: base64);
+                                  _onReportUpdated(_report.copyWith(attendanceList: updated));
+                                },
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.amber.shade300, width: 1.2),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.draw_rounded, size: 17, color: Colors.amber.shade900),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'اضغط هنا للتوقيع الرقمي لعضو الفريق الآن ✍️',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.amber.shade900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      } else {
+                        // AFTER SIGNING STATE: Official Verified Presentation Panel
                         final bytes = UiHelpers.safeDecodeBase64(att.signatureBase64);
                         return Container(
-                          width: 50,
-                          height: 32,
-                          margin: const EdgeInsets.only(left: 6),
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            border: Border.all(color: AppTheme.borderSubtle),
-                            borderRadius: BorderRadius.circular(4),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.green.shade200, width: 1.0),
                           ),
-                          child: bytes != null
-                              ? Image.memory(bytes, fit: BoxFit.contain)
-                              : const Icon(Icons.broken_image_outlined, size: 16, color: AppTheme.textMuted),
-                        );
-                      }),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.statusRejected),
-                        tooltip: 'حذف التوقيع',
-                        onPressed: () {
-                          final updated = List<AttendanceRecord>.from(_report.attendanceList);
-                          updated[idx] = att.copyWith(signatureBase64: '');
-                          _onReportUpdated(_report.copyWith(attendanceList: updated));
-                        },
-                      ),
-                    ],
-                    IconButton(
-                      icon: Icon(hasSig ? Icons.edit : Icons.draw, size: 18, color: hasSig ? AppTheme.primaryNavy : AppTheme.brandCyan),
-                      tooltip: hasSig ? 'تعديل التوقيع' : 'إضافة توقيع',
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (ctx) => SignaturePadDialog(
-                            role: att.role,
-                            signerName: att.name,
-                            existingSignatureBase64: att.signatureBase64,
-                            onCleared: () {
-                              final updated = List<AttendanceRecord>.from(_report.attendanceList);
-                              updated[idx] = att.copyWith(signatureBase64: '');
-                              _onReportUpdated(_report.copyWith(attendanceList: updated));
-                            },
-                            onSaved: (base64) {
-                              final updated = List<AttendanceRecord>.from(_report.attendanceList);
-                              updated[idx] = att.copyWith(signatureBase64: base64);
-                              _onReportUpdated(_report.copyWith(attendanceList: updated));
-                            },
+                          child: Row(
+                            children: [
+                              // Signature Preview Box
+                              Container(
+                                width: 110,
+                                height: 50,
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFAFAFA),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.grey.shade300, width: 0.8),
+                                ),
+                                child: bytes != null
+                                    ? Image.memory(bytes, fit: BoxFit.contain)
+                                    : const Icon(Icons.broken_image_outlined, size: 20, color: AppTheme.textMuted),
+                              ),
+                              const SizedBox(width: 10),
+                              // Verified details & Quick Actions
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.check_circle_rounded, size: 14, color: AppTheme.statusGood),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'توقيع معتمد وموثق',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.statusGood,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 4,
+                                      runSpacing: 4,
+                                      children: [
+                                        // Edit signature
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                            visualDensity: VisualDensity.compact,
+                                          ),
+                                          icon: const Icon(Icons.edit_rounded, size: 12),
+                                          label: const Text('تعديل', style: TextStyle(fontSize: 10.5)),
+                                          onPressed: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (ctx) => SignaturePadDialog(
+                                                role: att.role,
+                                                signerName: att.name,
+                                                existingSignatureBase64: att.signatureBase64,
+                                                onCleared: () {
+                                                  final updated = List<AttendanceRecord>.from(_report.attendanceList);
+                                                  updated[idx] = att.copyWith(signatureBase64: '');
+                                                  _onReportUpdated(_report.copyWith(attendanceList: updated));
+                                                },
+                                                onSaved: (base64) {
+                                                  final updated = List<AttendanceRecord>.from(_report.attendanceList);
+                                                  updated[idx] = att.copyWith(signatureBase64: base64);
+                                                  _onReportUpdated(_report.copyWith(attendanceList: updated));
+                                                },
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        // Delete signature
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AppTheme.statusRejected,
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                            visualDensity: VisualDensity.compact,
+                                          ),
+                                          icon: const Icon(Icons.delete_outline_rounded, size: 12),
+                                          label: const Text('مسح', style: TextStyle(fontSize: 10.5)),
+                                          onPressed: () {
+                                            final updated = List<AttendanceRecord>.from(_report.attendanceList);
+                                            updated[idx] = att.copyWith(signatureBase64: '');
+                                            _onReportUpdated(_report.copyWith(attendanceList: updated));
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         );
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_note, size: 20, color: AppTheme.primaryNavy),
-                      tooltip: 'تعديل البيانات',
-                      onPressed: () => _showAddAttendanceDialog(existing: att, index: idx),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
-                      tooltip: 'حذف',
-                      onPressed: () {
-                        final updated = List<AttendanceRecord>.from(_report.attendanceList);
-                        updated.removeAt(idx);
-                        final finalList = <AttendanceRecord>[];
-                        for (int i = 0; i < updated.length; i++) {
-                          final item = updated[i];
-                          finalList.add(AttendanceRecord(
-                            serialNo: i + 1,
-                            name: item.name,
-                            role: item.role,
-                            affiliation: item.affiliation,
-                            signatureBase64: item.signatureBase64,
-                            notes: item.notes,
-                          ));
-                        }
-                        _onReportUpdated(_report.copyWith(attendanceList: finalList));
-                      },
-                    ),
-                  ],
-                ),
+                      }
+                    }),
+                  ),
+                ],
               ),
             );
           }),
