@@ -104,7 +104,7 @@ void main() {
           cellNumber: cellNum,
           stringNumber: grpNum,
           voltage: 2.15 + (cellNum * 0.005),
-          internalResistance: 0.42 + (cellNum * 0.01),
+          boltTorque: 12.0,
           notes: 'خلية $cellNum مجموعة $grpNum',
         );
       }),

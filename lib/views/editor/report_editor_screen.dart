@@ -23,7 +23,9 @@ import 'widgets/photo_section_widget.dart';
 import 'widgets/signature_pad_dialog.dart';
 import 'widgets/needs_section_widget.dart';
 import 'widgets/inverter_data_entry_widget.dart';
+import 'widgets/pv_combiner_boxes_widget.dart';
 import '../session/maintenance_session_screen.dart';
+import '../../core/widgets/yemeni_phone_field.dart';
 
 class ReportEditorScreen extends ConsumerStatefulWidget {
   final String reportId;
@@ -44,6 +46,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
   bool _hasUnsavedChanges = false;
   bool _isNavigatingToPreview = false;
   late final AppLifecycleListener _lifecycleListener;
+  int _roleRevision = 0;
 
   void _flushPendingSave() {
     if (_hasUnsavedChanges) {
@@ -353,8 +356,9 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
   }
 
   Widget _buildPageSetupControl(int pageNumber, String pageTitle) {
-    final ori = _report.pageOrientations[pageNumber] ?? (pageNumber == 8 ? 'landscape' : 'portrait');
-    final isLandscape = ori == 'landscape';
+    final rawPref = (_report.pageOrientations[pageNumber] ?? (pageNumber == 9 ? 'a4_landscape' : 'a4_portrait')).toLowerCase();
+    final isLandscape = rawPref.contains('landscape') || rawPref.contains('horizontal');
+    final isA3 = rawPref.contains('a3');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -374,7 +378,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '$pageTitle: A4 - ${isLandscape ? "أفقي" : "عمودي"}',
+              '$pageTitle: ${isA3 ? "A3" : "A4"} - ${isLandscape ? "أفقي" : "عمودي"}',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
               overflow: TextOverflow.ellipsis,
             ),
@@ -631,40 +635,72 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                       const SizedBox(height: 24),
                       // Phase Navigation Footer
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           if (_activePhase > 0)
-                            OutlinedButton.icon(
-                              icon: const Icon(Icons.arrow_back, size: 16),
-                              label: const Text('المرحلة السابقة'),
-                              onPressed: () => setState(() => _activePhase--),
+                            Expanded(
+                              flex: _activePhase == 4 ? 2 : 1,
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                icon: const Icon(Icons.arrow_back, size: 16),
+                                label: const Text(
+                                  'المرحلة السابقة',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                onPressed: () => setState(() => _activePhase--),
+                              ),
                             )
                           else
-                            const SizedBox(),
+                            const Spacer(),
+                          const SizedBox(width: 10),
                           if (_activePhase < 4)
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
-                              icon: const Icon(Icons.arrow_forward, size: 16),
-                              label: const Text('المرحلة التالية'),
-                              onPressed: () => setState(() => _activePhase++),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryNavy,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                icon: const Icon(Icons.arrow_forward, size: 16),
+                                label: const Text(
+                                  'المرحلة التالية',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                onPressed: () => setState(() => _activePhase++),
+                              ),
                             )
                           else
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.solarGold),
-                              icon: const Icon(Icons.check, size: 16),
-                              label: const Text('معاينة التقرير الرسمي المعتمد'),
-                              onPressed: () async {
-                                final updated = await Navigator.push<Report>(
-                                   context,
-                                   MaterialPageRoute(builder: (_) => PdfPreviewScreen(report: _report)),
-                                 );
-                                if (updated != null && mounted) {
-                                  setState(() {
-                                    _report = updated;
-                                  });
-                                  ref.read(reportsProvider.notifier).updateReport(updated);
-                                }
-                              },
+                            Expanded(
+                              flex: 3,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.solarGold,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                icon: const Icon(Icons.check, size: 16),
+                                label: const Text(
+                                  'معاينة التقرير المعتمد',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                onPressed: () async {
+                                  final updated = await Navigator.push<Report>(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => PdfPreviewScreen(report: _report)),
+                                  );
+                                  if (updated != null && mounted) {
+                                    setState(() {
+                                      _report = updated;
+                                    });
+                                    ref.read(reportsProvider.notifier).updateReport(updated);
+                                  }
+                                },
+                              ),
                             ),
                         ],
                       ),
@@ -1951,6 +1987,60 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
             ),
           ),
         ),
+        const SizedBox(height: 14),
+        // بيانات مسؤول المنشأة وبيانات الاتصال المباشر (Full Width Dedicated Card)
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.borderSubtle),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.contact_phone_rounded, size: 18, color: AppTheme.primaryNavy),
+                  SizedBox(width: 8),
+                  Text(
+                    'مسؤول المنشأة وبيانات التواصل المباشر',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                initialValue: f.contactPerson,
+                decoration: const InputDecoration(
+                  labelText: 'مسؤول المنشأة / ممثل المستفيد بالموقع',
+                  hintText: 'مثال: د. عبد الله أحمد - مدير المركز',
+                  prefixIcon: Icon(Icons.person_outline_rounded, size: 18),
+                ),
+                onChanged: (v) => _onReportUpdated(_report.copyWith(facilityInfo: f.copyWith(contactPerson: v))),
+              ),
+              const SizedBox(height: 12),
+              YemeniPhoneField(
+                initialValue: f.phone,
+                label: 'رقم هاتف مسؤول المنشأة للتواصل',
+                hint: '777 123 456',
+                onChanged: (v) => _onReportUpdated(_report.copyWith(facilityInfo: f.copyWith(phone: v))),
+                onContactPicked: (contact) {
+                  if (contact.name != null && f.contactPerson.isEmpty) {
+                    _onReportUpdated(_report.copyWith(
+                      facilityInfo: f.copyWith(
+                        phone: contact.phone,
+                        contactPerson: contact.name!,
+                      ),
+                    ));
+                  } else {
+                    _onReportUpdated(_report.copyWith(facilityInfo: f.copyWith(phone: contact.phone)));
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -2401,317 +2491,10 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
   }
 
   Widget _buildStringMeasurementsForm() {
-    final activeBoxes = _report.activeCombinerBoxes.isNotEmpty ? _report.activeCombinerBoxes : [1, 2, 3, 4];
-
-    void updateStringValue(int sIdx, {double? voc, double? isc}) {
-      final list = List<StringMeasurement>.from(_report.stringMeasurements);
-      final existingIdx = list.indexWhere((s) => s.stringNumber == sIdx);
-      if (existingIdx != -1) {
-        list[existingIdx] = list[existingIdx].copyWith(
-          openCircuitVoltageVoc: voc,
-          shortCircuitCurrentIsc: isc,
-        );
-      } else {
-        list.add(StringMeasurement(
-          stringNumber: sIdx,
-          panelCount: 24,
-          openCircuitVoltageVoc: voc ?? 0.0,
-          shortCircuitCurrentIsc: isc ?? 0.0,
-        ));
-      }
-      _onReportUpdated(_report.copyWith(stringMeasurements: list));
-    }
-
-    void fillTypicalValues() {
-      final list = List<StringMeasurement>.from(_report.stringMeasurements);
-      for (final bNum in activeBoxes) {
-        for (int sNum = 1; sNum <= 4; sNum++) {
-          final sIdx = ((bNum - 1) * 4) + sNum;
-          final voc = 135.2 + ((sIdx % 4) * 0.3);
-          final isc = 8.4 + ((sIdx % 3) * 0.2);
-          final existingIdx = list.indexWhere((s) => s.stringNumber == sIdx);
-          if (existingIdx != -1) {
-            list[existingIdx] = list[existingIdx].copyWith(
-              openCircuitVoltageVoc: double.parse(voc.toStringAsFixed(1)),
-              shortCircuitCurrentIsc: double.parse(isc.toStringAsFixed(1)),
-            );
-          } else {
-            list.add(StringMeasurement(
-              stringNumber: sIdx,
-              panelCount: 24,
-              openCircuitVoltageVoc: double.parse(voc.toStringAsFixed(1)),
-              shortCircuitCurrentIsc: double.parse(isc.toStringAsFixed(1)),
-            ));
-          }
-        }
-      }
-      _onReportUpdated(_report.copyWith(stringMeasurements: list));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تم تعبئة قراءات نموذجية لسلاسل الصناديق الـ ${activeBoxes.length} المحددة')),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Combiner Boxes Configuration Panel
-        Container(
-          padding: const EdgeInsets.all(14),
-          margin: const EdgeInsets.only(bottom: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFCBD5E1), width: 1.3),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryNavy.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.hub_rounded, size: 18, color: AppTheme.primaryNavy),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'صناديق التجميع المضمنة بالتقرير (${activeBoxes.length} صناديق)',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppTheme.primaryNavy),
-                      ),
-                    ],
-                  ),
-                  PopupMenuButton<String>(
-                    tooltip: 'تحديد سريع لعدد الصناديق',
-                    icon: const Icon(Icons.flash_on_rounded, size: 20, color: AppTheme.solarGold),
-                    onSelected: (val) {
-                      if (val == 'b2') _onReportUpdated(_report.copyWith(activeCombinerBoxes: [1, 2]));
-                      if (val == 'b3') _onReportUpdated(_report.copyWith(activeCombinerBoxes: [1, 2, 3]));
-                      if (val == 'b4') _onReportUpdated(_report.copyWith(activeCombinerBoxes: [1, 2, 3, 4]));
-                      if (val == 'b16') {
-                        _onReportUpdated(_report.copyWith(activeCombinerBoxes: List.generate(16, (i) => i + 1)));
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'b2', child: Text('صندوقين فقط (1 - 2)')),
-                      const PopupMenuItem(value: 'b3', child: Text('3 صناديق (1 - 3)')),
-                      const PopupMenuItem(value: 'b4', child: Text('4 صناديق (1 - 4)')),
-                      const PopupMenuItem(value: 'b16', child: Text('كافة الصناديق (1 إلى 16)')),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: List.generate(16, (i) => i + 1).map((b) {
-                  final isSelected = activeBoxes.contains(b);
-                  return FilterChip(
-                    label: Text('صندوق $b'),
-                    selected: isSelected,
-                    backgroundColor: Colors.white,
-                    selectedColor: AppTheme.primaryNavy.withValues(alpha: 0.12),
-                    checkmarkColor: AppTheme.primaryNavy,
-                    side: BorderSide(
-                      color: isSelected ? AppTheme.primaryNavy : const Color(0xFFCBD5E1),
-                      width: isSelected ? 1.5 : 1.0,
-                    ),
-                    labelStyle: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      color: isSelected ? AppTheme.primaryNavy : AppTheme.textDark,
-                    ),
-                    onSelected: (selected) {
-                      final updated = List<int>.from(activeBoxes);
-                      if (selected) {
-                        if (!updated.contains(b)) updated.add(b);
-                      } else {
-                        if (updated.length > 1) {
-                          updated.remove(b);
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('يجب إبقاء صندوق تجميع واحد على الأقل')),
-                          );
-                        }
-                      }
-                      updated.sort();
-                      _onReportUpdated(_report.copyWith(activeCombinerBoxes: updated));
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.info_outline, size: 14, color: AppTheme.textMuted),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'يتم إظهار الصناديق النشطة فقط في جدول أداء الألواح (Page 9) بأعمدة عريضة وواضحة، مع استبعاد الصناديق الفارغة.',
-                      style: const TextStyle(fontSize: 10.5, color: AppTheme.textMuted),
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 20, color: Color(0xFFE2E8F0)),
-              _buildPageSetupControl(9, 'صفحة 9 (قياسات أداء الألواح)'),
-            ],
-          ),
-        ),
-
-        // Header & Typical Fill
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'قياسات سلاسل الألواح (${activeBoxes.length * 4} سلسلة نشطة):',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.solarGold,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              icon: const Icon(Icons.auto_fix_high, size: 14),
-              label: const Text('تعبئة نموذجية للسلاسل', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-              onPressed: fillTypicalValues,
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-
-        // Combiner Boxes Cards
-        ...activeBoxes.map((bNum) {
-          final boxStrings = [1, 2, 3, 4].map((sNum) {
-            final sIdx = ((bNum - 1) * 4) + sNum;
-            return _report.stringMeasurements.firstWhere(
-              (s) => s.stringNumber == sIdx,
-              orElse: () => StringMeasurement(stringNumber: sIdx, panelCount: 24, openCircuitVoltageVoc: 0, shortCircuitCurrentIsc: 0),
-            );
-          }).toList();
-
-          return Card(
-            elevation: 1,
-            margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryNavy,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.hub_rounded, size: 14, color: AppTheme.solarGold),
-                            const SizedBox(width: 6),
-                            Text(
-                              'صندوق التجميع #$bNum',
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'السلاسل: ${((bNum - 1) * 4) + 1} إلى ${bNum * 4}',
-                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ...boxStrings.map((str) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFCBD5E1)),
-                      ),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 13,
-                            backgroundColor: AppTheme.primaryNavy,
-                            child: Text(
-                              '${str.stringNumber}',
-                              style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TextFormField(
-                              initialValue: str.openCircuitVoltageVoc > 0 ? '${str.openCircuitVoltageVoc}' : '',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-                              decoration: const InputDecoration(
-                                labelText: 'Voc (V)',
-                                labelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
-                                isDense: true,
-                                fillColor: Colors.white,
-                              ),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              onChanged: (v) {
-                                final d = double.tryParse(v);
-                                if (d != null) {
-                                  updateStringValue(str.stringNumber, voc: d);
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextFormField(
-                              initialValue: str.shortCircuitCurrentIsc > 0 ? '${str.shortCircuitCurrentIsc}' : '',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-                              decoration: const InputDecoration(
-                                labelText: 'Isc (A)',
-                                labelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
-                                isDense: true,
-                                fillColor: Colors.white,
-                              ),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              onChanged: (v) {
-                                final d = double.tryParse(v);
-                                if (d != null) {
-                                  updateStringValue(str.stringNumber, isc: d);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-          );
-        }),
-      ],
+    return PvCombinerBoxesWidget(
+      report: _report,
+      onReportUpdated: _onReportUpdated,
+      pageSetupControl: _buildPageSetupControl(9, 'صفحة 9 (قياسات أداء الألواح)'),
     );
   }
 
@@ -2731,95 +2514,125 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
           final hasSig = sig.signatureBase64 != null && sig.signatureBase64!.isNotEmpty;
 
           return Card(
-            margin: const EdgeInsets.only(bottom: 8),
+            margin: const EdgeInsets.only(bottom: 10),
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: const BorderSide(color: AppTheme.borderSubtle),
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: hasSig ? AppTheme.statusGood.withValues(alpha: 0.4) : AppTheme.borderSubtle,
+                width: 1.2,
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(sig.role, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textDark)),
-                        Text(
-                          sig.signerName.isEmpty ? 'لم يتم إدخال الاسم' : sig.signerName,
-                          style: const TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
+                  // Row 1: Role, Name, and Status Badge (Responsive & Clean)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: hasSig ? AppTheme.statusGood.withValues(alpha: 0.12) : AppTheme.primaryNavy.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        if (hasSig)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 4),
-                            child: Row(
-                              children: [
-                                Icon(Icons.verified, size: 14, color: AppTheme.statusGood),
-                                SizedBox(width: 4),
-                                Text('تم اعتماد التوقيع الرقمي', style: TextStyle(fontSize: 10, color: AppTheme.statusGood, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (hasSig)
-                    Container(
-                      width: 70,
-                      height: 40,
-                      margin: const EdgeInsets.only(left: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: AppTheme.borderSubtle),
-                        borderRadius: BorderRadius.circular(6),
+                        child: Icon(
+                          hasSig ? Icons.verified_rounded : Icons.edit_note_rounded,
+                          size: 18,
+                          color: hasSig ? AppTheme.statusGood : AppTheme.primaryNavy,
+                        ),
                       ),
-                      child: Builder(builder: (context) {
-                        final bytes = UiHelpers.safeDecodeBase64(sig.signatureBase64);
-                        if (bytes != null) {
-                          return Image.memory(bytes, fit: BoxFit.contain);
-                        }
-                        return const Icon(Icons.broken_image_outlined, size: 20, color: AppTheme.textMuted);
-                      }),
-                    ),
-                  if (hasSig)
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.statusRejected, size: 20),
-                      tooltip: 'حذف التوقيع',
-                      onPressed: () {
-                        final list = List<ReportSignature>.from(_report.signatures);
-                        list[idx] = sig.copyWith(signatureBase64: '');
-
-                        final isEng = sig.role.contains('مهندس') || sig.role.contains('صيانة') || sig.role.contains('مقاول');
-                        final isBen = sig.role.contains('مستفيد') || sig.role.contains('مرفق') || sig.role.contains('مدير');
-                        ApprovalStatement stmt = _report.approvalStatement;
-                        if (isEng) {
-                          stmt = stmt.copyWith(contractorSignatureBase64: '');
-                        }
-                        if (isBen) {
-                          stmt = stmt.copyWith(beneficiarySignatureBase64: '');
-                        }
-                        _onReportUpdated(_report.copyWith(signatures: list, approvalStatement: stmt));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('تم حذف توقيع (${sig.role})')),
-                        );
-                      },
-                    ),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: hasSig ? AppTheme.primaryNavy : AppTheme.brandCyan,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    icon: Icon(hasSig ? Icons.edit : Icons.draw, size: 14),
-                    label: Text(hasSig ? 'تعديل' : 'توقيع', style: const TextStyle(fontSize: 11)),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => SignaturePadDialog(
-                          role: sig.role,
-                          signerName: sig.signerName,
-                          existingSignatureBase64: sig.signatureBase64,
-                          onCleared: () {
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              sig.role,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textDark),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              sig.signerName.isNotEmpty ? sig.signerName : 'لم يتم إدخال الاسم بعد',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: sig.signerName.isNotEmpty ? AppTheme.textDark : AppTheme.textMuted,
+                                fontWeight: sig.signerName.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Status Badge (Non-overflowing pill)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: hasSig ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: hasSig ? Colors.green.shade400 : Colors.amber.shade400,
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              hasSig ? Icons.check_circle_rounded : Icons.schedule_rounded,
+                              size: 11,
+                              color: hasSig ? Colors.green.shade800 : Colors.amber.shade900,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              hasSig ? 'معتمد رقمياً' : 'بانتظار التوقيع',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: hasSig ? Colors.green.shade800 : Colors.amber.shade900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Row 2: Signature Preview & Actions
+                  Row(
+                    children: [
+                      if (hasSig)
+                        Container(
+                          width: 85,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: AppTheme.borderSubtle),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Builder(builder: (context) {
+                            final bytes = UiHelpers.safeDecodeBase64(sig.signatureBase64);
+                            if (bytes != null) {
+                              return ClipRRect(
+                                borderRadius: BorderRadius.circular(7),
+                                child: Image.memory(bytes, fit: BoxFit.contain),
+                              );
+                            }
+                            return const Icon(Icons.broken_image_outlined, size: 20, color: AppTheme.textMuted);
+                          }),
+                        ),
+                      const Spacer(),
+                      if (hasSig)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.statusRejected, size: 20),
+                          tooltip: 'حذف التوقيع',
+                          onPressed: () {
                             final list = List<ReportSignature>.from(_report.signatures);
                             list[idx] = sig.copyWith(signatureBase64: '');
 
@@ -2833,25 +2646,68 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                               stmt = stmt.copyWith(beneficiarySignatureBase64: '');
                             }
                             _onReportUpdated(_report.copyWith(signatures: list, approvalStatement: stmt));
-                          },
-                          onSaved: (base64) {
-                            final list = List<ReportSignature>.from(_report.signatures);
-                            list[idx] = sig.copyWith(signatureBase64: base64);
-
-                            final isEng = sig.role.contains('مهندس') || sig.role.contains('صيانة') || sig.role.contains('مقاول');
-                            final isBen = sig.role.contains('مستفيد') || sig.role.contains('مرفق') || sig.role.contains('مدير');
-                            ApprovalStatement stmt = _report.approvalStatement;
-                            if (isEng) {
-                              stmt = stmt.copyWith(contractorSignatureBase64: base64);
-                            }
-                            if (isBen) {
-                              stmt = stmt.copyWith(beneficiarySignatureBase64: base64);
-                            }
-                            _onReportUpdated(_report.copyWith(signatures: list, approvalStatement: stmt));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('تم حذف توقيع (${sig.role})')),
+                            );
                           },
                         ),
-                      );
-                    },
+                      if (hasSig) const SizedBox(width: 4),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: hasSig ? AppTheme.primaryNavy : AppTheme.brandCyan,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          visualDensity: VisualDensity.compact,
+                          elevation: 0,
+                        ),
+                        icon: Icon(hasSig ? Icons.edit_rounded : Icons.draw_rounded, size: 15),
+                        label: Text(
+                          hasSig ? 'تعديل التوقيع' : 'إضافة التوقيع الرقمي',
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => SignaturePadDialog(
+                              role: sig.role,
+                              signerName: sig.signerName,
+                              existingSignatureBase64: sig.signatureBase64,
+                              onCleared: () {
+                                final list = List<ReportSignature>.from(_report.signatures);
+                                list[idx] = sig.copyWith(signatureBase64: '');
+
+                                final isEng = sig.role.contains('مهندس') || sig.role.contains('صيانة') || sig.role.contains('مقاول');
+                                final isBen = sig.role.contains('مستفيد') || sig.role.contains('مرفق') || sig.role.contains('مدير');
+                                ApprovalStatement stmt = _report.approvalStatement;
+                                if (isEng) {
+                                  stmt = stmt.copyWith(contractorSignatureBase64: '');
+                                }
+                                if (isBen) {
+                                  stmt = stmt.copyWith(beneficiarySignatureBase64: '');
+                                }
+                                _onReportUpdated(_report.copyWith(signatures: list, approvalStatement: stmt));
+                              },
+                              onSaved: (base64) {
+                                final list = List<ReportSignature>.from(_report.signatures);
+                                list[idx] = sig.copyWith(signatureBase64: base64);
+
+                                final isEng = sig.role.contains('مهندس') || sig.role.contains('صيانة') || sig.role.contains('مقاول');
+                                final isBen = sig.role.contains('مستفيد') || sig.role.contains('مرفق') || sig.role.contains('مدير');
+                                ApprovalStatement stmt = _report.approvalStatement;
+                                if (isEng) {
+                                  stmt = stmt.copyWith(contractorSignatureBase64: base64);
+                                }
+                                if (isBen) {
+                                  stmt = stmt.copyWith(beneficiarySignatureBase64: base64);
+                                }
+                                _onReportUpdated(_report.copyWith(signatures: list, approvalStatement: stmt));
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -2958,84 +2814,175 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
         const SizedBox(height: 16),
         // Dedicated Beneficiary Approval & Signature Card (Page 10 Attendance Statement)
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppTheme.bgSurface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppTheme.brandCyan.withValues(alpha: 0.35)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.verified_user_rounded, color: AppTheme.brandCyan, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'مصادقة واعتماد ممثل المنشأة / المستفيد (صفحة 10)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textDark),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'تظهر هذه البيانات والتوقيع في إفادة الحضور الرسمية (صفحة 10) وتذييل صفحات التقرير المعتمدة.',
-                style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-              ),
-              const SizedBox(height: 12),
-              // Name and Title Row
+              // Header with Page Tag
               Row(
                 children: [
-                  Expanded(
-                    child: TextFormField(
-                      initialValue: _report.approvalStatement.beneficiaryRepName.isNotEmpty
-                          ? _report.approvalStatement.beneficiaryRepName
-                          : _report.facilityInfo.contactPerson,
-                      decoration: const InputDecoration(
-                        labelText: 'اسم ممثل المنشأة (Name) *',
-                        hintText: 'مثال: عنتر حسن ابكر',
-                        prefixIcon: Icon(Icons.person_outline, size: 18),
-                      ),
-                      onChanged: (v) {
-                        _onReportUpdated(_report.copyWith(
-                          approvalStatement: _report.approvalStatement.copyWith(beneficiaryRepName: v),
-                        ));
-                      },
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.brandCyan.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    child: const Icon(Icons.verified_user_rounded, color: AppTheme.brandCyan, size: 20),
                   ),
                   const SizedBox(width: 10),
-                  Expanded(
-                    child: TextFormField(
-                      initialValue: _report.approvalStatement.beneficiaryRepRole.isNotEmpty
-                          ? _report.approvalStatement.beneficiaryRepRole
-                          : 'مدير المنشأة',
-                      decoration: const InputDecoration(
-                        labelText: 'المنصب / الصفة (Title) *',
-                        hintText: 'مثال: مدير المركز الصحي',
-                        prefixIcon: Icon(Icons.badge_outlined, size: 18),
-                      ),
-                      onChanged: (v) {
-                        _onReportUpdated(_report.copyWith(
-                          approvalStatement: _report.approvalStatement.copyWith(beneficiaryRepRole: v),
-                        ));
-                      },
+                  const Expanded(
+                    child: Text(
+                      'مصادقة واعتماد ممثل المنشأة والمستفيد',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.brandCyan.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'صفحة 10',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.brandCyan),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              // English Name & Title (Optional)
-              Row(
+              const SizedBox(height: 6),
+              const Text(
+                'تظهر هذه البيانات والتوقيع في إفادة الحضور الرسمية (صفحة 10) وتذييل صفحات التقرير المعتمدة.',
+                style: TextStyle(fontSize: 11, color: AppTheme.textMuted, height: 1.3),
+              ),
+              const SizedBox(height: 16),
+
+              // Full-Width Arabic Name Field
+              TextFormField(
+                key: const ValueKey('ben_rep_name_field'),
+                initialValue: _report.approvalStatement.beneficiaryRepName.isNotEmpty
+                    ? _report.approvalStatement.beneficiaryRepName
+                    : _report.facilityInfo.contactPerson,
+                decoration: InputDecoration(
+                  labelText: 'اسم ممثل المنشأة / المستفيد (الاسم الكامل) *',
+                  hintText: 'مثال: عنتر حسن ابكر',
+                  prefixIcon: const Icon(Icons.person_outline, size: 20, color: AppTheme.brandCyan),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onChanged: (v) {
+                  _onReportUpdated(_report.copyWith(
+                    approvalStatement: _report.approvalStatement.copyWith(beneficiaryRepName: v),
+                  ));
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // Full-Width Arabic Role Field
+              TextFormField(
+                key: ValueKey('ben_rep_role_rev_$_roleRevision'),
+                initialValue: _report.approvalStatement.beneficiaryRepRole.isNotEmpty
+                    ? _report.approvalStatement.beneficiaryRepRole
+                    : 'مدير المنشأة',
+                decoration: InputDecoration(
+                  labelText: 'المنصب / الصفة الرسمية (Title) *',
+                  hintText: 'مثال: مدير المركز الصحي',
+                  prefixIcon: const Icon(Icons.badge_outlined, size: 20, color: AppTheme.brandCyan),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onChanged: (v) {
+                  _onReportUpdated(_report.copyWith(
+                    approvalStatement: _report.approvalStatement.copyWith(beneficiaryRepRole: v),
+                  ));
+                },
+              ),
+              const SizedBox(height: 8),
+
+              // Quick-Select Role Chips
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
                 children: [
-                  Expanded(
-                    child: TextFormField(
+                  'مدير المنشأة',
+                  'ممثل المستفيد',
+                  'مدير المركز الصحي',
+                  'مسؤول الصيانة بالموقع',
+                  'مهندس الموقع',
+                ].map((roleOption) {
+                  final isSelected = (_report.approvalStatement.beneficiaryRepRole.isNotEmpty
+                          ? _report.approvalStatement.beneficiaryRepRole
+                          : 'مدير المنشأة') ==
+                      roleOption;
+                  return ChoiceChip(
+                    label: Text(roleOption, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppTheme.textDark)),
+                    selected: isSelected,
+                    selectedColor: AppTheme.primaryNavy,
+                    backgroundColor: const Color(0xFFF1F5F9),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() => _roleRevision++);
+                        _onReportUpdated(_report.copyWith(
+                          approvalStatement: _report.approvalStatement.copyWith(beneficiaryRepRole: roleOption),
+                        ));
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+
+              // English Name & Title (Cleanly structured section)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.borderSubtle),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.translate_outlined, size: 16, color: AppTheme.textMuted),
+                        SizedBox(width: 6),
+                        Text(
+                          'البيانات باللغة الإنجليزية (اختياري للتقارير الثنائية)',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.textMuted),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
                       initialValue: _report.approvalStatement.beneficiaryRepNameEn,
-                      decoration: const InputDecoration(
-                        labelText: 'الاسم بالإنجليزي (Name EN)',
-                        hintText: 'مثال: Dr. Diaa Al-Maghrebi',
-                        prefixIcon: Icon(Icons.translate_outlined, size: 18),
+                      decoration: InputDecoration(
+                        labelText: 'الاسم بالإنجليزي (Name in English)',
+                        hintText: 'e.g. Dr. Antar Hassan Abkar',
+                        prefixIcon: const Icon(Icons.person_outline, size: 18),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       onChanged: (v) {
                         _onReportUpdated(_report.copyWith(
@@ -3043,15 +2990,17 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                         ));
                       },
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextFormField(
+                    const SizedBox(height: 10),
+                    TextFormField(
                       initialValue: _report.approvalStatement.beneficiaryRepRoleEn,
-                      decoration: const InputDecoration(
-                        labelText: 'المنصب بالإنجليزي (Title EN)',
-                        hintText: 'مثال: Hospital Director',
-                        prefixIcon: Icon(Icons.badge_outlined, size: 18),
+                      decoration: InputDecoration(
+                        labelText: 'المنصب بالإنجليزي (Title in English)',
+                        hintText: 'e.g. Health Center Director',
+                        prefixIcon: const Icon(Icons.badge_outlined, size: 18),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       onChanged: (v) {
                         _onReportUpdated(_report.copyWith(
@@ -3059,10 +3008,11 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                         ));
                       },
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
+
               // Installation Date Picker with Clear Button
               InkWell(
                 onTap: () async {
@@ -3076,12 +3026,16 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                     ));
                   }
                 },
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 child: InputDecorator(
                   decoration: InputDecoration(
                     labelText: 'تاريخ تركيب منظومة الطاقة الشمسية (صفحة 10)',
                     hintText: 'يترك فارغاً إذا لم يحدد',
                     prefixIcon: const Icon(Icons.solar_power_outlined, size: 18, color: AppTheme.brandCyan),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     suffixIcon: _report.facilityInfo.installationDate.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, size: 18, color: AppTheme.textMuted),
@@ -3099,14 +3053,15 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                         ? _report.facilityInfo.installationDate
                         : 'فارغ (لم يحدد - يظهر فراغ في التقرير)',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12.5,
                       color: _report.facilityInfo.installationDate.isNotEmpty ? AppTheme.textDark : AppTheme.textMuted,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              // Signature Pad Box
+              const SizedBox(height: 14),
+
+              // Beneficiary Digital Signature Box
               Builder(builder: (context) {
                 final benSig = _report.approvalStatement.beneficiarySignatureBase64;
                 final hasBenSig = benSig != null && benSig.isNotEmpty;
@@ -3116,52 +3071,138 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                         ? _report.facilityInfo.contactPerson
                         : 'ممثل المنشأة');
 
-                return Row(
-                  children: [
-                    Container(
-                      width: 90,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.borderSubtle),
-                      ),
-                      child: hasBenSig
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Builder(builder: (context) {
-                                final bytes = UiHelpers.safeDecodeBase64(benSig);
-                                if (bytes != null) {
-                                  return Image.memory(bytes, fit: BoxFit.contain);
-                                }
-                                return const Icon(Icons.broken_image_outlined, size: 24, color: AppTheme.textMuted);
-                              }),
-                            )
-                          : const Center(
-                              child: Icon(Icons.draw_outlined, size: 24, color: AppTheme.textMuted),
-                            ),
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: hasBenSig ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: hasBenSig ? AppTheme.statusApproved.withValues(alpha: 0.3) : AppTheme.borderSubtle,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: hasBenSig ? AppTheme.primaryNavy : AppTheme.brandCyan,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        icon: Icon(hasBenSig ? Icons.edit : Icons.draw, size: 16),
-                        label: Text(
-                          hasBenSig ? 'تعديل توقيع ممثل المنشأة' : 'توقيع إلكتروني لممثل المنشأة',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (ctx) => SignaturePadDialog(
-                              role: 'ممثل المنشأة / المستفيد',
-                              signerName: repName,
-                              existingSignatureBase64: benSig,
-                              onCleared: () {
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Signature Status Row
+                      Row(
+                        children: [
+                          Icon(
+                            hasBenSig ? Icons.check_circle_rounded : Icons.pending_outlined,
+                            size: 16,
+                            color: hasBenSig ? AppTheme.statusApproved : AppTheme.statusPending,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            hasBenSig ? 'توقيع ممثل المنشأة معتمد رقمياً' : 'توقيع ممثل المنشأة (بانتظار التوقيع)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: hasBenSig ? AppTheme.statusApproved : AppTheme.textDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Container(
+                            width: 96,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: hasBenSig ? AppTheme.statusApproved.withValues(alpha: 0.4) : AppTheme.borderSubtle,
+                              ),
+                            ),
+                            child: hasBenSig
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Builder(builder: (context) {
+                                      final bytes = UiHelpers.safeDecodeBase64(benSig);
+                                      if (bytes != null) {
+                                        return Image.memory(bytes, fit: BoxFit.contain);
+                                      }
+                                      return const Icon(Icons.broken_image_outlined, size: 24, color: AppTheme.textMuted);
+                                    }),
+                                  )
+                                : const Center(
+                                    child: Icon(Icons.draw_outlined, size: 24, color: AppTheme.textMuted),
+                                  ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: hasBenSig ? AppTheme.primaryNavy : AppTheme.brandCyan,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: Icon(hasBenSig ? Icons.edit_note_rounded : Icons.draw_rounded, size: 16),
+                              label: Text(
+                                hasBenSig ? 'تعديل التوقيع' : 'إضافة التوقيع الرقمي',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) => SignaturePadDialog(
+                                    role: 'ممثل المنشأة / المستفيد',
+                                    signerName: repName,
+                                    existingSignatureBase64: benSig,
+                                    onCleared: () {
+                                      final updatedSigs = _report.signatures.map((s) {
+                                        if (s.id == 'sig_fac' || s.role.contains('مستفيد') || s.role.contains('مرفق') || s.role.contains('مدير')) {
+                                          return s.copyWith(signatureBase64: '');
+                                        }
+                                        return s;
+                                      }).toList();
+
+                                      _onReportUpdated(_report.copyWith(
+                                        signatures: updatedSigs,
+                                        approvalStatement: _report.approvalStatement.copyWith(
+                                          beneficiarySignatureBase64: '',
+                                        ),
+                                      ));
+                                    },
+                                    onSaved: (base64) {
+                                      final updatedSigs = _report.signatures.map((s) {
+                                        if (s.id == 'sig_fac' || s.role.contains('مستفيد') || s.role.contains('مرفق') || s.role.contains('مدير')) {
+                                          return s.copyWith(signatureBase64: base64, signerName: repName);
+                                        }
+                                        return s;
+                                      }).toList();
+
+                                      _onReportUpdated(_report.copyWith(
+                                        signatures: updatedSigs,
+                                        approvalStatement: _report.approvalStatement.copyWith(
+                                          beneficiarySignatureBase64: base64,
+                                          beneficiaryRepName: repName,
+                                        ),
+                                      ));
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          if (hasBenSig) ...[
+                            const SizedBox(width: 6),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, color: AppTheme.statusRejected, size: 20),
+                              tooltip: 'حذف التوقيع',
+                              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                              padding: const EdgeInsets.all(8),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(color: AppTheme.statusRejected.withValues(alpha: 0.3)),
+                                ),
+                              ),
+                              onPressed: () {
                                 final updatedSigs = _report.signatures.map((s) {
                                   if (s.id == 'sig_fac' || s.role.contains('مستفيد') || s.role.contains('مرفق') || s.role.contains('مدير')) {
                                     return s.copyWith(signatureBase64: '');
@@ -3176,50 +3217,12 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                                   ),
                                 ));
                               },
-                              onSaved: (base64) {
-                                final updatedSigs = _report.signatures.map((s) {
-                                  if (s.id == 'sig_fac' || s.role.contains('مستفيد') || s.role.contains('مرفق') || s.role.contains('مدير')) {
-                                    return s.copyWith(signatureBase64: base64, signerName: repName);
-                                  }
-                                  return s;
-                                }).toList();
-
-                                _onReportUpdated(_report.copyWith(
-                                  signatures: updatedSigs,
-                                  approvalStatement: _report.approvalStatement.copyWith(
-                                    beneficiarySignatureBase64: base64,
-                                    beneficiaryRepName: repName,
-                                  ),
-                                ));
-                              },
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                    if (hasBenSig) ...[
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, color: AppTheme.statusRejected, size: 20),
-                        tooltip: 'حذف التوقيع',
-                        onPressed: () {
-                          final updatedSigs = _report.signatures.map((s) {
-                            if (s.id == 'sig_fac' || s.role.contains('مستفيد') || s.role.contains('مرفق') || s.role.contains('مدير')) {
-                              return s.copyWith(signatureBase64: '');
-                            }
-                            return s;
-                          }).toList();
-
-                          _onReportUpdated(_report.copyWith(
-                            signatures: updatedSigs,
-                            approvalStatement: _report.approvalStatement.copyWith(
-                              beneficiarySignatureBase64: '',
-                            ),
-                          ));
-                        },
+                          ],
+                        ],
                       ),
                     ],
-                  ],
+                  ),
                 );
               }),
             ],
@@ -3240,45 +3243,44 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildPageSetupControl(11, 'صفحة 11 (كشف حضور وتوقيعات الفريق)'),
-        // Header with Actions
+        // Header with Actions (Responsive & Overflow-Free)
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.people_alt_rounded, size: 18, color: AppTheme.primaryNavy),
-                const SizedBox(width: 6),
-                Text(
-                  'أعضاء الفريق المسجلون ($totalCount):',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark),
-                ),
-              ],
+            const Icon(Icons.people_alt_rounded, size: 18, color: AppTheme.primaryNavy),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'أعضاء الفريق المسجلون ($totalCount):',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            Wrap(
-              spacing: 6,
-              children: [
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: const Icon(Icons.refresh_rounded, size: 14),
-                  label: const Text('استعادة الافتراضي', style: TextStyle(fontSize: 11)),
-                  onPressed: () {
-                    _onReportUpdated(_report.copyWith(attendanceList: DefaultTemplates.defaultAttendanceList));
-                  },
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.brandCyan,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('إضافة عضو +', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  onPressed: () => _showAddAttendanceDialog(),
-                ),
-              ],
+            IconButton(
+              tooltip: 'استعادة الفريق الافتراضي',
+              icon: const Icon(Icons.restart_alt_rounded, size: 19, color: AppTheme.textMuted),
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              padding: const EdgeInsets.all(7),
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFFF1F5F9),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () {
+                _onReportUpdated(_report.copyWith(attendanceList: DefaultTemplates.defaultAttendanceList));
+              },
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.brandCyan,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 0,
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: const Icon(Icons.person_add_rounded, size: 15),
+              label: const Text('إضافة عضو', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+              onPressed: () => _showAddAttendanceDialog(),
             ),
           ],
         ),

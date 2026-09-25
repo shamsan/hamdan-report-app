@@ -5,7 +5,7 @@ import 'package:report_craft/services/default_templates.dart';
 void main() {
   group('YemenLocations Tests', () {
     test('Contains all official 21 governorates and administrative divisions', () {
-      expect(YemenLocations.governorates.length, 21);
+      expect(YemenLocations.governorates.length, 22);
       expect(YemenLocations.governorates.contains('حجة'), isTrue);
       expect(YemenLocations.governorates.contains('الحديدة'), isTrue);
       expect(YemenLocations.governorates.contains('صنعاء (أمانة العاصمة)'), isTrue);

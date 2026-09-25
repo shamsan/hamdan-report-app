@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/yemen_locations.dart';
@@ -129,6 +130,51 @@ class _SiteFormScreenState extends ConsumerState<SiteFormScreen> {
     super.dispose();
   }
 
+  Future<bool> _handlePopScope() async {
+    final hasChanges = _nameArCtrl.text.isNotEmpty ||
+        _contactPersonCtrl.text.isNotEmpty ||
+        _phoneCtrl.text.isNotEmpty;
+    if (!hasChanges) {
+      return true;
+    }
+
+    HapticFeedback.lightImpact();
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppTheme.solarGold, size: 24),
+            SizedBox(width: 8),
+            Text('تجاهل التغييرات؟', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'هل تريد الخروج وتجاهل البيانات والتعديلات المدخلة للموقع؟',
+          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('البقاء للإكمال', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.statusRejected,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('تجاهل والخروج'),
+          ),
+        ],
+      ),
+    );
+    return shouldLeave ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final clients = ref.watch(clientsProvider);
@@ -142,7 +188,16 @@ class _SiteFormScreenState extends ConsumerState<SiteFormScreen> {
       ),
     );
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final leave = await _handlePopScope();
+        if (leave && context.mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
       backgroundColor: AppTheme.bgSurface,
       appBar: AppBar(
         title: Text(
@@ -488,7 +543,8 @@ class _SiteFormScreenState extends ConsumerState<SiteFormScreen> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildSectionCard({

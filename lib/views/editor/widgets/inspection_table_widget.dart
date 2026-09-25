@@ -19,6 +19,7 @@ class InspectionTableWidget extends StatefulWidget {
 
 class _InspectionTableWidgetState extends State<InspectionTableWidget> {
   InspectionStatus? _filterStatus;
+  int _notesRevision = 0;
 
   void _updateItem(int index, InspectionItem updated) {
     final newItems = List<InspectionItem>.from(widget.group.items);
@@ -229,7 +230,7 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
                   const SizedBox(height: 8),
                   // Notes input
                   TextFormField(
-                    key: ValueKey('${item.id}_${item.notes}'),
+                    key: ValueKey('${item.id}_r$_notesRevision'),
                     initialValue: item.notes,
                     style: const TextStyle(fontSize: 12),
                     decoration: InputDecoration(
@@ -291,6 +292,7 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 onPressed: () {
+                                  setState(() => _notesRevision++);
                                   final current = item.notes.trim();
                                   final newNotes = current.isEmpty
                                       ? phrase

@@ -23,6 +23,7 @@ class InverterDataEntryWidget extends StatefulWidget {
 class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
   int _selectedInverterIndex = 1;
   bool _isFocusMode = true;
+  int _revision = 0;
   final ScrollController _chipsScrollController = ScrollController();
 
   int get _effectiveInvCount {
@@ -156,6 +157,7 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
         _setInList(list, 'op_dc_v_$u', dc1, parameter: 'فرق جهد الدخول (مستمر) #$u', unit: 'Vdc', range: '48.0 - 54.0');
       }
     }
+    setState(() => _revision++);
     widget.onReportUpdated(widget.report.copyWith(operationalData: list));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('تم نسخ جهود الإنفرتر #1 بنجاح إلى باقي الإنفرترات ($_effectiveInvCount)')),
@@ -180,6 +182,7 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
     if (prevLoad.isNotEmpty) {
       _setInList(list, 'op_load_$u', prevLoad, parameter: 'الحمل على الإنفرتر #$u', unit: 'W', range: '< 5000');
     }
+    setState(() => _revision++);
     widget.onReportUpdated(widget.report.copyWith(operationalData: list));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('تم نسخ قراءات الإنفرتر #$prevU إلى الإنفرتر #$u بنجاح')),
@@ -205,6 +208,7 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
         _setInList(list, 'op_dc_v', dc, parameter: 'فرق جهد الدخول (مستمر)', unit: 'Vdc', range: '48.0 - 54.0');
       }
     }
+    setState(() => _revision++);
     widget.onReportUpdated(widget.report.copyWith(operationalData: list));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('تمت تعبئة بيانات نموذجية لجميع الإنفرترات ($_effectiveInvCount)')),
@@ -234,6 +238,7 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
                 _setInList(list, 'op_ac_v', '', parameter: 'فرق جهد الخرج (متردد)', unit: 'Vac');
                 _setInList(list, 'op_dc_v', '', parameter: 'فرق جهد الدخول (مستمر)', unit: 'Vdc');
               }
+              setState(() => _revision++);
               widget.onReportUpdated(widget.report.copyWith(operationalData: list));
             },
             child: const Text('مسح', style: TextStyle(color: Colors.white)),
@@ -434,57 +439,76 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
           const Divider(height: 1, color: Color(0xFFE2E8F0)),
           const SizedBox(height: 10),
 
-          // KPIs Grid
-          Row(
-            children: [
-              // Total Load
-              Expanded(
-                child: _buildKpiTile(
-                  title: 'إجمالي الحمل',
-                  value: totalKw > 0 ? '${totalKw.toStringAsFixed(1)} kW' : '0.0 kW',
-                  subtitle: '${_totalLoadWatts.toInt()} W',
-                  icon: Icons.electric_meter_rounded,
-                  color: const Color(0xFF2563EB),
-                  bgColor: const Color(0xFFEFF6FF),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Avg AC
-              Expanded(
-                child: _buildKpiTile(
-                  title: 'متوسط جهد AC',
-                  value: avgAc != null ? '${avgAc.toStringAsFixed(1)} V' : '--',
-                  subtitle: 'معيار: 220-230V',
-                  icon: Icons.power_rounded,
-                  color: const Color(0xFF16A34A),
-                  bgColor: const Color(0xFFF0FDF4),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Avg DC
-              Expanded(
-                child: _buildKpiTile(
-                  title: 'متوسط جهد DC',
-                  value: avgDc != null ? '${avgDc.toStringAsFixed(1)} V' : '--',
-                  subtitle: 'معيار: 48-54V',
-                  icon: Icons.battery_charging_full_rounded,
-                  color: AppTheme.solarGold,
-                  bgColor: const Color(0xFFFFFBEB),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Completion
-              Expanded(
-                child: _buildKpiTile(
-                  title: 'المكتمل',
-                  value: '$completed / $total',
-                  subtitle: completed == total ? 'مكتمل 100%' : 'قيد الإدخال',
-                  icon: Icons.check_circle_outline_rounded,
-                  color: completed == total ? const Color(0xFF16A34A) : AppTheme.textMuted,
-                  bgColor: completed == total ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
-                ),
-              ),
-            ],
+          // KPIs Grid (Adaptive 2x2 on mobile, 1x4 on tablet)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isSmall = constraints.maxWidth < 420;
+              final loadTile = _buildKpiTile(
+                title: 'إجمالي الحمل',
+                value: totalKw > 0 ? '${totalKw.toStringAsFixed(1)} kW' : '0.0 kW',
+                subtitle: '${_totalLoadWatts.toInt()} W',
+                icon: Icons.electric_meter_rounded,
+                color: const Color(0xFF2563EB),
+                bgColor: const Color(0xFFEFF6FF),
+              );
+              final acTile = _buildKpiTile(
+                title: 'متوسط جهد AC',
+                value: avgAc != null ? '${avgAc.toStringAsFixed(1)} V' : '--',
+                subtitle: 'معيار: 220-230V',
+                icon: Icons.power_rounded,
+                color: const Color(0xFF16A34A),
+                bgColor: const Color(0xFFF0FDF4),
+              );
+              final dcTile = _buildKpiTile(
+                title: 'متوسط جهد DC',
+                value: avgDc != null ? '${avgDc.toStringAsFixed(1)} V' : '--',
+                subtitle: 'معيار: 48-54V',
+                icon: Icons.battery_charging_full_rounded,
+                color: AppTheme.solarGold,
+                bgColor: const Color(0xFFFFFBEB),
+              );
+              final compTile = _buildKpiTile(
+                title: 'المكتمل',
+                value: '$completed / $total',
+                subtitle: completed == total ? 'مكتمل 100%' : 'قيد الإدخال',
+                icon: Icons.check_circle_outline_rounded,
+                color: completed == total ? const Color(0xFF16A34A) : AppTheme.textMuted,
+                bgColor: completed == total ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+              );
+
+              if (isSmall) {
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: loadTile),
+                        const SizedBox(width: 8),
+                        Expanded(child: compTile),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: acTile),
+                        const SizedBox(width: 8),
+                        Expanded(child: dcTile),
+                      ],
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: loadTile),
+                  const SizedBox(width: 8),
+                  Expanded(child: acTile),
+                  const SizedBox(width: 8),
+                  Expanded(child: dcTile),
+                  const SizedBox(width: 8),
+                  Expanded(child: compTile),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -538,32 +562,39 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
     );
   }
 
-  // --- Actions & Mode Bar ---
+  // --- Actions & Mode Bar (Mobile-first, Zero-overflow with expressive icons) ---
   Widget _buildModeAndActionsBar() {
     return Row(
       children: [
-        // Mode Switcher (Focus vs List)
+        // Mode Switcher (Icon-Only Segmented Control with Tooltips)
         Container(
-          padding: const EdgeInsets.all(2),
+          padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
             color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFFCBD5E1)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildModeTab(
-                label: 'تركيز (موصى للجوال)',
+              _buildModeIconButton(
                 icon: Icons.filter_center_focus_rounded,
+                tooltip: 'وضع التركيز (إنفرتر تلو الآخر)',
                 isSelected: _isFocusMode,
-                onTap: () => setState(() => _isFocusMode = true),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _isFocusMode = true);
+                },
               ),
-              _buildModeTab(
-                label: 'عرض الكل',
+              const SizedBox(width: 2),
+              _buildModeIconButton(
                 icon: Icons.view_agenda_outlined,
+                tooltip: 'عرض كافة الإنفرترات في قائمة واحدة',
                 isSelected: !_isFocusMode,
-                onTap: () => setState(() => _isFocusMode = false),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _isFocusMode = false);
+                },
               ),
             ],
           ),
@@ -571,85 +602,93 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
 
         const Spacer(),
 
-        // Copy #1 to All Action
-        if (_effectiveInvCount > 1)
-          TextButton.icon(
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              backgroundColor: const Color(0xFFF0FDF4),
-              side: const BorderSide(color: Color(0xFF86EFAC)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.copy_all, size: 13, color: Color(0xFF16A34A)),
-            label: const Text(
-              'نسخ جهود #1 للكل',
-              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
-            ),
-            onPressed: _copyVoltagesFrom1ToAll,
+        // Copy #1 to All Action Icon Button
+        if (_effectiveInvCount > 1) ...[
+          _buildActionIconButton(
+            icon: Icons.copy_all_rounded,
+            tooltip: 'نسخ جهود إنفرتر #1 إلى باقي الإنفرترات',
+            color: const Color(0xFF16A34A),
+            bgColor: const Color(0xFFF0FDF4),
+            borderColor: const Color(0xFF86EFAC),
+            onTap: _copyVoltagesFrom1ToAll,
           ),
+          const SizedBox(width: 8),
+        ],
 
-        const SizedBox(width: 6),
-
-        // Typical fill button
-        InkWell(
+        // Typical fill Action Icon Button
+        _buildActionIconButton(
+          icon: Icons.auto_fix_high_rounded,
+          tooltip: 'تعبئة نموذجية قياسية لكافة الإنفرترات',
+          color: const Color(0xFFD97706),
+          bgColor: const Color(0xFFFFFBEB),
+          borderColor: const Color(0xFFFDE68A),
           onTap: _fillTypicalValues,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFFBEB),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFFDE68A)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.auto_fix_high, size: 13, color: Color(0xFFD97706)),
-                SizedBox(width: 4),
-                Text(
-                  'نموذجي',
-                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
-                ),
-              ],
-            ),
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildModeTab({
-    required String label,
+  Widget _buildModeIconButton({
     required IconData icon,
+    required String tooltip,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          boxShadow: isSelected
-              ? [const BoxShadow(color: Colors.black12, blurRadius: 3, offset: Offset(0, 1))]
-              : null,
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(7),
+        child: Container(
+          width: 38,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+            boxShadow: isSelected
+                ? [const BoxShadow(color: Colors.black12, blurRadius: 3, offset: Offset(0, 1))]
+                : null,
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: isSelected ? AppTheme.primaryNavy : Colors.grey[600],
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: isSelected ? AppTheme.primaryNavy : Colors.grey[600]),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? AppTheme.primaryNavy : Colors.grey[700],
-              ),
+      ),
+    );
+  }
+
+  Widget _buildActionIconButton({
+    required IconData icon,
+    required String tooltip,
+    required Color color,
+    required Color bgColor,
+    required Color borderColor,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap();
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: borderColor),
             ),
-          ],
+            child: Icon(icon, size: 17, color: color),
+          ),
         ),
       ),
     );
@@ -960,7 +999,7 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
         ),
         const SizedBox(height: 6),
         TextFormField(
-          key: ValueKey('inv_load_${u}_$currentVal'),
+          key: ValueKey('inv_load_${u}_rev_$_revision'),
           initialValue: currentVal,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           textInputAction: TextInputAction.next,
@@ -996,6 +1035,7 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
             return InkWell(
               onTap: () {
                 HapticFeedback.lightImpact();
+                setState(() => _revision++);
                 _updateLoad(u, preset);
               },
               borderRadius: BorderRadius.circular(6),
@@ -1076,7 +1116,7 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
         ),
         const SizedBox(height: 6),
         TextFormField(
-          key: ValueKey('inv_ac_${u}_$currentVal'),
+          key: ValueKey('inv_ac_${u}_rev_$_revision'),
           initialValue: currentVal,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           textInputAction: TextInputAction.next,
@@ -1112,6 +1152,7 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
             return InkWell(
               onTap: () {
                 HapticFeedback.lightImpact();
+                setState(() => _revision++);
                 _updateAc(u, preset);
               },
               borderRadius: BorderRadius.circular(6),
@@ -1192,7 +1233,7 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
         ),
         const SizedBox(height: 6),
         TextFormField(
-          key: ValueKey('inv_dc_${u}_$currentVal'),
+          key: ValueKey('inv_dc_${u}_rev_$_revision'),
           initialValue: currentVal,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           textInputAction: TextInputAction.done,
@@ -1228,6 +1269,7 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
             return InkWell(
               onTap: () {
                 HapticFeedback.lightImpact();
+                setState(() => _revision++);
                 _updateDc(u, preset);
               },
               borderRadius: BorderRadius.circular(6),

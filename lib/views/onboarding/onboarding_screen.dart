@@ -18,6 +18,7 @@ import '../../state/reports_provider.dart';
 import '../main_navigation_shell.dart';
 import '../session/maintenance_session_screen.dart';
 import '../editor/report_editor_screen.dart';
+import '../../core/widgets/yemeni_phone_field.dart';
 
 /// شاشة تهيئة التجربة الأولى للمستخدم (FTUE / Onboarding)
 /// توفر تجربة سلسة متعددة المسارات:
@@ -55,7 +56,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final TextEditingController _clientContactController = TextEditingController();
 
   final TextEditingController _siteNameController = TextEditingController();
-  String? _selectedGov = 'صنعاء';
+  String? _selectedGov = 'صنعاء (أمانة العاصمة)';
   String? _selectedDir = 'السبعين';
   final TextEditingController _capacityController = TextEditingController();
   final TextEditingController _systemTypeController = TextEditingController(text: 'منفصلة عن الشبكة (Off-Grid)');
@@ -861,15 +862,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          TextFormField(
+          YemeniPhoneField(
             controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'رقم هاتف التواصل',
-              hintText: 'مثال: 777 123 456',
-              prefixIcon: Icon(Icons.phone_rounded),
-              border: OutlineInputBorder(),
-            ),
+            label: 'رقم هاتف التواصل المعتمد',
+            hint: '777 123 456',
           ),
           const SizedBox(height: 14),
           TextFormField(

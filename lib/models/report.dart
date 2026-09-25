@@ -420,11 +420,22 @@ class Report {
       }
     }
 
-    // Battery measurements
-    if (batteryMeasurements.isNotEmpty) {
+    // Battery measurements (based on active groups)
+    if (activeBatteryGroups.isNotEmpty) {
       totalPoints += 10;
-      final measured = batteryMeasurements.where((b) => b.voltage > 0).length;
-      earnedPoints += (measured * 10 / batteryMeasurements.length).round();
+      int activeTotal = 0;
+      int activeMeasured = 0;
+      for (final g in activeBatteryGroups) {
+        final start = (g - 1) * 24;
+        if (start < batteryMeasurements.length) {
+          final cells = batteryMeasurements.skip(start).take(24);
+          activeTotal += cells.length;
+          activeMeasured += cells.where((b) => b.voltage > 0).length;
+        }
+      }
+      if (activeTotal > 0) {
+        earnedPoints += (activeMeasured * 10 / activeTotal).round();
+      }
     }
 
     // Signatures

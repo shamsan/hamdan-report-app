@@ -268,17 +268,20 @@ class PhotoSectionWidget extends StatelessWidget {
         final f = File(savedPath);
         await f.writeAsBytes(newBytes);
         await FileImage(f).evict();
+        PaintingBinding.instance.imageCache.evict(FileImage(f));
       }
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
 
       // Automatically flip orientation to match the new image aspect ratio
       final newIsLandscape = rotated.width > rotated.height;
+      final newTimestamp = DateTime.now().millisecondsSinceEpoch.toString();
 
       list[index] = current.copyWith(
         filePath: savedPath,
         base64Data: savedPath != null ? '' : base64Encode(newBytes),
         isLandscape: newIsLandscape,
+        timestamp: newTimestamp,
       );
       onChanged(list);
 
@@ -299,138 +302,321 @@ class PhotoSectionWidget extends StatelessWidget {
   }
 
   void _editPhotoDetails(BuildContext context, int index) {
-    final p = photos[index];
+    ReportPhoto p = photos[index];
     final titleCtrl = TextEditingController(text: p.title);
     final captionCtrl = TextEditingController(text: p.caption);
     final locationCtrl = TextEditingController(text: p.location);
     PhotoDisplaySize displaySize = p.displaySize;
     String beforeAfterStage = p.beforeAfterStage;
+    bool isLandscape = p.isLandscape;
+    String currentTimestamp = p.timestamp;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) {
+        builder: (ctx, setDialogState) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            title: Row(
               children: [
-                Icon(Icons.edit_note_rounded, color: AppTheme.primaryNavy),
-                SizedBox(width: 8),
-                Text('تفاصيل الصورة وتنسيق العرض', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.brandCyan.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.photo_size_select_actual_rounded, color: AppTheme.brandCyan, size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'تفاصيل الصورة ونمط العرض',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20, color: AppTheme.textMuted),
+                  onPressed: () => Navigator.pop(ctx),
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                ),
               ],
             ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: titleCtrl,
-                    decoration: const InputDecoration(labelText: 'عنوان الصورة'),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: captionCtrl,
-                    decoration: const InputDecoration(labelText: 'الوصف / البيان التوثيقي'),
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: locationCtrl,
-                    decoration: const InputDecoration(labelText: 'الموقع الميداني'),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text('حجم ونمط العرض في التقرير:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ChoiceChip(
-                        avatar: const Icon(Icons.view_column_rounded, size: 16),
-                        label: const Text('مزدوج (50%)'),
-                        selected: displaySize == PhotoDisplaySize.halfWidth,
-                        selectedColor: AppTheme.primaryNavy.withValues(alpha: 0.15),
-                        onSelected: (val) {
-                          if (val) setState(() => displaySize = PhotoDisplaySize.halfWidth);
-                        },
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Photo Preview with Live Orientation & Quick Rotate
+                    Container(
+                      height: 140,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.borderSubtle),
                       ),
-                      ChoiceChip(
-                        avatar: const Icon(Icons.crop_landscape_rounded, size: 16),
-                        label: const Text('عرض كامل (100%)'),
-                        selected: displaySize == PhotoDisplaySize.fullWidth,
-                        selectedColor: AppTheme.brandCyan.withValues(alpha: 0.2),
-                        onSelected: (val) {
-                          if (val) setState(() => displaySize = PhotoDisplaySize.fullWidth);
-                        },
-                      ),
-                      ChoiceChip(
-                        avatar: const Icon(Icons.view_week_rounded, size: 16),
-                        label: const Text('مصغر (33%)'),
-                        selected: displaySize == PhotoDisplaySize.compact,
-                        selectedColor: Colors.deepPurple.withValues(alpha: 0.15),
-                        onSelected: (val) {
-                          if (val) setState(() => displaySize = PhotoDisplaySize.compact);
-                        },
-                      ),
-                      ChoiceChip(
-                        avatar: const Icon(Icons.compare_arrows_rounded, size: 16),
-                        label: const Text('مقارنة (قبل / بعد)'),
-                        selected: displaySize == PhotoDisplaySize.beforeAfter,
-                        selectedColor: Colors.orange.withValues(alpha: 0.2),
-                        onSelected: (val) {
-                          if (val) {
-                            setState(() {
-                              displaySize = PhotoDisplaySize.beforeAfter;
-                              if (beforeAfterStage == 'none') beforeAfterStage = 'before';
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  if (displaySize == PhotoDisplaySize.beforeAfter) ...[
-                    const SizedBox(height: 12),
-                    const Text('مرحلة التوثيق للمقارنة:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ChoiceChip(
-                            avatar: const Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange),
-                            label: const Text('قبل الصيانة', style: TextStyle(fontSize: 11)),
-                            selected: beforeAfterStage == 'before',
-                            selectedColor: Colors.orange.withValues(alpha: 0.25),
-                            onSelected: (val) {
-                              if (val) setState(() => beforeAfterStage = 'before');
-                            },
-                          ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(11),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Center(
+                              child: Builder(builder: (context) {
+                                if (p.filePath != null && p.filePath!.isNotEmpty) {
+                                  final file = File(p.filePath!);
+                                  if (file.existsSync()) {
+                                    return Image.file(
+                                      file,
+                                      fit: BoxFit.contain,
+                                      key: ValueKey('${p.id}_$currentTimestamp'),
+                                    );
+                                  }
+                                }
+                                if (p.base64Data.isNotEmpty) {
+                                  try {
+                                    return Image.memory(
+                                      base64Decode(p.base64Data),
+                                      fit: BoxFit.contain,
+                                      key: ValueKey('${p.id}_$currentTimestamp'),
+                                    );
+                                  } catch (_) {}
+                                }
+                                return const Icon(Icons.image, size: 40, color: Colors.white30);
+                              }),
+                            ),
+                            // Orientation Pill
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isLandscape ? Icons.crop_landscape_rounded : Icons.crop_portrait_rounded,
+                                      size: 13,
+                                      color: Colors.white,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isLandscape ? 'أفقي' : 'عمودي',
+                                      style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // Rotate 90 Button overlay
+                            Positioned(
+                              bottom: 8,
+                              left: 8,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.black87,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                icon: const Icon(Icons.rotate_right_rounded, size: 16, color: AppTheme.solarGold),
+                                label: const Text('تدوير 90°', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                onPressed: () async {
+                                  final bytes = await p.getBytes();
+                                  if (bytes == null || bytes.isEmpty) return;
+                                  try {
+                                    final decoded = img.decodeImage(bytes);
+                                    if (decoded == null) return;
+                                    final rotated = img.copyRotate(decoded, angle: 90);
+                                    final newBytes = Uint8List.fromList(img.encodeJpg(rotated, quality: 85));
+
+                                    String? savedPath = p.filePath;
+                                    if (savedPath != null && savedPath.isNotEmpty) {
+                                      final f = File(savedPath);
+                                      await f.writeAsBytes(newBytes);
+                                      await FileImage(f).evict();
+                                      PaintingBinding.instance.imageCache.evict(FileImage(f));
+                                    }
+                                    PaintingBinding.instance.imageCache.clear();
+                                    PaintingBinding.instance.imageCache.clearLiveImages();
+
+                                    final newIsLandscape = rotated.width > rotated.height;
+                                    final newTs = DateTime.now().millisecondsSinceEpoch.toString();
+
+                                    p = p.copyWith(
+                                      filePath: savedPath,
+                                      base64Data: savedPath != null ? '' : base64Encode(newBytes),
+                                      isLandscape: newIsLandscape,
+                                      timestamp: newTs,
+                                    );
+
+                                    final list = List<ReportPhoto>.from(photos);
+                                    list[index] = p;
+                                    onChanged(list);
+
+                                    setDialogState(() {
+                                      isLandscape = newIsLandscape;
+                                      currentTimestamp = newTs;
+                                    });
+                                  } catch (e) {
+                                    debugPrint('Error rotating in dialog: $e');
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ChoiceChip(
-                            avatar: const Icon(Icons.check_circle_outline_rounded, size: 16, color: Colors.green),
-                            label: const Text('بعد الصيانة', style: TextStyle(fontSize: 11)),
-                            selected: beforeAfterStage == 'after',
-                            selectedColor: Colors.green.withValues(alpha: 0.25),
-                            onSelected: (val) {
-                              if (val) setState(() => beforeAfterStage = 'after');
-                            },
-                          ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    TextField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'عنوان الصورة *',
+                        hintText: 'مثال: فحص ألواح المصفوفة الشمسية',
+                        prefixIcon: Icon(Icons.title_rounded, size: 18),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: captionCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'الوصف والبيان التوثيقي',
+                        hintText: 'وصف حالة الفحص وملاحظات الميدان...',
+                        prefixIcon: Icon(Icons.notes_rounded, size: 18),
+                        isDense: true,
+                      ),
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: locationCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'الموقع الميداني للصورة',
+                        hintText: 'مثال: سطح مبنى الإدارة الرئيسي',
+                        prefixIcon: Icon(Icons.location_on_outlined, size: 18),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    const Text(
+                      'حجم ونمط العرض بالتقرير المطبوع:',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ChoiceChip(
+                          avatar: const Icon(Icons.view_column_rounded, size: 16),
+                          label: const Text('مزدوج (50%)'),
+                          selected: displaySize == PhotoDisplaySize.halfWidth,
+                          selectedColor: AppTheme.primaryNavy.withValues(alpha: 0.15),
+                          onSelected: (val) {
+                            if (val) setDialogState(() => displaySize = PhotoDisplaySize.halfWidth);
+                          },
+                        ),
+                        ChoiceChip(
+                          avatar: const Icon(Icons.crop_landscape_rounded, size: 16),
+                          label: const Text('عرض كامل (100%)'),
+                          selected: displaySize == PhotoDisplaySize.fullWidth,
+                          selectedColor: AppTheme.brandCyan.withValues(alpha: 0.2),
+                          onSelected: (val) {
+                            if (val) setDialogState(() => displaySize = PhotoDisplaySize.fullWidth);
+                          },
+                        ),
+                        ChoiceChip(
+                          avatar: const Icon(Icons.view_week_rounded, size: 16),
+                          label: const Text('مصغر (33%)'),
+                          selected: displaySize == PhotoDisplaySize.compact,
+                          selectedColor: Colors.deepPurple.withValues(alpha: 0.15),
+                          onSelected: (val) {
+                            if (val) setDialogState(() => displaySize = PhotoDisplaySize.compact);
+                          },
+                        ),
+                        ChoiceChip(
+                          avatar: const Icon(Icons.compare_arrows_rounded, size: 16),
+                          label: const Text('مقارنة (قبل / بعد)'),
+                          selected: displaySize == PhotoDisplaySize.beforeAfter,
+                          selectedColor: Colors.orange.withValues(alpha: 0.2),
+                          onSelected: (val) {
+                            if (val) {
+                              setDialogState(() {
+                                displaySize = PhotoDisplaySize.beforeAfter;
+                                if (beforeAfterStage == 'none') beforeAfterStage = 'before';
+                              });
+                            }
+                          },
                         ),
                       ],
                     ),
+                    if (displaySize == PhotoDisplaySize.beforeAfter) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'مرحلة التوثيق للمقارنة:',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ChoiceChip(
+                              avatar: const Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange),
+                              label: const Text('قبل الصيانة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              selected: beforeAfterStage == 'before',
+                              selectedColor: Colors.orange.withValues(alpha: 0.25),
+                              onSelected: (val) {
+                                if (val) setDialogState(() => beforeAfterStage = 'before');
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ChoiceChip(
+                              avatar: const Icon(Icons.check_circle_outline_rounded, size: 16, color: Colors.green),
+                              label: const Text('بعد الصيانة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              selected: beforeAfterStage == 'after',
+                              selectedColor: Colors.green.withValues(alpha: 0.25),
+                              onSelected: (val) {
+                                if (val) setDialogState(() => beforeAfterStage = 'after');
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
+            actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             actions: [
-              TextButton(
+              OutlinedButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('إلغاء'),
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryNavy,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: const Icon(Icons.check_rounded, size: 16),
+                label: const Text('اعتماد وحفظ', style: TextStyle(fontWeight: FontWeight.bold)),
                 onPressed: () {
                   final list = List<ReportPhoto>.from(photos);
                   ReportPhoto updated = p.copyWith(
@@ -438,14 +624,13 @@ class PhotoSectionWidget extends StatelessWidget {
                     caption: captionCtrl.text.trim(),
                     location: locationCtrl.text.trim(),
                     displaySize: displaySize,
-                    isLandscape: displaySize == PhotoDisplaySize.fullWidth,
+                    isLandscape: displaySize == PhotoDisplaySize.fullWidth || isLandscape,
                     beforeAfterStage: displaySize == PhotoDisplaySize.beforeAfter ? beforeAfterStage : 'none',
                   );
                   list[index] = updated;
                   onChanged(list);
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
-                child: const Text('حفظ التعديلات'),
               ),
             ],
           );
@@ -643,7 +828,7 @@ class PhotoSectionWidget extends StatelessWidget {
                                       return Image.file(
                                         file,
                                         fit: BoxFit.contain,
-                                        key: ValueKey('${p.filePath}_${p.displaySize.name}_${p.beforeAfterStage}_${p.widthFactor}'),
+                                        key: ValueKey('${p.filePath}_${p.timestamp}_${p.isLandscape}_${p.displaySize.name}_${p.beforeAfterStage}_${p.widthFactor}'),
                                       );
                                     }
                                   }
@@ -652,7 +837,7 @@ class PhotoSectionWidget extends StatelessWidget {
                                       return Image.memory(
                                         base64Decode(p.base64Data),
                                         fit: BoxFit.contain,
-                                        key: ValueKey('${p.id}_${p.displaySize.name}_${p.beforeAfterStage}_${p.widthFactor}'),
+                                        key: ValueKey('${p.id}_${p.timestamp}_${p.isLandscape}_${p.displaySize.name}_${p.beforeAfterStage}_${p.widthFactor}'),
                                       );
                                     } catch (_) {}
                                   }

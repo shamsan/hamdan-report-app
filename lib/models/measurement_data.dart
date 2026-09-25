@@ -1,36 +1,28 @@
 class BatteryMeasurement {
   final int cellNumber;
   final int stringNumber;
-  final double voltage;           // Volts (e.g. 2.15V)
-  final double temperature;       // Celsius (e.g. 28.5C)
-  final double boltTorque;        // N.m (عزم براغي الربط)
-  final double internalResistance;// mOhm (e.g. 0.35)
+  final double voltage;     // Volts (e.g. 2.15V)
+  final double boltTorque;  // N.m (عزم براغي الربط)
   final String notes;
 
   const BatteryMeasurement({
     required this.cellNumber,
     this.stringNumber = 1,
     this.voltage = 0.0,
-    this.temperature = 0.0,
     this.boltTorque = 0.0,
-    this.internalResistance = 0.0,
     this.notes = '',
   });
 
   BatteryMeasurement copyWith({
     double? voltage,
-    double? temperature,
     double? boltTorque,
-    double? internalResistance,
     String? notes,
   }) {
     return BatteryMeasurement(
       cellNumber: cellNumber,
       stringNumber: stringNumber,
       voltage: voltage ?? this.voltage,
-      temperature: temperature ?? this.temperature,
       boltTorque: boltTorque ?? this.boltTorque,
-      internalResistance: internalResistance ?? this.internalResistance,
       notes: notes ?? this.notes,
     );
   }
@@ -39,9 +31,7 @@ class BatteryMeasurement {
     'cellNumber': cellNumber,
     'stringNumber': stringNumber,
     'voltage': voltage,
-    'temperature': temperature,
     'boltTorque': boltTorque,
-    'internalResistance': internalResistance,
     'notes': notes,
   };
 
@@ -49,9 +39,7 @@ class BatteryMeasurement {
     cellNumber: json['cellNumber'] ?? 1,
     stringNumber: json['stringNumber'] ?? 1,
     voltage: (json['voltage'] as num?)?.toDouble() ?? 0.0,
-    temperature: (json['temperature'] as num?)?.toDouble() ?? 0.0,
     boltTorque: (json['boltTorque'] as num?)?.toDouble() ?? 0.0,
-    internalResistance: (json['internalResistance'] as num?)?.toDouble() ?? 0.0,
     notes: json['notes'] ?? '',
   );
 }
@@ -149,7 +137,6 @@ class StringMeasurement {
     double? operatingVoltageVmp,
     double? operatingCurrentImp,
     double? solarIrradiance,
-    double? calculatedPower,
     String? notes,
   }) {
     return StringMeasurement(

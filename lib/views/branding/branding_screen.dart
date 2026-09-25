@@ -597,27 +597,19 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: YemeniPhoneField(
-                          controller: _phoneController,
-                          label: 'رقم الهاتف المعتمد',
-                          hint: '777 123 456',
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'البريد الإلكتروني',
-                            prefixIcon: Icon(Icons.email_outlined, size: 18),
-                          ),
-                        ),
-                      ),
-                    ],
+                  YemeniPhoneField(
+                    controller: _phoneController,
+                    label: 'رقم الهاتف المعتمد',
+                    hint: '777 123 456',
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'البريد الإلكتروني الرسمي',
+                      prefixIcon: Icon(Icons.email_outlined, size: 18),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(

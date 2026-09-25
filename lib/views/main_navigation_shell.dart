@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/responsive_layout.dart';
@@ -27,6 +28,66 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
     });
   }
 
+  Future<bool> _handlePopScope() async {
+    // إذا كان المستخدم في تبويب فرعي غير الرئيسية، الرجوع إلى الرئيسية أولاً
+    if (_currentIndex != 0) {
+      setState(() {
+        _currentIndex = 0;
+      });
+      return false;
+    }
+
+    // إذا كان في الشاشة الرئيسية وأراد الخروج، إظهار رسالة تأكيد الخروج من التطبيق
+    HapticFeedback.lightImpact();
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.exit_to_app_rounded, color: AppTheme.statusRejected, size: 24),
+            SizedBox(width: 8),
+            Text(
+              'الخروج من التطبيق',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+            ),
+          ],
+        ),
+        content: const Text(
+          'هل أنت متأكد من رغبتك في إغلاق التطبيق والخروج؟',
+          style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondary),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actions: [
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('البقاء في التطبيق', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.statusRejected,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.power_settings_new_rounded, size: 16),
+            label: const Text('خروج', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldExit == true) {
+      await SystemNavigator.pop();
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final branding = ref.watch(brandingProvider);
@@ -50,9 +111,11 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
       (Icons.settings_outlined, Icons.settings, 'الإعدادات', 0),
     ];
 
+    final Widget content;
+
     if (isWideScreen) {
       // Tablet and Desktop: Side Navigation Rail
-      return Scaffold(
+      content = Scaffold(
         body: Row(
           children: [
             NavigationRail(
@@ -132,47 +195,56 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
           ],
         ),
       );
-    }
-
-    // Mobile: Bottom Navigation Bar with Android SafeArea & Elevated Container
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: AppTheme.borderSubtle, width: 1)),
+    } else {
+      // Mobile: Bottom Navigation Bar with Android SafeArea & Elevated Container
+      content = Scaffold(
+        body: IndexedStack(
+          index: _currentIndex,
+          children: screens,
         ),
-        child: SafeArea(
-          top: false,
-          child: NavigationBar(
-            selectedIndex: _currentIndex,
-            onDestinationSelected: _onTabTapped,
-            destinations: navItems.map((item) {
-              final count = item.$4;
-              return NavigationDestination(
-                icon: Badge(
-                  isLabelVisible: count > 0,
-                  backgroundColor: AppTheme.solarGold,
-                  textColor: Colors.white,
-                  label: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                  child: Icon(item.$1),
-                ),
-                selectedIcon: Badge(
-                  isLabelVisible: count > 0,
-                  backgroundColor: AppTheme.solarGold,
-                  textColor: Colors.white,
-                  label: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                  child: Icon(item.$2),
-                ),
-                label: item.$3,
-              );
-            }).toList(),
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: AppTheme.borderSubtle, width: 1)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: _onTabTapped,
+              destinations: navItems.map((item) {
+                final count = item.$4;
+                return NavigationDestination(
+                  icon: Badge(
+                    isLabelVisible: count > 0,
+                    backgroundColor: AppTheme.solarGold,
+                    textColor: Colors.white,
+                    label: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                    child: Icon(item.$1),
+                  ),
+                  selectedIcon: Badge(
+                    isLabelVisible: count > 0,
+                    backgroundColor: AppTheme.solarGold,
+                    textColor: Colors.white,
+                    label: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                    child: Icon(item.$2),
+                  ),
+                  label: item.$3,
+                );
+              }).toList(),
+            ),
           ),
         ),
-      ),
+      );
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handlePopScope();
+      },
+      child: content,
     );
   }
 }

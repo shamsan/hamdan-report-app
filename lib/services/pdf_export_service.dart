@@ -306,8 +306,7 @@ class PdfExportService {
     final headerEnglishBlack = PdfColors.black;
 
 
-    // Helper: Dynamically resolve page format and orientation based on engineer's choice (A4/A3, Portrait/Landscape)
-    PdfPageFormat resolvePageFormat(int pageNumber, {PdfPageFormat defaultFormat = PdfPageFormat.a4}) {
+    String getPageMode(int pageNumber) {
       String? rawPref = report.pageOrientations[pageNumber];
       if (rawPref == null) {
         final dynamicMap = report.pageOrientations as dynamic;
@@ -316,20 +315,66 @@ class PdfExportService {
         } catch (_) {}
       }
       final pref = (rawPref ?? '').toLowerCase().trim();
+      if (pref.contains('book') || pref.contains('rotated')) return 'book';
+      if (pref.contains('landscape') || pref.contains('horizontal')) return 'landscape';
+      if (pref.contains('portrait') || pref.contains('vertical')) return 'portrait';
+      return (pageNumber == 8 || pageNumber == 9) ? 'book' : 'portrait';
+    }
 
-      // Explicit A3 checks
-      if (pref == 'a3_landscape' || pref == 'a3_horizontal') return PdfPageFormat.a3.landscape;
-      if (pref == 'a3_portrait' || pref == 'a3_vertical') return PdfPageFormat.a3;
-      if (pref == 'a3') {
-        return (pageNumber == 8 || pageNumber == 9) ? PdfPageFormat.a3.landscape : PdfPageFormat.a3;
+    String getPageSize(int pageNumber) {
+      String? rawPref = report.pageOrientations[pageNumber];
+      if (rawPref == null) {
+        final dynamicMap = report.pageOrientations as dynamic;
+        try {
+          rawPref = dynamicMap[pageNumber.toString()]?.toString();
+        } catch (_) {}
+      }
+      final pref = (rawPref ?? '').toLowerCase().trim();
+      return pref.contains('a3') ? 'a3' : 'a4';
+    }
+
+    // Helper: Dynamically resolve page format and orientation based on engineer's choice (A4/A3, Portrait/Landscape/Book)
+    PdfPageFormat resolvePageFormat(int pageNumber, {PdfPageFormat defaultFormat = PdfPageFormat.a4}) {
+      final size = getPageSize(pageNumber);
+      final mode = getPageMode(pageNumber);
+
+      final isA3 = size == 'a3';
+      final baseA3 = PdfPageFormat.a3;
+      final baseA4 = PdfPageFormat.a4;
+
+      // In book mode, physical page orientation is ALWAYS Portrait (A4 or A3), with content rotated inside!
+      if (mode == 'book') {
+        return isA3 ? baseA3 : baseA4;
       }
 
-      // Explicit A4 checks
-      if (pref == 'a4_landscape' || pref == 'landscape' || pref == 'horizontal') return PdfPageFormat.a4.landscape;
-      if (pref == 'a4_portrait' || pref == 'portrait' || pref == 'vertical' || pref == 'a4') return PdfPageFormat.a4;
+      // In landscape mode, physical page is Landscape
+      if (mode == 'landscape') {
+        return isA3 ? baseA3.landscape : baseA4.landscape;
+      }
 
-      // Smart default: in official reference PDFs all pages are A4 Portrait (wide tables rotated inside A4)
-      return defaultFormat;
+      // In portrait mode, physical page is Portrait
+      return isA3 ? baseA3 : baseA4;
+    }
+
+    // Helper: Rotates content by 90 degrees inside a portrait page (Book Mode / التدوير الدفتري المعتمد)
+    pw.Widget wrapWithBookModeRotation({
+      required pw.Widget child,
+      required double rotW,
+      required double rotH,
+      pw.EdgeInsets padding = const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8),
+    }) {
+      return pw.Center(
+        child: pw.Transform.rotateBox(
+          unconstrained: true,
+          angle: -math.pi / 2,
+          child: pw.Container(
+            width: rotW,
+            height: rotH,
+            padding: padding,
+            child: child,
+          ),
+        ),
+      );
     }
 
     // Helper: Formats lines under logos according to institutional typographic standards
@@ -480,9 +525,9 @@ class PdfExportService {
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             if (logoContractor != null)
-              pw.Image(logoContractor, height: isLandscape ? 42 : 36, width: 95, fit: pw.BoxFit.contain)
+              pw.Image(logoContractor, height: isLandscape ? 33 : 36, width: 95, fit: pw.BoxFit.contain)
             else
-              pw.SizedBox(height: isLandscape ? 42 : 36, width: 95),
+              pw.SizedBox(height: isLandscape ? 33 : 36, width: 95),
             pw.SizedBox(height: 1.5),
             // English Name in Black FIRST (supports 1, 2, or 3 lines)
             ...buildHeaderLines(
@@ -525,9 +570,9 @@ class PdfExportService {
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             if (logoFacility != null)
-              pw.Image(logoFacility, height: isLandscape ? 40 : 34, width: 85, fit: pw.BoxFit.contain)
+              pw.Image(logoFacility, height: isLandscape ? 31 : 34, width: 85, fit: pw.BoxFit.contain)
             else
-              pw.SizedBox(height: isLandscape ? 40 : 34, width: 85),
+              pw.SizedBox(height: isLandscape ? 31 : 34, width: 85),
             pw.SizedBox(height: 1.5),
             // English Name in Black FIRST (supports 1, 2, or 3 lines)
             ...buildHeaderLines(
@@ -559,9 +604,9 @@ class PdfExportService {
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             if (logoUnops != null)
-              pw.Image(logoUnops, height: isLandscape ? 34 : 28, width: 95, fit: pw.BoxFit.contain)
+              pw.Image(logoUnops, height: isLandscape ? 26 : 28, width: 95, fit: pw.BoxFit.contain)
             else
-              pw.SizedBox(height: isLandscape ? 34 : 28, width: 95),
+              pw.SizedBox(height: isLandscape ? 26 : 28, width: 95),
             pw.SizedBox(height: 1.5),
             // English Name in Black FIRST (supports 1, 2, or 3 lines)
             ...buildHeaderLines(
@@ -900,11 +945,22 @@ class PdfExportService {
     if (pagesToExport == null || pagesToExport.contains(1)) {
       final pNum = currentPageNumber++;
       final pFormat = resolvePageFormat(1);
+      final pMode = getPageMode(1);
       final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book';
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
+      final isWide = isLandscape || isBookMode;
+      final specRowH = isWide ? 21.0 : 35.0;
+      final specLabelSize = isWide ? 8.0 : 9.5;
+      final specValSize = isWide ? 8.5 : 10.0;
+
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8),
+          margin: isBookMode
+              ? pw.EdgeInsets.zero
+              : const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8),
           build: (pw.Context context) {
             final otherRaw = report.systemSpecs.otherAppliances.trim();
             final hasOther = otherRaw.isNotEmpty;
@@ -928,12 +984,12 @@ class PdfExportService {
               }
             }
 
-            return wrapWithPageFrame(
+            final pageContent = wrapWithPageFrame(
               context: context,
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  buildRunningHeader(isLandscape: isLandscape),
+                  buildRunningHeader(isLandscape: isWide),
                   // Warm Sand Project Info Box (NO orange border stroke matching ref PDF)
                   pw.Container(
                     padding: const pw.EdgeInsets.all(10),
@@ -1201,26 +1257,26 @@ class PdfExportService {
                               children: [
                                 pw.Container(
                                   color: creamBg,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(otherType), style: textStyle(size: 9.5, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(otherType), style: textStyle(size: specLabelSize, isBold: true))),
                                 ),
                                 pw.Container(
                                   color: lightCyanBg,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(hasOther ? 'النوع' : ''), style: textStyle(size: 9.5, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(hasOther ? 'النوع' : ''), style: textStyle(size: specLabelSize, isBold: true))),
                                 ),
                                 pw.Container(
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.capacityKw), style: textStyle(size: 10, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.capacityKw), style: textStyle(size: specValSize, isBold: true))),
                                 ),
                                 pw.Container(
                                   color: cyanColor,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar('القدرة'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                  child: pw.Center(child: pw.Text(_ar('القدرة'), style: textStyle(size: specLabelSize, isBold: true, color: PdfColors.white))),
                                 ),
                               ],
                             ),
@@ -1229,26 +1285,26 @@ class PdfExportService {
                               children: [
                                 pw.Container(
                                   color: creamBg,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(otherCap), style: textStyle(size: 9.5, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(otherCap), style: textStyle(size: specLabelSize, isBold: true))),
                                 ),
                                 pw.Container(
                                   color: lightCyanBg,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(hasOther ? 'القدرة' : ''), style: textStyle(size: 9.5, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(hasOther ? 'القدرة' : ''), style: textStyle(size: specLabelSize, isBold: true))),
                                 ),
                                 pw.Container(
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.panelsCountAndWatt), style: textStyle(size: 10, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.panelsCountAndWatt), style: textStyle(size: specValSize, isBold: true))),
                                 ),
                                 pw.Container(
                                   color: cyanColor,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar('عدد الألواح × القدرة'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                  child: pw.Center(child: pw.Text(_ar('عدد الألواح × القدرة'), style: textStyle(size: specLabelSize, isBold: true, color: PdfColors.white))),
                                 ),
                               ],
                             ),
@@ -1257,26 +1313,26 @@ class PdfExportService {
                               children: [
                                 pw.Container(
                                   color: creamBg,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(otherCount), style: textStyle(size: 9.5, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(otherCount), style: textStyle(size: specLabelSize, isBold: true))),
                                 ),
                                 pw.Container(
                                   color: lightCyanBg,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(hasOther ? 'العدد' : ''), style: textStyle(size: 9.5, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(hasOther ? 'العدد' : ''), style: textStyle(size: specLabelSize, isBold: true))),
                                 ),
                                 pw.Container(
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.batteryUnitsCapacity), style: textStyle(size: 10, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.batteryUnitsCapacity), style: textStyle(size: specValSize, isBold: true))),
                                 ),
                                 pw.Container(
                                   color: cyanColor,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar('سعة وحدة تخزين الطاقة'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                  child: pw.Center(child: pw.Text(_ar('سعة وحدة تخزين الطاقة'), style: textStyle(size: specLabelSize, isBold: true, color: PdfColors.white))),
                                 ),
                               ],
                             ),
@@ -1285,98 +1341,98 @@ class PdfExportService {
                               children: [
                                 pw.Container(
                                   color: creamBg,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(otherExtra), style: textStyle(size: 9.5, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(otherExtra), style: textStyle(size: specLabelSize, isBold: true))),
                                 ),
                                 pw.Container(
                                   color: lightCyanBg,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(hasOther ? 'أخرى' : ''), style: textStyle(size: 9.5, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(hasOther ? 'أخرى' : ''), style: textStyle(size: specLabelSize, isBold: true))),
                                 ),
                                 pw.Container(
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.batteryUnitsCount), style: textStyle(size: 10, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.batteryUnitsCount), style: textStyle(size: specValSize, isBold: true))),
                                 ),
                                 pw.Container(
                                   color: cyanColor,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar('عدد وحدات تخزين الطاقة'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                  child: pw.Center(child: pw.Text(_ar('عدد وحدات تخزين الطاقة'), style: textStyle(size: specLabelSize, isBold: true, color: PdfColors.white))),
                                 ),
                               ],
                             ),
                             // Row 5: قدرة العاكس
                             pw.TableRow(
                               children: [
-                                pw.Container(color: creamBg, height: 35),
-                                pw.Container(color: lightCyanBg, height: 35),
+                                pw.Container(color: creamBg, height: specRowH),
+                                pw.Container(color: lightCyanBg, height: specRowH),
                                 pw.Container(
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.invertersCapacity), style: textStyle(size: 10, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.invertersCapacity), style: textStyle(size: specValSize, isBold: true))),
                                 ),
                                 pw.Container(
                                   color: cyanColor,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar('قدرة العاكس'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                  child: pw.Center(child: pw.Text(_ar('قدرة العاكس'), style: textStyle(size: specLabelSize, isBold: true, color: PdfColors.white))),
                                 ),
                               ],
                             ),
                             // Row 6: عدد العواكس
                             pw.TableRow(
                               children: [
-                                pw.Container(color: creamBg, height: 35),
-                                pw.Container(color: lightCyanBg, height: 35),
+                                pw.Container(color: creamBg, height: specRowH),
+                                pw.Container(color: lightCyanBg, height: specRowH),
                                 pw.Container(
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.invertersCount), style: textStyle(size: 10, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.invertersCount), style: textStyle(size: specValSize, isBold: true))),
                                 ),
                                 pw.Container(
                                   color: cyanColor,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar('عدد العواكس'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                  child: pw.Center(child: pw.Text(_ar('عدد العواكس'), style: textStyle(size: specLabelSize, isBold: true, color: PdfColors.white))),
                                 ),
                               ],
                             ),
                             // Row 7: قدرة منظم الشحن
                             pw.TableRow(
                               children: [
-                                pw.Container(color: creamBg, height: 35),
-                                pw.Container(color: lightCyanBg, height: 35),
+                                pw.Container(color: creamBg, height: specRowH),
+                                pw.Container(color: lightCyanBg, height: specRowH),
                                 pw.Container(
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.chargeControllersCapacity), style: textStyle(size: 10, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.chargeControllersCapacity), style: textStyle(size: specValSize, isBold: true))),
                                 ),
                                 pw.Container(
                                   color: cyanColor,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar('قدرة منظم الشحن'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                  child: pw.Center(child: pw.Text(_ar('قدرة منظم الشحن'), style: textStyle(size: specLabelSize, isBold: true, color: PdfColors.white))),
                                 ),
                               ],
                             ),
                             // Row 8: عدد منظمات الشحن
                             pw.TableRow(
                               children: [
-                                pw.Container(color: creamBg, height: 35),
-                                pw.Container(color: lightCyanBg, height: 35),
+                                pw.Container(color: creamBg, height: specRowH),
+                                pw.Container(color: lightCyanBg, height: specRowH),
                                 pw.Container(
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.chargeControllersCount), style: textStyle(size: 10, isBold: true))),
+                                  child: pw.Center(child: pw.Text(_ar(report.systemSpecs.chargeControllersCount), style: textStyle(size: specValSize, isBold: true))),
                                 ),
                                 pw.Container(
                                   color: cyanColor,
-                                  height: 35,
+                                  height: specRowH,
                                   padding: const pw.EdgeInsets.symmetric(horizontal: 4),
-                                  child: pw.Center(child: pw.Text(_ar('عدد منظمات الشحن'), style: textStyle(size: 9.5, isBold: true, color: PdfColors.white))),
+                                  child: pw.Center(child: pw.Text(_ar('عدد منظمات الشحن'), style: textStyle(size: specLabelSize, isBold: true, color: PdfColors.white))),
                                 ),
                               ],
                             ),
@@ -1390,6 +1446,17 @@ class PdfExportService {
                 ],
               ),
             );
+
+            if (isBookMode) {
+              return wrapWithBookModeRotation(
+                child: pageContent,
+                rotW: rotW,
+                rotH: rotH,
+                padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8),
+              );
+            }
+
+            return pageContent;
           },
         ),
       );
@@ -1399,11 +1466,19 @@ class PdfExportService {
     if (pagesToExport == null || pagesToExport.contains(2)) {
       final pNum = currentPageNumber++;
       final pFormat = resolvePageFormat(2);
+      final pMode = getPageMode(2);
       final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book';
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
+      final isWide = isLandscape || isBookMode;
+
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 8, bottom: 8),
+          margin: isBookMode
+              ? pw.EdgeInsets.zero
+              : const pw.EdgeInsets.only(left: 14, right: 14, top: 8, bottom: 8),
           build: (pw.Context context) {
             InspectionGroup? g1;
             InspectionGroup? g2;
@@ -1424,12 +1499,12 @@ class PdfExportService {
               if (report.inspectionGroups.length > 2) g3 = report.inspectionGroups[2];
             }
 
-            return wrapWithPageFrame(
+            final pageContent = wrapWithPageFrame(
               context: context,
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  buildRunningHeader(isLandscape: isLandscape),
+                  buildRunningHeader(isLandscape: isWide),
                   if (g1 != null) buildInspectionTable(g1),
                   if (g2 != null) buildInspectionTable(g2),
                   if (g3 != null) buildInspectionTable(g3),
@@ -1438,6 +1513,17 @@ class PdfExportService {
                 ],
               ),
             );
+
+            if (isBookMode) {
+              return wrapWithBookModeRotation(
+                child: pageContent,
+                rotW: rotW,
+                rotH: rotH,
+                padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 8, bottom: 8),
+              );
+            }
+
+            return pageContent;
           },
         ),
       );
@@ -1447,11 +1533,19 @@ class PdfExportService {
     if (pagesToExport == null || pagesToExport.contains(3)) {
       final pNum = currentPageNumber++;
       final pFormat = resolvePageFormat(3);
+      final pMode = getPageMode(3);
       final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book';
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
+      final isWide = isLandscape || isBookMode;
+
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 6, bottom: 6),
+          margin: isBookMode
+              ? pw.EdgeInsets.zero
+              : const pw.EdgeInsets.only(left: 14, right: 14, top: 6, bottom: 6),
           build: (pw.Context context) {
             InspectionGroup? g4;
             try {
@@ -1478,17 +1572,23 @@ class PdfExportService {
               'مفتاح تبديل يدوي لمصدر الطاقة',
             ];
 
-            return wrapWithPageFrame(
+            final pageContent = wrapWithPageFrame(
               context: context,
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  buildRunningHeader(isLandscape: isLandscape),
+                  buildRunningHeader(isLandscape: isWide),
                   // Cyan Header
                   buildSectionBanner('4', 'نموذج فحص لوحات قواطع التيار المستمر و المتردد و البزبارات ومفتاح التبديل لمصادر الطاقة', fontSize: 7.5),
                   pw.SizedBox(height: 1),
-                  // Master Table
-                  pw.Table(
+                  // Master Table wrapped in FittedBox for perfect auto-scaling in both portrait and book mode
+                  pw.Expanded(
+                    child: pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: pw.Alignment.topCenter,
+                      child: pw.Container(
+                        width: (isWide ? rotW : pFormat.width) - 47.0,
+                        child: pw.Table(
                     border: pw.TableBorder.all(color: borderGrey, width: 0.5),
                     columnWidths: const {
                       0: pw.FlexColumnWidth(2.6), // ملاحظات
@@ -1572,25 +1672,47 @@ class PdfExportService {
                       }).expand((rows) => rows),
                     ],
                   ),
-                  pw.Spacer(),
-                  buildRunningFooter(pNum),
-                ],
+                ),
               ),
-            );
-          },
+            ),
+            pw.SizedBox(height: 2),
+            buildRunningFooter(pNum),
+          ],
         ),
       );
-    }
+
+      if (isBookMode) {
+        return wrapWithBookModeRotation(
+          child: pageContent,
+          rotW: rotW,
+          rotH: rotH,
+          padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 6, bottom: 6),
+        );
+      }
+
+      return pageContent;
+    },
+  ),
+);
+}
 
     // ================= PAGE 4: Inspection Groups 5, 6, 7 =================
     if (pagesToExport == null || pagesToExport.contains(4)) {
       final pNum = currentPageNumber++;
       final pFormat = resolvePageFormat(4);
+      final pMode = getPageMode(4);
       final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book';
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
+      final isWide = isLandscape || isBookMode;
+
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 8, bottom: 8),
+          margin: isBookMode
+              ? pw.EdgeInsets.zero
+              : const pw.EdgeInsets.only(left: 14, right: 14, top: 8, bottom: 8),
           build: (pw.Context context) {
             InspectionGroup? g5;
             InspectionGroup? g6;
@@ -1611,12 +1733,12 @@ class PdfExportService {
               if (report.inspectionGroups.length > 6) g7 = report.inspectionGroups[6];
             }
 
-            return wrapWithPageFrame(
+            final pageContent = wrapWithPageFrame(
               context: context,
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  buildRunningHeader(isLandscape: isLandscape),
+                  buildRunningHeader(isLandscape: isWide),
                   if (g5 != null) buildInspectionTable(g5),
                   if (g6 != null) buildInspectionTable(g6),
                   // Model 7 Master Table with 3 Subcategories
@@ -1756,6 +1878,17 @@ class PdfExportService {
                 ],
               ),
             );
+
+            if (isBookMode) {
+              return wrapWithBookModeRotation(
+                child: pageContent,
+                rotW: rotW,
+                rotH: rotH,
+                padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 8, bottom: 8),
+              );
+            }
+
+            return pageContent;
           },
         ),
       );
@@ -1765,11 +1898,19 @@ class PdfExportService {
     if (pagesToExport == null || pagesToExport.contains(5)) {
       final pNum = currentPageNumber++;
       final pFormat = resolvePageFormat(5);
+      final pMode = getPageMode(5);
       final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book';
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
+      final isWide = isLandscape || isBookMode;
+
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 8, bottom: 8),
+          margin: isBookMode
+              ? pw.EdgeInsets.zero
+              : const pw.EdgeInsets.only(left: 14, right: 14, top: 8, bottom: 8),
           build: (pw.Context context) {
             InspectionGroup? g8;
             InspectionGroup? g9;
@@ -1790,12 +1931,12 @@ class PdfExportService {
               if (report.inspectionGroups.length > 9) g10 = report.inspectionGroups[9];
             }
 
-            return wrapWithPageFrame(
+            final pageContent = wrapWithPageFrame(
               context: context,
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  buildRunningHeader(isLandscape: isLandscape),
+                  buildRunningHeader(isLandscape: isWide),
                   if (g8 != null) buildInspectionTable(g8),
                   if (g9 != null) buildInspectionTable(g9),
                   if (g10 != null) buildInspectionTable(g10),
@@ -1804,6 +1945,17 @@ class PdfExportService {
                 ],
               ),
             );
+
+            if (isBookMode) {
+              return wrapWithBookModeRotation(
+                child: pageContent,
+                rotW: rotW,
+                rotH: rotH,
+                padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 8, bottom: 8),
+              );
+            }
+
+            return pageContent;
           },
         ),
       );
@@ -1997,7 +2149,7 @@ class PdfExportService {
       } else if (report.batteryMeasurements.length > start) {
         return report.batteryMeasurements.skip(start).toList();
       }
-      return List.generate(24, (i) => BatteryMeasurement(cellNumber: start + i + 1, voltage: 0, boltTorque: 0, internalResistance: 0));
+      return List.generate(24, (i) => BatteryMeasurement(cellNumber: start + i + 1, voltage: 0, boltTorque: 0));
     }
 
     final activeBatGroups = report.activeBatteryGroups.isNotEmpty
@@ -2010,19 +2162,25 @@ class PdfExportService {
       final gaNum = activeBatGroups[0];
       final gbNum = activeBatGroups.length > 1 ? activeBatGroups[1] : null;
       final pFormat = resolvePageFormat(6);
+      final pMode = getPageMode(6);
       final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book';
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
 
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+          margin: isBookMode
+              ? pw.EdgeInsets.zero
+              : const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
           build: (pw.Context context) {
-            return wrapWithPageFrame(
+            final pageContent = wrapWithPageFrame(
               context: context,
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  buildRunningHeader(isLandscape: isLandscape),
+                  buildRunningHeader(isLandscape: isLandscape || isBookMode),
                   if (gbNum != null)
                     buildDualGroupBatteryTable(
                       groupA: getBatteryGroupCells(gaNum),
@@ -2042,6 +2200,12 @@ class PdfExportService {
                 ],
               ),
             );
+
+            if (isBookMode) {
+              return wrapWithBookModeRotation(child: pageContent, rotW: rotW, rotH: rotH);
+            }
+
+            return pageContent;
           },
         ),
       );
@@ -2053,19 +2217,25 @@ class PdfExportService {
       final gaNum = activeBatGroups[2];
       final gbNum = activeBatGroups.length > 3 ? activeBatGroups[3] : null;
       final pFormat = resolvePageFormat(7);
+      final pMode = getPageMode(7);
       final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book';
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
 
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+          margin: isBookMode
+              ? pw.EdgeInsets.zero
+              : const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
           build: (pw.Context context) {
-            return wrapWithPageFrame(
+            final pageContent = wrapWithPageFrame(
               context: context,
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  buildRunningHeader(isLandscape: isLandscape),
+                  buildRunningHeader(isLandscape: isLandscape || isBookMode),
                   if (gbNum != null)
                     buildDualGroupBatteryTable(
                       groupA: getBatteryGroupCells(gaNum),
@@ -2085,6 +2255,12 @@ class PdfExportService {
                 ],
               ),
             );
+
+            if (isBookMode) {
+              return wrapWithBookModeRotation(child: pageContent, rotW: rotW, rotH: rotH);
+            }
+
+            return pageContent;
           },
         ),
       );
@@ -2094,14 +2270,16 @@ class PdfExportService {
     if (pagesToExport == null || pagesToExport.contains(8)) {
       final pNum = currentPageNumber++;
       final pFormat = resolvePageFormat(8);
+      final pMode = getPageMode(8);
       final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book' || (!isLandscape && pMode == 'portrait');
       final rotW = pFormat.height;
       final rotH = pFormat.width;
 
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: isLandscape
+          margin: (isLandscape && !isBookMode)
               ? const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10)
               : pw.EdgeInsets.zero,
           build: (pw.Context context) {
@@ -2293,19 +2471,8 @@ class PdfExportService {
               ),
             );
 
-            if (!isLandscape) {
-              return pw.Center(
-                child: pw.Transform.rotateBox(
-                  unconstrained: true,
-                  angle: -math.pi / 2,
-                  child: pw.Container(
-                    width: rotW,
-                    height: rotH,
-                    padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8),
-                    child: pageContent,
-                  ),
-                ),
-              );
+            if (isBookMode) {
+              return wrapWithBookModeRotation(child: pageContent, rotW: rotW, rotH: rotH);
             }
 
             return pageContent;
@@ -2318,14 +2485,16 @@ class PdfExportService {
     if (pagesToExport == null || pagesToExport.contains(9)) {
       final pNum = currentPageNumber++;
       final pFormat = resolvePageFormat(9);
+      final pMode = getPageMode(9);
       final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book' || (!isLandscape && pMode == 'portrait');
       final rotW = pFormat.height;
       final rotH = pFormat.width;
 
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: isLandscape
+          margin: (isLandscape && !isBookMode)
               ? const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8)
               : pw.EdgeInsets.zero,
           build: (pw.Context context) {
@@ -2350,14 +2519,17 @@ class PdfExportService {
             final boxWidth = (availableTableWidth - notesWidth - metricWidth) / 4;
             final stringSubColWidth = boxWidth / 4;
 
-            final availableTableHeight = (effectivePageH - 185.0).clamp(280.0, 700.0);
-            final blockSpacing = (availableTableHeight > 500) ? 6.0 : 4.0;
+            // Accurate non-table overhead deduction (Header ~88-100pt, Banner ~22pt, Footer ~52pt, Margins/Padding ~18pt, Spacing ~10pt = ~215pt):
+            // This guarantees the Running Footer (signatures and facility name) is 100% visible and never pushed off page!
+            final nonTableOverhead = (effectivePageH > 750) ? 235.0 : 216.0;
+            final availableTableHeight = (effectivePageH - nonTableOverhead).clamp(250.0, 700.0);
+            final blockSpacing = (availableTableHeight > 500) ? 6.0 : 3.5;
             final totalBlockSpacing = (totalBlocksCount - 1) * blockSpacing;
-            final blockHeight = ((availableTableHeight - totalBlockSpacing) / totalBlocksCount).clamp(76.0, 135.0);
+            final blockHeight = ((availableTableHeight - totalBlockSpacing) / totalBlocksCount).clamp(68.0, 135.0);
 
-            final r1H = (blockHeight * 0.17).clamp(13.0, 24.0);
-            final r2H = (blockHeight * 0.17).clamp(13.0, 24.0);
-            final r3H = (blockHeight * 0.17).clamp(13.0, 24.0);
+            final r1H = (blockHeight * 0.17).clamp(12.0, 24.0);
+            final r2H = (blockHeight * 0.17).clamp(12.0, 24.0);
+            final r3H = (blockHeight * 0.17).clamp(12.0, 24.0);
             final r4H = (blockHeight - (r1H + r2H + r3H)) / 2;
             final r5H = r4H;
             final headerBlankH = r1H + r2H + r3H;
@@ -2661,18 +2833,12 @@ class PdfExportService {
               ),
             );
 
-            if (!isLandscape) {
-              return pw.Center(
-                child: pw.Transform.rotateBox(
-                  unconstrained: true,
-                  angle: -math.pi / 2,
-                  child: pw.Container(
-                    width: rotW,
-                    height: rotH,
-                    padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8),
-                    child: pageContent,
-                  ),
-                ),
+            if (isBookMode) {
+              return wrapWithBookModeRotation(
+                child: pageContent,
+                rotW: rotW,
+                rotH: rotH,
+                padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8),
               );
             }
 
@@ -2686,11 +2852,19 @@ class PdfExportService {
     if (pagesToExport == null || pagesToExport.contains(10)) {
       final pNum = currentPageNumber++;
       final pFormat = resolvePageFormat(10);
+      final pMode = getPageMode(10);
       final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book';
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
+      final isWide = isLandscape || isBookMode;
+
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+          margin: isBookMode
+              ? pw.EdgeInsets.zero
+              : const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
           build: (pw.Context context) {
             // Clean facility name resolution to prevent contractor duplication
             final rawFacNameAr = report.facilityInfo.facilityName.trim();
@@ -2731,19 +2905,20 @@ class PdfExportService {
             final fullStatementAr = 'تؤكد إدارة $facNameAr أن مندوب $contractorAr قام بزيارة الموقع للصيانة الوقائية الدورية لمنظومة الطاقة الشمسية المركبة بتاريخ ($installDateDisplay). وخلال هذه الزيارة قاموا بإتمام كافة أعمال الصيانة الوقائية اللازمة لمنظومة الطاقة الشمسية$funderSuffixAr';
             final fullStatementEn = 'The management of $facNameEn certifies that a representative from $contractorEn made the periodic preventive maintenance visit for the solar system installed on ($installDateDisplay). During this visit, they completed all the necessary preventive maintenance work for the solar system$funderSuffixEn';
 
-            final availableContentWidth = pFormat.width - 47.0;
-            final stmtFontSize = isLandscape ? (pFormat.width > 900 ? 12.5 : 11.0) : 10.0;
-            final stmtLineSpacing = isLandscape ? (pFormat.width > 900 ? 6.5 : 5.0) : 4.0;
-            final sigBlockWidth = isLandscape ? ((availableContentWidth - 110) / 2) : 200.0;
-            final sigFontSize = isLandscape ? (pFormat.width > 900 ? 11.0 : 10.0) : 9.5;
-            final sigRowGap = isLandscape ? 12.0 : 8.0;
+            final effectivePageW = isWide ? (isLandscape ? pFormat.width : rotW) : pFormat.width;
+            final availableContentWidth = effectivePageW - 47.0;
+            final stmtFontSize = isWide ? (effectivePageW > 900 ? 12.5 : 11.0) : 10.0;
+            final stmtLineSpacing = isWide ? (effectivePageW > 900 ? 6.5 : 5.0) : 4.0;
+            final sigBlockWidth = isWide ? ((availableContentWidth - 110) / 2) : 200.0;
+            final sigFontSize = isWide ? (effectivePageW > 900 ? 11.0 : 10.0) : 9.5;
+            final sigRowGap = isWide ? 12.0 : 8.0;
 
-            return wrapWithPageFrame(
+            final pageContent = wrapWithPageFrame(
               context: context,
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  buildRunningHeader(isLandscape: isLandscape),
+                  buildRunningHeader(isLandscape: isWide),
                   // Banner: Attendance statement إفادة حضور
                   pw.Container(
                     padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 14),
@@ -2871,8 +3046,8 @@ class PdfExportService {
                             mainAxisSize: pw.MainAxisSize.min,
                             children: [
                               pw.Container(
-                                width: isLandscape ? 85 : 75,
-                                height: isLandscape ? 85 : 75,
+                                width: isWide ? 85 : 75,
+                                height: isWide ? 85 : 75,
                                  alignment: pw.Alignment.center,
                                  child: pw.Center(
                                    child: pw.Image(stampImage, fit: pw.BoxFit.contain, alignment: pw.Alignment.center),
@@ -2954,8 +3129,8 @@ class PdfExportService {
                                 if (beneficiarySigImage != null)
                                   pw.Container(
                                      alignment: pw.Alignment.center,
-                                    height: isLandscape ? 44 : 38,
-                                    width: isLandscape ? 120 : 100,
+                                    height: isWide ? 44 : 38,
+                                    width: isWide ? 120 : 100,
                                     padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                     decoration: pw.BoxDecoration(
                                       color: PdfColors.white,
@@ -2984,6 +3159,17 @@ class PdfExportService {
                 ],
               ),
             );
+
+            if (isBookMode) {
+              return wrapWithBookModeRotation(
+                child: pageContent,
+                rotW: rotW,
+                rotH: rotH,
+                padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+              );
+            }
+
+            return pageContent;
           },
         ),
       );
@@ -2993,11 +3179,19 @@ class PdfExportService {
     if (pagesToExport == null || pagesToExport.contains(11)) {
       final pNum = currentPageNumber++;
       final pFormat = resolvePageFormat(11);
+      final pMode = getPageMode(11);
       final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book';
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
+      final isWide = isLandscape || isBookMode;
+
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+          margin: isBookMode
+              ? pw.EdgeInsets.zero
+              : const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
           build: (pw.Context context) {
             final projNameEn = report.projectInfo.projectName.isNotEmpty
                 ? (ArabicReshaper.hasArabic(report.projectInfo.projectName)
@@ -3007,12 +3201,12 @@ class PdfExportService {
 
             final currentYear = DateTime.now().year;
 
-            return wrapWithPageFrame(
+            final pageContent = wrapWithPageFrame(
               context: context,
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  buildRunningHeader(isLandscape: isLandscape),
+                  buildRunningHeader(isLandscape: isWide),
                   // Top Metadata Box with Dark Navy Blue Header (LTR Layout matching ref_page_11)
                   pw.Table(
                     border: pw.TableBorder.all(color: darkNavyColor, width: 0.8),
@@ -3078,10 +3272,10 @@ class PdfExportService {
                   pw.Text('We confirm that the following persons and representatives from our side have come for', style: textStyle(size: 8, isBold: true)),
                   pw.SizedBox(height: 6),
                   (() {
-                    final attCellPad = isLandscape ? const pw.EdgeInsets.symmetric(vertical: 6.5, horizontal: 6) : const pw.EdgeInsets.all(3.5);
-                    final attHeaderPad = isLandscape ? const pw.EdgeInsets.symmetric(vertical: 7.0, horizontal: 6) : const pw.EdgeInsets.all(4);
-                    final attFontSize = isLandscape ? 8.8 : 7.5;
-                    final targetRowCount = isLandscape ? 8 : 4;
+                    final attCellPad = isWide ? const pw.EdgeInsets.symmetric(vertical: 6.5, horizontal: 6) : const pw.EdgeInsets.all(3.5);
+                    final attHeaderPad = isWide ? const pw.EdgeInsets.symmetric(vertical: 7.0, horizontal: 6) : const pw.EdgeInsets.all(4);
+                    final attFontSize = isWide ? 8.8 : 7.5;
+                    final targetRowCount = isWide ? 8 : 4;
 
                     // Team Table (LTR Layout: NO | Trainee Name | Signature | Role)
                     return pw.Table(
@@ -3114,7 +3308,7 @@ class PdfExportService {
                                   child: attSigImg != null
                                       ? pw.Container(
                                            alignment: pw.Alignment.center,
-                                          height: isLandscape ? 34 : 28,
+                                           height: isWide ? 34 : 28,
                                           padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                           decoration: pw.BoxDecoration(
                                             color: PdfColors.white,
@@ -3126,7 +3320,7 @@ class PdfExportService {
                                            ),
                                         )
                                       : pw.Container(
-                                          height: isLandscape ? 30 : 24,
+                                          height: isWide ? 30 : 24,
                                           alignment: pw.Alignment.center,
                                           child: pw.Column(
                                             mainAxisAlignment: pw.MainAxisAlignment.center,
@@ -3173,6 +3367,17 @@ class PdfExportService {
                 ],
               ),
             );
+
+            if (isBookMode) {
+              return wrapWithBookModeRotation(
+                child: pageContent,
+                rotW: rotW,
+                rotH: rotH,
+                padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+              );
+            }
+
+            return pageContent;
           },
         ),
       );
@@ -3303,90 +3508,86 @@ class PdfExportService {
               border: pw.Border.all(color: cardBorderColor, width: cardBorderWidth),
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
             ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-              children: [
-                // Top Before / After Badge
-                if (isBeforeAfter)
-                  pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(vertical: 2.5, horizontal: 6),
-                    decoration: pw.BoxDecoration(
-                      color: isAfter ? PdfColor.fromHex('#E8F5E9') : PdfColor.fromHex('#FFF3E0'),
-                      borderRadius: const pw.BorderRadius.only(
-                        topLeft: pw.Radius.circular(5),
-                        topRight: pw.Radius.circular(5),
-                      ),
-                      border: pw.Border(
-                        bottom: pw.BorderSide(
-                          color: isAfter ? PdfColor.fromHex('#A5D6A7') : PdfColor.fromHex('#FFCC80'),
-                          width: 0.6,
+            child: pw.ClipRRect(
+              horizontalRadius: 5,
+              verticalRadius: 5,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  // Top Before / After Badge
+                  if (isBeforeAfter)
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(vertical: 2.5, horizontal: 6),
+                      decoration: pw.BoxDecoration(
+                        color: isAfter ? PdfColor.fromHex('#E8F5E9') : PdfColor.fromHex('#FFF3E0'),
+                        border: pw.Border(
+                          bottom: pw.BorderSide(
+                            color: isAfter ? PdfColor.fromHex('#A5D6A7') : PdfColor.fromHex('#FFCC80'),
+                            width: 0.6,
+                          ),
                         ),
                       ),
-                    ),
-                    child: pw.Text(
-                      _ar(isAfter ? 'بعد الصيانة / After Maintenance' : 'قبل الصيانة / Before Maintenance'),
-                      style: textStyle(
-                        size: 8,
-                        isBold: true,
-                        color: isAfter ? PdfColor.fromHex('#1B5E20') : PdfColor.fromHex('#BF360C'),
-                      ),
-                      textAlign: pw.TextAlign.center,
-                    ),
-                  ),
-
-                // Photo Image
-                pw.Expanded(
-                  child: pw.Padding(
-                    padding: const pw.EdgeInsets.all(4),
-                    child: pw.Center(
-                      child: pw.ClipRRect(
-                        horizontalRadius: 3,
-                        verticalRadius: 3,
-                        child: pw.Image(img, fit: pw.BoxFit.contain),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Caption / Title Footer
-                pw.Container(
-                  padding: pw.EdgeInsets.symmetric(horizontal: 5, vertical: isCompact ? 2 : 3),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.grey100,
-                    borderRadius: const pw.BorderRadius.only(
-                      bottomLeft: pw.Radius.circular(5),
-                      bottomRight: pw.Radius.circular(5),
-                    ),
-                    border: pw.Border(
-                      top: pw.BorderSide(color: PdfColors.grey300, width: 0.4),
-                    ),
-                  ),
-                  child: pw.Column(
-                    mainAxisSize: pw.MainAxisSize.min,
-                    children: [
-                      pw.Text(
-                        _ar(titleText),
+                      child: pw.Text(
+                        _ar(isAfter ? 'بعد الصيانة / After Maintenance' : 'قبل الصيانة / Before Maintenance'),
                         style: textStyle(
-                          size: isCompact ? 7.5 : (isFullWidth ? 9.5 : 8.5),
+                          size: 8,
                           isBold: true,
-                          color: darkNavyColor,
+                          color: isAfter ? PdfColor.fromHex('#1B5E20') : PdfColor.fromHex('#BF360C'),
                         ),
                         textAlign: pw.TextAlign.center,
-                        maxLines: 1,
                       ),
-                      if (subText.isNotEmpty && !isCompact) ...[
-                        pw.SizedBox(height: 1.5),
+                    ),
+
+                  // Photo Image
+                  pw.Expanded(
+                    child: pw.Padding(
+                      padding: const pw.EdgeInsets.all(4),
+                      child: pw.Center(
+                        child: pw.ClipRRect(
+                          horizontalRadius: 3,
+                          verticalRadius: 3,
+                          child: pw.Image(img, fit: pw.BoxFit.contain),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Caption / Title Footer
+                  pw.Container(
+                    padding: pw.EdgeInsets.symmetric(horizontal: 5, vertical: isCompact ? 2 : 3),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.grey100,
+                      border: pw.Border(
+                        top: pw.BorderSide(color: PdfColors.grey300, width: 0.4),
+                      ),
+                    ),
+                    child: pw.Column(
+                      mainAxisSize: pw.MainAxisSize.min,
+                      children: [
                         pw.Text(
-                          _ar(subText),
-                          style: textStyle(size: 7.0, color: PdfColors.grey700),
+                          _ar(titleText),
+                          style: textStyle(
+                            size: isCompact ? 7.5 : (isFullWidth ? 9.5 : 8.5),
+                            isBold: true,
+                            color: darkNavyColor,
+                          ),
                           textAlign: pw.TextAlign.center,
                           maxLines: 1,
                         ),
+                        if (subText.isNotEmpty && !isCompact) ...[
+                          pw.SizedBox(height: 1.5),
+                          pw.Text(
+                            _ar(subText),
+                            style: textStyle(size: 7.0, color: PdfColors.grey700),
+                            textAlign: pw.TextAlign.center,
+                            maxLines: 1,
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         }
@@ -3455,7 +3656,12 @@ class PdfExportService {
               : 'ملحق التوثيق الفوتوغرافي للموقع والمنظومة';
 
           final pFormat = resolvePageFormat(12);
+          final pMode = getPageMode(12);
           final isLandscape = pFormat.width > pFormat.height;
+          final isBookMode = pMode == 'book';
+          final rotW = pFormat.height;
+          final rotH = pFormat.width;
+          final isWide = isLandscape || isBookMode;
 
           final rowWidgets = <pw.Widget>[];
           for (int r = 0; r < pageRows.length; r++) {
@@ -3472,14 +3678,16 @@ class PdfExportService {
           pdf.addPage(
             pw.Page(
               pageFormat: pFormat,
-              margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+              margin: isBookMode
+                  ? pw.EdgeInsets.zero
+                  : const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
               build: (pw.Context context) {
-                return wrapWithPageFrame(
+                final pageContent = wrapWithPageFrame(
                   context: context,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                     children: [
-                      buildRunningHeader(isLandscape: isLandscape),
+                      buildRunningHeader(isLandscape: isWide),
                       buildSectionBanner('12', bannerTitle),
                       pw.SizedBox(height: 8),
                       pw.Expanded(
@@ -3493,6 +3701,17 @@ class PdfExportService {
                     ],
                   ),
                 );
+
+                if (isBookMode) {
+                  return wrapWithBookModeRotation(
+                    child: pageContent,
+                    rotW: rotW,
+                    rotH: rotH,
+                    padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+                  );
+                }
+
+                return pageContent;
               },
             ),
           );
@@ -3508,19 +3727,25 @@ class PdfExportService {
       final nextVisitNum = ((int.tryParse(effectiveVisitNum) ?? 1) + 1).toString();
       final pNum = currentPageNumber++;
       final pFormat = resolvePageFormat(13);
+      final pMode = getPageMode(13);
       final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book';
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
 
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+          margin: isBookMode
+              ? pw.EdgeInsets.zero
+              : const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
           build: (pw.Context context) {
-            return wrapWithPageFrame(
+            final pageContent = wrapWithPageFrame(
               context: context,
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  buildRunningHeader(isLandscape: isLandscape),
+                  buildRunningHeader(isLandscape: isLandscape || isBookMode),
                   buildSectionBanner('13', 'جدول الاحتياجات والمواد المقترحة للزيارة القادمة (الزيارة رقم $nextVisitNum)'),
                   pw.SizedBox(height: 6),
                   // Explanatory Banner
@@ -3698,6 +3923,17 @@ class PdfExportService {
                 ],
               ),
             );
+
+            if (isBookMode) {
+              return wrapWithBookModeRotation(
+                child: pageContent,
+                rotW: rotW,
+                rotH: rotH,
+                padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+              );
+            }
+
+            return pageContent;
           },
         ),
       );

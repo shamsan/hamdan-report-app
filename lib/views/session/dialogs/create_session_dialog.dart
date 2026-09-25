@@ -1210,32 +1210,24 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
           ),
           const SizedBox(height: 14),
 
-          // مسؤول المنشأة ورقم الهاتف اليمني
-          Row(
-            children: [
-              Expanded(
-                child: _buildStandardInput(
-                  controller: _contactPersonCtrl,
-                  label: 'مسؤول المنشأة / المستلم',
-                  hint: 'د. عبد الله أحمد',
-                  icon: Icons.person_rounded,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: YemeniPhoneField(
-                  controller: _phoneCtrl,
-                  label: 'رقم الهاتف للتواصل',
-                  hint: '777 123 456',
-                  onContactPicked: (contact) {
-                    if (contact.name != null && _contactPersonCtrl.text.trim().isEmpty) {
-                      _markEdited();
-                      setState(() => _contactPersonCtrl.text = contact.name!);
-                    }
-                  },
-                ),
-              ),
-            ],
+          // مسؤول المنشأة ورقم الهاتف اليمني (Full Width Stacked)
+          _buildStandardInput(
+            controller: _contactPersonCtrl,
+            label: 'مسؤول المنشأة / المستلم',
+            hint: 'د. عبد الله أحمد',
+            icon: Icons.person_rounded,
+          ),
+          const SizedBox(height: 12),
+          YemeniPhoneField(
+            controller: _phoneCtrl,
+            label: 'رقم هاتف مسؤول المنشأة للتواصل',
+            hint: '777 123 456',
+            onContactPicked: (contact) {
+              if (contact.name != null && _contactPersonCtrl.text.trim().isEmpty) {
+                _markEdited();
+                setState(() => _contactPersonCtrl.text = contact.name!);
+              }
+            },
           ),
         ],
       ),

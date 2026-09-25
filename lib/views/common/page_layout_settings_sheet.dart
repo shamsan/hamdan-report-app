@@ -110,26 +110,28 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
   Map<int, String> get _pageLabels => widget.customPageLabels ?? _defaultPageLabels;
 
   String _getPageSize(int pageNum) {
-    final val = (_orientations[pageNum] ?? (pageNum == 9 ? 'a4_landscape' : 'a4_portrait')).toLowerCase();
+    final val = (_orientations[pageNum] ?? ((pageNum == 8 || pageNum == 9) ? 'a4_book' : 'a4_portrait')).toLowerCase();
     return val.contains('a3') ? 'a3' : 'a4';
   }
 
-  String _getPageOrientation(int pageNum) {
-    final val = (_orientations[pageNum] ?? (pageNum == 9 ? 'a4_landscape' : 'a4_portrait')).toLowerCase();
-    return (val.contains('landscape') || val.contains('horizontal')) ? 'landscape' : 'portrait';
+  String _getPageMode(int pageNum) {
+    final val = (_orientations[pageNum] ?? ((pageNum == 8 || pageNum == 9) ? 'a4_book' : 'a4_portrait')).toLowerCase();
+    if (val.contains('book') || val.contains('rotated')) return 'book';
+    if (val.contains('landscape') || val.contains('horizontal')) return 'landscape';
+    return 'portrait';
   }
 
   void _updatePageSize(int pageNum, String size) {
     setState(() {
-      final ori = _getPageOrientation(pageNum);
-      _orientations[pageNum] = '${size}_$ori';
+      final mode = _getPageMode(pageNum);
+      _orientations[pageNum] = '${size}_$mode';
     });
   }
 
-  void _updatePageOrientation(int pageNum, String ori) {
+  void _updatePageMode(int pageNum, String mode) {
     setState(() {
       final size = _getPageSize(pageNum);
-      _orientations[pageNum] = '${size}_$ori';
+      _orientations[pageNum] = '${size}_$mode';
     });
   }
 
@@ -137,9 +139,18 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
     setState(() {
       for (final p in _pageLabels.keys) {
         switch (presetKey) {
+          case 'book_complete':
+            // كراسة دفترياً بالكامل: كل الصفحات من 1 إلى 13 بدون استثناء في وضع التدوير الدفتري
+            _orientations[p] = 'a4_book';
+            break;
           case 'smart_default':
-            // الوضع المعتمد: الصفحة 9 عريضة والباقي عمودي
-            _orientations[p] = (p == 9) ? 'a4_landscape' : 'a4_portrait';
+            // الوضع الذكي المعتمد: الصفحات 8 و 9 مدارة دفترياً والباقي عمودي
+            _orientations[p] = (p == 8 || p == 9) ? 'a4_book' : 'a4_portrait';
+            break;
+          case 'book_tables':
+          case 'book_all':
+            // الجداول العريضة في وضع التدوير الدفتري والبقية عمودي
+            _orientations[p] = (p == 6 || p == 7 || p == 8 || p == 9 || p == 13) ? 'a4_book' : 'a4_portrait';
             break;
           case 'all_a4_portrait':
             _orientations[p] = 'a4_portrait';
@@ -238,13 +249,32 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
                   child: Row(
                     children: [
                       _buildPresetChip(
+                        icon: Icons.auto_stories_rounded,
+                        label: 'كافة الصفحات دفترياً ↺',
+                        color: const Color(0xFFE65100),
+                        isSelected: _pageLabels.keys.every((p) =>
+                            _getPageSize(p) == 'a4' && _getPageMode(p) == 'book'),
+                        onTap: () => _applyPreset('book_complete'),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildPresetChip(
                         icon: Icons.auto_awesome_rounded,
-                        label: 'الوضع الذكي المعتمد',
+                        label: 'الوضع الذكي (8 و 9 دفتري)',
                         color: const Color(0xFF1565C0),
                         isSelected: _pageLabels.keys.every((p) =>
-                            (_orientations[p] ?? (p == 9 ? 'a4_landscape' : 'a4_portrait')) ==
-                            ((p == 9) ? 'a4_landscape' : 'a4_portrait')),
+                            _getPageSize(p) == 'a4' &&
+                            _getPageMode(p) == ((p == 8 || p == 9) ? 'book' : 'portrait')),
                         onTap: () => _applyPreset('smart_default'),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildPresetChip(
+                        icon: Icons.table_chart_rounded,
+                        label: 'الجداول العريضة دفترياً',
+                        color: const Color(0xFFD97706),
+                        isSelected: _pageLabels.keys.every((p) =>
+                            _getPageSize(p) == 'a4' &&
+                            _getPageMode(p) == ((p == 6 || p == 7 || p == 8 || p == 9 || p == 13) ? 'book' : 'portrait')),
+                        onTap: () => _applyPreset('book_tables'),
                       ),
                       const SizedBox(width: 8),
                       _buildPresetChip(
@@ -252,7 +282,7 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
                         label: 'الكل A4 عمودي',
                         color: const Color(0xFF00897B),
                         isSelected: _pageLabels.keys.every((p) =>
-                            _getPageSize(p) == 'a4' && _getPageOrientation(p) == 'portrait'),
+                            _getPageSize(p) == 'a4' && _getPageMode(p) == 'portrait'),
                         onTap: () => _applyPreset('all_a4_portrait'),
                       ),
                       const SizedBox(width: 8),
@@ -261,7 +291,7 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
                         label: 'الكل A4 أفقي',
                         color: const Color(0xFF1E88E5),
                         isSelected: _pageLabels.keys.every((p) =>
-                            _getPageSize(p) == 'a4' && _getPageOrientation(p) == 'landscape'),
+                            _getPageSize(p) == 'a4' && _getPageMode(p) == 'landscape'),
                         onTap: () => _applyPreset('all_a4_landscape'),
                       ),
                       const SizedBox(width: 8),
@@ -270,7 +300,7 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
                         label: 'الكل A3 عريض',
                         color: const Color(0xFF6A1B9A),
                         isSelected: _pageLabels.keys.every((p) =>
-                            _getPageSize(p) == 'a3' && _getPageOrientation(p) == 'landscape'),
+                            _getPageSize(p) == 'a3' && _getPageMode(p) == 'landscape'),
                         onTap: () => _applyPreset('all_a3_landscape'),
                       ),
                     ],
@@ -294,9 +324,11 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
                 final iconData = _pageIcons[pageNum] ?? Icons.description_outlined;
                 final isSelected = _selectedPages.contains(pageNum);
                 final size = _getPageSize(pageNum);
-                final ori = _getPageOrientation(pageNum);
+                final mode = _getPageMode(pageNum);
                 final isA4 = size == 'a4';
-                final isPortrait = ori == 'portrait';
+                final isPortrait = mode == 'portrait';
+                final isBook = mode == 'book';
+                final isLandscape = mode == 'landscape';
 
                 // تحديد مظهر البادج
                 Color badgeBg;
@@ -306,11 +338,19 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
                   badgeBg = const Color(0xFFE6FFFA);
                   badgeFg = const Color(0xFF0D9488);
                   badgeText = 'A4 عمودي';
-                } else if (isA4 && !isPortrait) {
+                } else if (isA4 && isBook) {
+                  badgeBg = const Color(0xFFFEF3C7);
+                  badgeFg = const Color(0xFFD97706);
+                  badgeText = 'A4 دفتري ↺';
+                } else if (isA4 && isLandscape) {
                   badgeBg = const Color(0xFFEFF6FF);
                   badgeFg = const Color(0xFF1D4ED8);
                   badgeText = 'A4 أفقي';
-                } else if (!isA4 && !isPortrait) {
+                } else if (!isA4 && isBook) {
+                  badgeBg = const Color(0xFFFDE8E8);
+                  badgeFg = const Color(0xFF9B1C1C);
+                  badgeText = 'A3 دفتري ↺';
+                } else if (!isA4 && isLandscape) {
                   badgeBg = const Color(0xFFFAF5FF);
                   badgeFg = const Color(0xFF7E22CE);
                   badgeText = 'A3 عريض أفقي';
@@ -417,73 +457,73 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
 
                       const SizedBox(height: 12),
 
-                      // 2. خيارات المقاس والاتجاه على صفين أو صف متجاوب مريح للمس
-                      Row(
-                        children: [
-                          // اختيار المقاس (A4 vs A3)
-                          Expanded(
-                            child: Container(
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppTheme.borderSubtle),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildToggleButton(
-                                      label: 'A4 قياسي',
-                                      icon: Icons.description_outlined,
-                                      isSelected: isA4,
-                                      onTap: () => _updatePageSize(pageNum, 'a4'),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: _buildToggleButton(
-                                      label: 'A3 عريض',
-                                      icon: Icons.photo_size_select_actual_outlined,
-                                      isSelected: !isA4,
-                                      onTap: () => _updatePageSize(pageNum, 'a3'),
-                                    ),
-                                  ),
-                                ],
+                      // 2. خيارات نمط التوجيه والعرض والمقاس
+                      // اختيار نمط التوجيه والعرض (عمودي vs دفتري ↺ vs أفقي كامل)
+                      Container(
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.borderSubtle),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildToggleButton(
+                                label: 'عمودي',
+                                icon: Icons.stay_current_portrait_rounded,
+                                isSelected: isPortrait,
+                                onTap: () => _updatePageMode(pageNum, 'portrait'),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          // اختيار الاتجاه (عمودي vs أفقي)
-                          Expanded(
-                            child: Container(
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppTheme.borderSubtle),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildToggleButton(
-                                      label: 'عمودي',
-                                      icon: Icons.stay_current_portrait_rounded,
-                                      isSelected: isPortrait,
-                                      onTap: () => _updatePageOrientation(pageNum, 'portrait'),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: _buildToggleButton(
-                                      label: 'أفقي',
-                                      icon: Icons.stay_current_landscape_rounded,
-                                      isSelected: !isPortrait,
-                                      onTap: () => _updatePageOrientation(pageNum, 'landscape'),
-                                    ),
-                                  ),
-                                ],
+                            Expanded(
+                              child: _buildToggleButton(
+                                label: 'دفتري ↺',
+                                icon: Icons.auto_stories_rounded,
+                                isSelected: isBook,
+                                onTap: () => _updatePageMode(pageNum, 'book'),
                               ),
                             ),
-                          ),
-                        ],
+                            Expanded(
+                              child: _buildToggleButton(
+                                label: 'أفقي كامل',
+                                icon: Icons.stay_current_landscape_rounded,
+                                isSelected: isLandscape,
+                                onTap: () => _updatePageMode(pageNum, 'landscape'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      // اختيار المقاس (A4 vs A3)
+                      Container(
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.borderSubtle.withValues(alpha: 0.6)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildToggleButton(
+                                label: 'A4 قياسي',
+                                icon: Icons.description_outlined,
+                                isSelected: isA4,
+                                onTap: () => _updatePageSize(pageNum, 'a4'),
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildToggleButton(
+                                label: 'A3 عريض',
+                                icon: Icons.photo_size_select_actual_outlined,
+                                isSelected: !isA4,
+                                onTap: () => _updatePageSize(pageNum, 'a3'),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),

@@ -4,7 +4,8 @@ import '../theme/app_theme.dart';
 import '../utils/validators.dart';
 
 class YemeniPhoneField extends StatefulWidget {
-  final TextEditingController controller;
+  final TextEditingController? controller;
+  final String? initialValue;
   final String label;
   final String hint;
   final bool isRequired;
@@ -13,7 +14,8 @@ class YemeniPhoneField extends StatefulWidget {
 
   const YemeniPhoneField({
     super.key,
-    required this.controller,
+    this.controller,
+    this.initialValue,
     this.label = 'رقم الهاتف / الاتصال',
     this.hint = '777 123 456',
     this.isRequired = false,
@@ -26,23 +28,55 @@ class YemeniPhoneField extends StatefulWidget {
 }
 
 class _YemeniPhoneFieldState extends State<YemeniPhoneField> {
+  TextEditingController? _internalController;
+  TextEditingController get _effectiveController => widget.controller ?? _internalController!;
+
   String? _carrier;
 
   @override
   void initState() {
     super.initState();
+    if (widget.controller == null) {
+      _internalController = TextEditingController(text: widget.initialValue ?? '');
+    }
     _updateCarrier();
-    widget.controller.addListener(_updateCarrier);
+    _effectiveController.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant YemeniPhoneField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller != oldWidget.controller) {
+      oldWidget.controller?.removeListener(_onControllerChanged);
+      _internalController?.removeListener(_onControllerChanged);
+
+      if (widget.controller == null && _internalController == null) {
+        _internalController = TextEditingController(text: widget.initialValue ?? '');
+      } else if (widget.controller != null && _internalController != null) {
+        _internalController!.dispose();
+        _internalController = null;
+      }
+      _effectiveController.addListener(_onControllerChanged);
+      _updateCarrier();
+    } else if (widget.controller == null && widget.initialValue != null && widget.initialValue != _effectiveController.text) {
+      _effectiveController.text = widget.initialValue!;
+      _updateCarrier();
+    }
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_updateCarrier);
+    _effectiveController.removeListener(_onControllerChanged);
+    _internalController?.dispose();
     super.dispose();
   }
 
+  void _onControllerChanged() {
+    _updateCarrier();
+  }
+
   void _updateCarrier() {
-    final carrier = Validators.getYemeniCarrier(widget.controller.text);
+    final carrier = Validators.getYemeniCarrier(_effectiveController.text);
     if (_carrier != carrier) {
       if (mounted) {
         setState(() {
@@ -70,7 +104,7 @@ class _YemeniPhoneFieldState extends State<YemeniPhoneField> {
     if (contact != null) {
       final cleaned = Validators.cleanYemeniPhone(contact.phone);
       final formatted = Validators.formatYemeniPhone(cleaned);
-      widget.controller.text = formatted;
+      _effectiveController.text = formatted;
       widget.onChanged?.call(formatted);
       widget.onContactPicked?.call(contact);
     }
@@ -94,7 +128,7 @@ class _YemeniPhoneFieldState extends State<YemeniPhoneField> {
             ),
             if (_carrier != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
                   color: _getCarrierColor(_carrier!).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
@@ -103,12 +137,12 @@ class _YemeniPhoneFieldState extends State<YemeniPhoneField> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(_getCarrierIcon(_carrier!), size: 11, color: _getCarrierColor(_carrier!)),
+                    Icon(_getCarrierIcon(_carrier!), size: 12, color: _getCarrierColor(_carrier!)),
                     const SizedBox(width: 4),
                     Text(
                       _carrier!,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.bold,
                         color: _getCarrierColor(_carrier!),
                       ),
@@ -120,18 +154,18 @@ class _YemeniPhoneFieldState extends State<YemeniPhoneField> {
         ),
         const SizedBox(height: 5),
         TextFormField(
-          controller: widget.controller,
+          controller: _effectiveController,
           keyboardType: TextInputType.phone,
           style: const TextStyle(
-            fontSize: 13.5,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             color: AppTheme.textDark,
             letterSpacing: 0.5,
           ),
           decoration: InputDecoration(
             hintText: widget.hint,
-            hintStyle: const TextStyle(fontSize: 12.5, color: AppTheme.textMuted),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(
@@ -147,20 +181,22 @@ class _YemeniPhoneFieldState extends State<YemeniPhoneField> {
               borderSide: const BorderSide(color: AppTheme.primaryNavy, width: 1.5),
             ),
             prefixIcon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              margin: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              margin: const EdgeInsetsDirectional.only(end: 8),
               decoration: const BoxDecoration(
-                border: Border(left: BorderSide(color: Color(0xFFE2E8F0))),
+                border: BorderDirectional(
+                  end: BorderSide(color: Color(0xFFE2E8F0)),
+                ),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.phone_rounded, size: 16, color: AppTheme.primaryNavy),
-                  SizedBox(width: 4),
+                  SizedBox(width: 5),
                   Text(
                     '+967',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.primaryNavy,
                     ),
@@ -172,13 +208,16 @@ class _YemeniPhoneFieldState extends State<YemeniPhoneField> {
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (widget.controller.text.isNotEmpty)
+                if (_effectiveController.text.isNotEmpty)
                   IconButton(
                     icon: const Icon(Icons.clear, size: 16, color: AppTheme.textMuted),
                     tooltip: 'مسح',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     onPressed: () {
-                      widget.controller.clear();
+                      _effectiveController.clear();
                       widget.onChanged?.call('');
+                      setState(() {});
                     },
                   ),
                 Tooltip(
@@ -187,7 +226,7 @@ class _YemeniPhoneFieldState extends State<YemeniPhoneField> {
                     onTap: _pickContact,
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                      margin: const EdgeInsetsDirectional.only(start: 4, end: 8),
                       padding: const EdgeInsets.all(7),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryNavy.withValues(alpha: 0.08),
@@ -213,6 +252,7 @@ class _YemeniPhoneFieldState extends State<YemeniPhoneField> {
           },
           onChanged: (val) {
             widget.onChanged?.call(val);
+            setState(() {});
           },
         ),
       ],

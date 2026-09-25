@@ -22,6 +22,8 @@ class AppTheme {
   static const Color statusFollowup = Color(0xFFF59E0B);   // Amber 500
   static const Color statusRejected = Color(0xFFEF4444);   // Rose / Red 500
   static const Color statusNA = Color(0xFF64748B);         // Slate 500
+  static const Color statusApproved = Color(0xFF10B981);   // Alias for approved (Emerald)
+  static const Color statusPending = Color(0xFFF59E0B);    // Alias for pending (Amber)
 
   // Status Light Backgrounds for Pills & Badges
   static const Color statusGoodBg = Color(0xFFECFDF5);

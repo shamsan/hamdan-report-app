@@ -129,21 +129,70 @@ class OrganizationProfile {
   };
 
   factory OrganizationProfile.fromJson(Map<String, dynamic> json) {
+    final rawName = json['name'] as String?;
+    final name = (rawName == null ||
+            rawName.isEmpty ||
+            rawName == 'مؤسسة الطاقة المتجددة' ||
+            rawName == 'مشروع الطاقة المتجددة لدعم الخدمات الصحية' ||
+            rawName == 'مكتب الأمم المتحدة لخدمات المشاريع ووزارة الصحة' ||
+            rawName.contains('الإتقان') ||
+            rawName.contains('الاتقان'))
+        ? 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة'
+        : rawName;
+
+    final rawSubTitle = json['subTitle'] as String?;
+    final subTitle = (rawSubTitle == null ||
+            rawSubTitle == 'إدارة الصيانة والتشغيل' ||
+            rawSubTitle == 'إدارة الصيانة والتشغيل للطاقة المتجددة')
+        ? 'للخدمات الهندسية وحلول الطاقة'
+        : rawSubTitle;
+
+    final rawContractorAr = json['contractorNameAr'] as String?;
+    final contractorNameAr = (rawContractorAr == null ||
+            rawContractorAr.trim().isEmpty ||
+            rawContractorAr == 'شركة بندر ناجي ابو زيد و اخوانة' ||
+            rawContractorAr.contains('بندر ناجي') ||
+            rawContractorAr.contains('الإتقان') ||
+            rawContractorAr.contains('الاتقان') ||
+            rawContractorAr.contains('الأتقان'))
+        ? 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة'
+        : rawContractorAr;
+
+    final rawSubtitle = json['contractorSubtitleAr'] as String?;
+    final contractorSubtitleAr = (rawSubtitle == null ||
+            rawSubtitle == 'للتجارة و المقاولات المحدودة' ||
+            rawSubtitle == 'لأنظمة الطاقة والمقاولات المحدودة' ||
+            rawSubtitle.contains('المحدودة'))
+        ? ''
+        : rawSubtitle;
+
+    final rawContractorEn = json['contractorNameEn'] as String?;
+    final contractorNameEn = (rawContractorEn == null ||
+            rawContractorEn.trim().isEmpty ||
+            rawContractorEn == 'Bandar Naji Abo Zaid & Bros. Ltd' ||
+            rawContractorEn == 'Al-Etqan Al-Handasi Engineering Co. Ltd' ||
+            rawContractorEn.contains('Bandar Naji') ||
+            rawContractorEn.contains('Al-Etqan') ||
+            rawContractorEn.contains('Al-Itqan') ||
+            rawContractorEn.contains('Al-Handasi'))
+        ? 'Al-Etqan Engineering Office for Engineering Services and Energy Solutions'
+        : rawContractorEn;
+
     return OrganizationProfile(
       id: json['id'] ?? 'org_default',
-      name: json['name'] ?? '',
-      subTitle: json['subTitle'] ?? '',
+      name: name,
+      subTitle: subTitle,
       facilityLogoBase64: json['facilityLogoBase64'],
       unopsLogoBase64: json['unopsLogoBase64'],
       contractorLogoBase64: json['contractorLogoBase64'],
-      contractorNameAr: json['contractorNameAr'] ?? '',
-      contractorSubtitleAr: json['contractorSubtitleAr'] ?? '',
-      contractorNameEn: json['contractorNameEn'] ?? '',
-      ministryNameAr: json['ministryNameAr'] ?? '',
-      ministryNameEn: json['ministryNameEn'] ?? '',
-      showRightLogo: json['showRightLogo'] ?? false,
-      rightLogoNameEn: json['rightLogoNameEn'] ?? '',
-      rightLogoNameAr: json['rightLogoNameAr'] ?? '',
+      contractorNameAr: contractorNameAr,
+      contractorSubtitleAr: contractorSubtitleAr,
+      contractorNameEn: contractorNameEn,
+      ministryNameAr: json['ministryNameAr'] ?? 'وزارة الصحة العامة و البيئة',
+      ministryNameEn: json['ministryNameEn'] ?? 'Ministry of Public Health and Environment',
+      showRightLogo: json['showRightLogo'] ?? true,
+      rightLogoNameEn: json['rightLogoNameEn'] ?? 'UNITED NATIONS OFFICE FOR PROJECT SERVICES (UNOPS)',
+      rightLogoNameAr: json['rightLogoNameAr'] ?? 'مكتب الأمم المتحدة لخدمات المشاريع',
       rightLogoColorHex: json['rightLogoColorHex'] ?? '0072CE',
       primaryColorValue: json['primaryColorValue'] ?? 0xFF1565C0,
       secondaryColorValue: json['secondaryColorValue'] ?? 0xFF00897B,

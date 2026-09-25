@@ -329,6 +329,21 @@ class DefaultTemplates {
   /// 96 battery cells (4 strings x 24 cells) with 0.0 values for engineer input
   static List<BatteryMeasurement> get defaultBatteryMeasurements => blankBatteryMeasurements;
 
+  /// Realistic battery measurements for demo & sample reports
+  static List<BatteryMeasurement> get sampleBatteryMeasurements {
+    return List.generate(96, (i) {
+      final stringNum = (i ~/ 24) + 1;
+      final v = 2.15 + ((i % 5) * 0.01) - ((i % 3) * 0.01);
+      return BatteryMeasurement(
+        cellNumber: i + 1,
+        stringNumber: stringNum,
+        voltage: double.parse(v.toStringAsFixed(2)),
+        boltTorque: 12.0,
+        notes: 'سليمة',
+      );
+    });
+  }
+
   /// System operational telemetry measurements with blank measured values
   static List<OperationalData> get defaultOperationalData => blankOperationalData;
 
@@ -358,9 +373,7 @@ class DefaultTemplates {
         cellNumber: i,
         stringNumber: stringNum,
         voltage: 0.0,
-        temperature: 0.0,
         boltTorque: 0.0,
-        internalResistance: 0.0,
         notes: '',
       ));
     }
@@ -460,7 +473,7 @@ class DefaultTemplates {
         otherAppliances: 'مكيف هواء 1 طن عدد 2',
       ),
       inspectionGroups: defaultInspectionGroups,
-      batteryMeasurements: defaultBatteryMeasurements,
+      batteryMeasurements: sampleBatteryMeasurements,
       operationalData: defaultOperationalData,
       stringMeasurements: defaultStringMeasurements,
       correctiveActions: [
