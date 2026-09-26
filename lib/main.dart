@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'services/storage_service.dart';
 import 'state/branding_provider.dart';
-import 'state/theme_provider.dart';
 import 'views/main_navigation_shell.dart';
 import 'views/onboarding/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -79,8 +78,7 @@ class ReportCraftApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final branding   = ref.watch(brandingProvider);
-    final themeMode  = ref.watch(themeModeProvider);
+    final branding = ref.watch(brandingProvider);
 
     return MaterialApp(
       title: 'منشئ التقارير الاحترافية - ReportCraft',
@@ -89,8 +87,7 @@ class ReportCraftApp extends ConsumerWidget {
         primaryColor:   branding.primaryColor,
         secondaryColor: branding.secondaryColor,
       ),
-      darkTheme: AppTheme.darkTheme(),
-      themeMode: themeMode,
+      themeMode: ThemeMode.light,
       locale: const Locale('ar'),
       supportedLocales: const [
         Locale('ar'),

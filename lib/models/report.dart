@@ -345,6 +345,7 @@ class Report {
   final List<MaintenanceNeedItem> requestedNeeds;
   final List<int> activeBatteryGroups;
   final List<int> activeCombinerBoxes;
+  final Map<int, int> arrayPanelCounts;
   final Map<int, String> pageOrientations;
   final String clientId;
   final String siteId;
@@ -389,6 +390,7 @@ class Report {
     this.requestedNeeds = const [],
     this.activeBatteryGroups = const [1, 2, 3, 4],
     this.activeCombinerBoxes = const [1, 2, 3, 4],
+    this.arrayPanelCounts = const {},
     this.pageOrientations = const {},
     this.clientId = '',
     this.siteId = '',
@@ -396,6 +398,30 @@ class Report {
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// Returns the specific panel count for a given combiner box (array).
+  /// Falls back to distributing the total panels in [systemSpecs.panelsCountAndWatt]
+  /// evenly across active combiner boxes.
+  int getBoxPanelCount(int bNum) {
+    if (arrayPanelCounts.containsKey(bNum) && arrayPanelCounts[bNum]! > 0) {
+      return arrayPanelCounts[bNum]!;
+    }
+    final totalPanels = parseTotalPanels();
+    final activeList = activeCombinerBoxes.isNotEmpty ? activeCombinerBoxes : const [1, 2, 3, 4];
+    if (totalPanels > 0 && activeList.contains(bNum)) {
+      return totalPanels ~/ activeList.length;
+    }
+    return 0;
+  }
+
+  /// Parses the total number of solar panels from [systemSpecs.panelsCountAndWatt].
+  /// Example: '96 x 600Wp' -> 96, '48' -> 48.
+  int parseTotalPanels() {
+    final raw = systemSpecs.panelsCountAndWatt.trim();
+    if (raw.isEmpty) return 0;
+    final match = RegExp(r'^\s*(\d+)').firstMatch(raw);
+    return match != null ? (int.tryParse(match.group(1)!) ?? 0) : 0;
+  }
 
   /// Calculates the completion ratio of the overall report (0.0 to 1.0)
   double get completionRatio {
@@ -573,6 +599,7 @@ class Report {
     List<MaintenanceNeedItem>? requestedNeeds,
     List<int>? activeBatteryGroups,
     List<int>? activeCombinerBoxes,
+    Map<int, int>? arrayPanelCounts,
     Map<int, String>? pageOrientations,
     String? clientId,
     String? siteId,
@@ -616,6 +643,7 @@ class Report {
       requestedNeeds: requestedNeeds ?? this.requestedNeeds,
       activeBatteryGroups: activeBatteryGroups ?? this.activeBatteryGroups,
       activeCombinerBoxes: activeCombinerBoxes ?? this.activeCombinerBoxes,
+      arrayPanelCounts: arrayPanelCounts ?? this.arrayPanelCounts,
       pageOrientations: pageOrientations ?? this.pageOrientations,
       clientId: clientId ?? this.clientId,
       siteId: siteId ?? this.siteId,
@@ -662,6 +690,7 @@ class Report {
     'requestedNeeds': requestedNeeds.map((e) => e.toJson()).toList(),
     'activeBatteryGroups': activeBatteryGroups,
     'activeCombinerBoxes': activeCombinerBoxes,
+    'arrayPanelCounts': arrayPanelCounts.map((k, v) => MapEntry(k.toString(), v)),
     'pageOrientations': pageOrientations.map((k, v) => MapEntry(k.toString(), v)),
     'clientId': clientId,
     'siteId': siteId,
@@ -725,6 +754,11 @@ class Report {
         .toList(),
     activeBatteryGroups: (json['activeBatteryGroups'] as List?)?.map((e) => (e as num).toInt()).toList() ?? const [1, 2, 3, 4],
     activeCombinerBoxes: (json['activeCombinerBoxes'] as List?)?.map((e) => (e as num).toInt()).toList() ?? const [1, 2, 3, 4],
+    arrayPanelCounts: json['arrayPanelCounts'] != null
+        ? (json['arrayPanelCounts'] as Map).map(
+            (k, v) => MapEntry(int.tryParse(k.toString()) ?? 1, (v as num).toInt()),
+          )
+        : const {},
     pageOrientations: json['pageOrientations'] != null
         ? (json['pageOrientations'] as Map).map(
             (k, v) => MapEntry(int.tryParse(k.toString()) ?? 1, v.toString()),

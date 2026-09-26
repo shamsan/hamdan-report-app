@@ -292,7 +292,10 @@ class _QuickNeedDialogState extends State<QuickNeedDialog> {
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
                       ),
                       const SizedBox(height: 2),
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        runSpacing: 4,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -302,19 +305,15 @@ class _QuickNeedDialogState extends State<QuickNeedDialog> {
                             ),
                             child: Text(
                               'الزيارة الحالية: $currentVisit ➔ الزيارة القادمة: $targetVisit',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.brandCyan),
+                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.brandCyan),
                             ),
                           ),
-                          if (widget.relatedItem != null) ...[
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                '• ${widget.relatedItem!.description}',
-                                style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                          if (widget.relatedItem != null)
+                            Text(
+                              '• ${widget.relatedItem!.description}',
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
                         ],
                       ),
                     ],

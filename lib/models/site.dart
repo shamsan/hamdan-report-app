@@ -27,6 +27,7 @@ class Site {
 
   // المواصفات الفنية لمنظومة الطاقة
   final SystemSpecs systemSpecs;
+  final Map<int, int> arrayPanelCounts;
 
   // ضابط الاتصال بالموقع
   final String contactPerson;
@@ -58,6 +59,7 @@ class Site {
     this.implementingContractor = '',
     this.contractorLogoBase64,
     this.systemSpecs = const SystemSpecs(),
+    this.arrayPanelCounts = const {},
     this.contactPerson = '',
     this.phone = '',
     this.email = '',
@@ -89,6 +91,7 @@ class Site {
     String? implementingContractor,
     String? contractorLogoBase64,
     SystemSpecs? systemSpecs,
+    Map<int, int>? arrayPanelCounts,
     String? contactPerson,
     String? phone,
     String? email,
@@ -117,6 +120,7 @@ class Site {
       implementingContractor: implementingContractor ?? this.implementingContractor,
       contractorLogoBase64: contractorLogoBase64 ?? this.contractorLogoBase64,
       systemSpecs: systemSpecs ?? this.systemSpecs,
+      arrayPanelCounts: arrayPanelCounts ?? this.arrayPanelCounts,
       contactPerson: contactPerson ?? this.contactPerson,
       phone: phone ?? this.phone,
       email: email ?? this.email,
@@ -147,6 +151,7 @@ class Site {
     'implementingContractor': implementingContractor,
     'contractorLogoBase64': contractorLogoBase64,
     'systemSpecs': systemSpecs.toJson(),
+    'arrayPanelCounts': arrayPanelCounts.map((k, v) => MapEntry(k.toString(), v)),
     'contactPerson': contactPerson,
     'phone': phone,
     'email': email,
@@ -176,6 +181,11 @@ class Site {
     implementingContractor: json['implementingContractor'] ?? '',
     contractorLogoBase64: json['contractorLogoBase64'],
     systemSpecs: SystemSpecs.fromJson(json['systemSpecs'] ?? {}),
+    arrayPanelCounts: json['arrayPanelCounts'] != null
+        ? (json['arrayPanelCounts'] as Map).map(
+            (k, v) => MapEntry(int.tryParse(k.toString()) ?? 1, (v as num).toInt()),
+          )
+        : const {},
     contactPerson: json['contactPerson'] ?? '',
     phone: json['phone'] ?? '',
     email: json['email'] ?? '',

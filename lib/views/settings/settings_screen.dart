@@ -7,7 +7,6 @@ import '../../services/backup_service.dart';
 import '../../services/default_templates.dart';
 import '../../state/reports_provider.dart';
 import '../../state/templates_provider.dart';
-import '../../state/theme_provider.dart';
 import '../onboarding/onboarding_screen.dart';
 import '../session/preset_notes_manager_screen.dart';
 
@@ -396,61 +395,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Theme Mode Card
-              const Text('المظهر والسمة البصرية', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AppTheme.textDark)),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.borderSubtle),
-                  boxShadow: AppTheme.cardShadow,
-                ),
-                child: Material(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  clipBehavior: Clip.antiAlias,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'اختر المظهر المناسب للعمل الميداني وظروف الإضاءة:',
-                          style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: SegmentedButton<ThemeMode>(
-                            segments: const [
-                              ButtonSegment(
-                                value: ThemeMode.light,
-                                icon: Icon(Icons.light_mode_outlined, size: 18),
-                                label: Text('فاتح (ميداني)', style: TextStyle(fontSize: 11)),
-                              ),
-                              ButtonSegment(
-                                value: ThemeMode.dark,
-                                icon: Icon(Icons.dark_mode_outlined, size: 18),
-                                label: Text('داكن', style: TextStyle(fontSize: 11)),
-                              ),
-                              ButtonSegment(
-                                value: ThemeMode.system,
-                                icon: Icon(Icons.brightness_auto_outlined, size: 18),
-                                label: Text('تلقائي', style: TextStyle(fontSize: 11)),
-                              ),
-                            ],
-                            selected: {ref.watch(themeModeProvider)},
-                            onSelectionChanged: (newSelection) {
-                              ref.read(themeModeProvider.notifier).setThemeMode(newSelection.first);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
 
               // Multi-Method Backup Card
               const Text('خيارات النسخ الاحتياطي المتعدد', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AppTheme.textDark)),

@@ -172,6 +172,114 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
     widget.onUpdated(item.copyWith(notes: newText));
   }
 
+  void _showAllPresetNotesSheet() {
+    final item = widget.question.item;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryNavy.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.quickreply_rounded, color: AppTheme.primaryNavy, size: 18),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'بنك الملاحظات المقترحة والمسبقة للبند',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'بند: ${item.description}',
+              style: const TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Divider(height: 20),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.45,
+              ),
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _presetNotes.map((note) {
+                    final isIncluded = _notesController.text.contains(note);
+                    return ActionChip(
+                      avatar: Icon(
+                        isIncluded ? Icons.check_circle : Icons.add_circle_outline,
+                        size: 14,
+                        color: isIncluded ? AppTheme.statusGood : AppTheme.primaryNavy,
+                      ),
+                      label: Text(
+                        note,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: isIncluded ? FontWeight.bold : FontWeight.normal,
+                          color: isIncluded ? AppTheme.primaryNavy : AppTheme.textDark,
+                        ),
+                      ),
+                      backgroundColor: isIncluded
+                          ? AppTheme.statusGood.withValues(alpha: 0.12)
+                          : const Color(0xFFF1F5F9),
+                      side: BorderSide(
+                        color: isIncluded
+                            ? AppTheme.statusGood.withValues(alpha: 0.5)
+                            : AppTheme.borderSubtle,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      onPressed: () {
+                        _applyNoteChip(note);
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _notesController.removeListener(_onNotesChanged);
@@ -360,74 +468,84 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Item Number & Status Header
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryNavy.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'بند رقم ${item.serialNo}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.primaryNavy,
-                          ),
-                        ),
-                      ),
-                      if (item.subcategory != null) ...[
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                              color: AppTheme.primaryNavy.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              item.subcategory!,
+                              'بند رقم ${item.serialNo}',
                               style: const TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1D4ED8),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.primaryNavy,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ),
-                      ],
-                      const SizedBox(width: 8),
-                      if (isSkipped)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFF59E0B)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.access_time_rounded, size: 12, color: Color(0xFFD97706)),
-                              SizedBox(width: 4),
-                              Text(
-                                'تم تخطيه (معلق)',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                          if (item.subcategory != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFBFDBFE)),
                               ),
-                            ],
-                          ),
+                              child: Text(
+                                item.subcategory!,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1D4ED8),
+                                ),
+                              ),
+                            ),
+                          if (isSkipped)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFF59E0B)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.access_time_rounded, size: 12, color: Color(0xFFD97706)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'تم تخطيه (معلق)',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: item.status.color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                      const Spacer(),
-                      Text(
-                        'الحالة: ${item.status.labelAr}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: item.status.color,
+                        child: Text(
+                          'الحالة: ${item.status.labelAr}',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: item.status.color,
+                          ),
                         ),
                       ),
                     ],
@@ -468,82 +586,129 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
               const Icon(Icons.quickreply_rounded, size: 16, color: AppTheme.primaryNavy),
               const SizedBox(width: 6),
               const Text(
-                'الملاحظات والشرائح المقترحة:',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                'الملاحظات المسبقة',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
               ),
+              if (_presetNotes.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${_presetNotes.length}',
+                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                  ),
+                ),
+              ],
               const Spacer(),
-              // Bookmark / Save Current Phrase
-              if (_notesController.text.trim().isNotEmpty)
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  icon: const Icon(Icons.bookmark_add_outlined, size: 14, color: AppTheme.brandCyan),
-                  label: const Text(
-                    'حفظ العبارة',
-                    style: TextStyle(fontSize: 11, color: AppTheme.brandCyan, fontWeight: FontWeight.bold),
-                  ),
-                  onPressed: _saveCurrentPhrase,
-                ),
-              // Add New Preset Note Button
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                icon: const Icon(Icons.add_circle_outline, size: 14, color: AppTheme.primaryNavy),
-                label: const Text(
-                  '+ ملاحظة مسبقة',
-                  style: TextStyle(fontSize: 11, color: AppTheme.primaryNavy, fontWeight: FontWeight.bold),
-                ),
-                onPressed: _promptAddPresetNote,
-              ),
-              // Manage Notes Screen Icon
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                icon: const Icon(Icons.tune_rounded, size: 17, color: AppTheme.textMuted),
-                tooltip: 'إدارة الملاحظات المسبقة',
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PresetNotesManagerScreen(initialQuestionId: item.id),
-                    ),
-                  );
-                  _loadPresetNotes();
-                },
-              ),
-              if (item.notes.isNotEmpty) ...[
-                const SizedBox(width: 4),
-                GestureDetector(
+              if (item.notes.isNotEmpty)
+                InkWell(
                   onTap: () {
                     _notesController.clear();
                     widget.onUpdated(item.copyWith(notes: ''));
                   },
-                  child: const Text('مسح', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold)),
+                  borderRadius: BorderRadius.circular(4),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Text(
+                      'مسح',
+                      style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ),
-              ],
+              PopupMenuButton<String>(
+                tooltip: 'خيارات الملاحظات',
+                icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppTheme.textMuted),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                position: PopupMenuPosition.under,
+                onSelected: (val) async {
+                  if (val == 'save') {
+                    _saveCurrentPhrase();
+                  } else if (val == 'add') {
+                    _promptAddPresetNote();
+                  } else if (val == 'manage') {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PresetNotesManagerScreen(initialQuestionId: item.id),
+                      ),
+                    );
+                    _loadPresetNotes();
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  if (_notesController.text.trim().isNotEmpty)
+                    const PopupMenuItem(
+                      value: 'save',
+                      child: Row(
+                        children: [
+                          Icon(Icons.bookmark_add_outlined, size: 18, color: AppTheme.brandCyan),
+                          SizedBox(width: 8),
+                          Text('حفظ العبارة الحالية كملاحظة دائمة'),
+                        ],
+                      ),
+                    ),
+                  const PopupMenuItem(
+                    value: 'add',
+                    child: Row(
+                      children: [
+                        Icon(Icons.add_circle_outline, size: 18, color: AppTheme.primaryNavy),
+                        SizedBox(width: 8),
+                        Text('إضافة ملاحظة جديدة للبند'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'manage',
+                    child: Row(
+                      children: [
+                        Icon(Icons.tune_rounded, size: 18, color: AppTheme.textSecondary),
+                        SizedBox(width: 8),
+                        Text('إدارة بنك الملاحظات المسبقة'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 6),
 
-          // Wrap of Preset Chips
+          // Horizontal scroll of Preset Chips with 'View all'
           if (_isLoadingNotes)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 4),
               child: SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)),
             )
           else if (_presetNotes.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: _presetNotes.map((note) {
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              height: 34,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _presetNotes.length + (_presetNotes.length > 2 ? 1 : 0),
+                separatorBuilder: (_, _) => const SizedBox(width: 6),
+                itemBuilder: (context, index) {
+                  if (index == _presetNotes.length) {
+                    return ActionChip(
+                      avatar: const Icon(Icons.grid_view_rounded, size: 13, color: AppTheme.primaryNavy),
+                      label: const Text(
+                        'عرض الكل',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                      ),
+                      backgroundColor: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                      side: BorderSide(color: AppTheme.primaryNavy.withValues(alpha: 0.2)),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onPressed: _showAllPresetNotesSheet,
+                    );
+                  }
+                  final note = _presetNotes[index];
                   final isIncluded = _notesController.text.contains(note);
                   return ActionChip(
                     avatar: Icon(
@@ -559,15 +724,19 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                         color: isIncluded ? AppTheme.primaryNavy : AppTheme.textDark,
                       ),
                     ),
-                    backgroundColor: isIncluded ? AppTheme.statusGood.withValues(alpha: 0.12) : const Color(0xFFF1F5F9),
+                    backgroundColor: isIncluded
+                        ? AppTheme.statusGood.withValues(alpha: 0.12)
+                        : const Color(0xFFF1F5F9),
                     side: BorderSide(
-                      color: isIncluded ? AppTheme.statusGood.withValues(alpha: 0.5) : AppTheme.borderSubtle,
+                      color: isIncluded
+                          ? AppTheme.statusGood.withValues(alpha: 0.5)
+                          : AppTheme.borderSubtle,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     onPressed: () => _applyNoteChip(note),
                   );
-                }).toList(),
+                },
               ),
             ),
 
@@ -575,12 +744,25 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
           TextFormField(
             controller: _notesController,
             maxLines: 2,
+            style: const TextStyle(fontSize: 12.5),
             decoration: InputDecoration(
               hintText: 'أدخل أي ملاحظات فنية إضافية على هذا البند...',
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              hintStyle: const TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              filled: true,
+              fillColor: const Color(0xFFFAFAFA),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: AppTheme.borderSubtle),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppTheme.borderSubtle),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppTheme.primaryNavy, width: 1.2),
               ),
             ),
             onChanged: (val) {

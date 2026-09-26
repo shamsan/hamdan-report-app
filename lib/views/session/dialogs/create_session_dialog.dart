@@ -350,6 +350,464 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
     return shouldLeave ?? false;
   }
 
+  // ─── إضافة عميل جديد مباشرة من نموذج إنشاء التقرير ─────────────────────────
+  void _showAddClientDialog(BuildContext context) {
+    final nameArCtrl = TextEditingController();
+    final nameEnCtrl = TextEditingController();
+    final contactCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final addressCtrl = TextEditingController();
+    String clientType = 'جهة حكومية / وزارة';
+
+    // حقول اختيارية لإنشاء أول موقع للعميل في خطوة واحدة
+    final siteNameCtrl = TextEditingController();
+    final siteGovCtrl = TextEditingController(text: 'صنعاء');
+    final siteDistCtrl = TextEditingController(text: 'السبعين');
+    bool createSiteTogether = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            top: 16,
+            left: 20,
+            right: 20,
+          ),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.9,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryNavy.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.person_add_alt_1_rounded, color: AppTheme.primaryNavy, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'إضافة عميل جديد / جهة شريكة',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                          ),
+                          Text(
+                            'سيتم حفظ العميل وتحديده تلقائياً للتقرير الحالي',
+                            style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+
+                // Card 1: Client Basic Info
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.apartment_rounded, size: 16, color: AppTheme.primaryNavy),
+                          SizedBox(width: 6),
+                          Text(
+                            'معلومات الجهة الأساسية',
+                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: nameArCtrl,
+                        autofocus: true,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                        decoration: InputDecoration(
+                          labelText: 'اسم العميل / الجهة (عربي) *',
+                          hintText: 'مثال: وزارة الصحة العامة والسكان',
+                          prefixIcon: const Icon(Icons.business_rounded, size: 18, color: AppTheme.primaryNavy),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: nameEnCtrl,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                        decoration: InputDecoration(
+                          labelText: 'اسم العميل (English)',
+                          hintText: 'e.g. Ministry of Public Health',
+                          prefixIcon: const Icon(Icons.language_rounded, size: 18, color: AppTheme.primaryNavy),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('تصنيف الجهة:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          'جهة حكومية / وزارة',
+                          'منظمة دولية / مانحة',
+                          'مؤسسة محلية / مجتمعية',
+                          'قطاع خاص / شركة',
+                        ].map((type) {
+                          final isSel = clientType == type;
+                          return ChoiceChip(
+                            label: Text(type),
+                            selected: isSel,
+                            backgroundColor: Colors.white,
+                            selectedColor: AppTheme.primaryNavy.withValues(alpha: 0.12),
+                            side: BorderSide(
+                              color: isSel ? AppTheme.primaryNavy : const Color(0xFFCBD5E1),
+                              width: isSel ? 1.5 : 1.0,
+                            ),
+                            labelStyle: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                              color: isSel ? AppTheme.primaryNavy : AppTheme.textDark,
+                            ),
+                            onSelected: (sel) {
+                              if (sel) setModalState(() => clientType = type);
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Card 2: Contact
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.contact_phone_rounded, size: 16, color: AppTheme.primaryNavy),
+                          SizedBox(width: 6),
+                          Text(
+                            'ضابط الاتصال والتواصل',
+                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: contactCtrl,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                        decoration: InputDecoration(
+                          labelText: 'ضابط الاتصال / المسؤول (اختياري)',
+                          hintText: 'مثال: د. طارق الحيدري',
+                          prefixIcon: const Icon(Icons.person_rounded, size: 18, color: AppTheme.primaryNavy),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      YemeniPhoneField(
+                        controller: phoneCtrl,
+                        label: 'رقم الهاتف / الاتصال (اختياري)',
+                        hint: '777 123 456',
+                        onContactPicked: (contact) {
+                          if (contact.name != null && contactCtrl.text.trim().isEmpty) {
+                            setModalState(() {
+                              contactCtrl.text = contact.name!;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: addressCtrl,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                        decoration: InputDecoration(
+                          labelText: 'المقر أو العنوان الرئيسي (اختياري)',
+                          hintText: 'مثال: صنعاء - شارع الستين',
+                          prefixIcon: const Icon(Icons.place_rounded, size: 18, color: AppTheme.primaryNavy),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Card 3: Optional Quick Site Creation
+                Container(
+                  decoration: BoxDecoration(
+                    color: createSiteTogether ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: createSiteTogether ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0)),
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        onTap: () => setModalState(() => createSiteTogether = !createSiteTogether),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Row(
+                          children: [
+                            Checkbox(
+                              value: createSiteTogether,
+                              activeColor: const Color(0xFF16A34A),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              onChanged: (v) => setModalState(() => createSiteTogether = v ?? false),
+                            ),
+                            const SizedBox(width: 4),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'تسجيل موقع / منشأة أولى لهذا العميل مباشرة',
+                                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                                  ),
+                                  Text(
+                                    'اختياري: يتيح لك إنشاء الموقع وربطه بالتقرير فوراً في خطوة واحدة',
+                                    style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (createSiteTogether) ...[
+                        const Divider(height: 16),
+                        TextField(
+                          controller: siteNameCtrl,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                          decoration: InputDecoration(
+                            labelText: 'اسم المنشأة / الموقع الميداني *',
+                            hintText: 'مثال: مستشفى عبس الريفي',
+                            prefixIcon: const Icon(Icons.location_city_rounded, size: 18, color: Color(0xFF16A34A)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: siteGovCtrl,
+                                style: const TextStyle(fontSize: 12),
+                                decoration: InputDecoration(
+                                  labelText: 'المحافظة',
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: siteDistCtrl,
+                                style: const TextStyle(fontSize: 12),
+                                decoration: InputDecoration(
+                                  labelText: 'المديرية',
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('إلغاء', style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryNavy,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.check_circle_rounded, size: 18),
+                        label: const Text('حفظ واختيار العميل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                        onPressed: () async {
+                          if (nameArCtrl.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('يرجى إدخال اسم العميل بالعربي على الأقل')),
+                            );
+                            return;
+                          }
+
+                          final newClient = await ref.read(clientsProvider.notifier).addClient(
+                            nameAr: nameArCtrl.text.trim(),
+                            nameEn: nameEnCtrl.text.trim(),
+                            clientType: clientType,
+                            contactPerson: contactCtrl.text.trim(),
+                            phone: phoneCtrl.text.trim(),
+                            address: addressCtrl.text.trim(),
+                          );
+
+                          Site? newSite;
+                          if (createSiteTogether && siteNameCtrl.text.trim().isNotEmpty) {
+                            newSite = await ref.read(sitesProvider.notifier).addSite(
+                              clientId: newClient.id,
+                              nameAr: siteNameCtrl.text.trim(),
+                              governorate: siteGovCtrl.text.trim(),
+                              directorate: siteDistCtrl.text.trim(),
+                              facilityType: 'مستشفى / مركز صحي',
+                              category: 'CAT 8',
+                              contactPerson: contactCtrl.text.trim(),
+                              phone: phoneCtrl.text.trim(),
+                            );
+                          }
+
+                          if (ctx.mounted) Navigator.pop(ctx);
+
+                          HapticFeedback.mediumImpact();
+                          _markEdited();
+                          setState(() {
+                            _selectedClient = newClient;
+                            _ownerEntityCtrl.text = newClient.displayName;
+                            if (newSite != null) {
+                              _populateFromSite(newSite, newClient);
+                            } else {
+                              _selectedSite = null;
+                            }
+                          });
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  newSite != null
+                                      ? 'تم حفظ العميل "${newClient.displayName}" والموقع "${newSite.nameAr}" واختيارهما بنجاح! ✨'
+                                      : 'تم حفظ العميل "${newClient.displayName}" واختياره بنجاح! ✨',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                backgroundColor: AppTheme.statusGood,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── فتح شاشة إضافة موقع جديد للعميل المحدد ─────────────────────────────────
+  Future<void> _openAddSiteForClient(Client client) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SiteFormScreen(clientId: client.id),
+      ),
+    );
+    if (!mounted) return;
+    final clientSites = ref.read(sitesProvider).where((s) => s.clientId == client.id).toList();
+    if (clientSites.isNotEmpty) {
+      final newestSite = clientSites.reduce((a, b) => a.updatedAt.isAfter(b.updatedAt) ? a : b);
+      HapticFeedback.mediumImpact();
+      _markEdited();
+      setState(() {
+        _populateFromSite(newestSite, client);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'تم اختيار الموقع "${newestSite.nameAr}" وجلب مواصفاته للتقرير بنجاح ✨',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: AppTheme.statusGood,
+        ),
+      );
+    }
+  }
+
   // ─── حفظ وبدء الجلسة / إنشاء التقرير ─────────────────────────────────────────
   Future<void> _submit({required bool startInteractiveSession}) async {
     final resolvedClientId = _selectedClient?.id ?? _selectedSourceReport?.clientId;
@@ -689,83 +1147,170 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const SiteFormScreen(clientId: '')),
-                        );
-                      },
+                      onPressed: () => _showAddClientDialog(context),
                       child: const Text('إضافة عميل', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
               ),
             ] else ...[
-              // 1. اختيار العميل
-              DropdownButtonFormField<Client>(
-                initialValue: _selectedClient,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: 'الجهة المالكة / العميل *',
-                  hintText: 'اختر الجهة المالكة...',
-                  prefixIcon: const Icon(Icons.business_rounded, color: AppTheme.primaryNavy, size: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-                items: clients.map((c) {
-                  return DropdownMenuItem(
-                    value: c,
-                    child: Text(c.displayName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  );
-                }).toList(),
-                onChanged: (client) {
-                  if (client != null) {
-                    HapticFeedback.selectionClick();
-                    _markEdited();
-                    setState(() {
-                      _selectedClient = client;
-                      _selectedSite = null;
-                      _ownerEntityCtrl.text = client.displayName;
-                    });
-                  }
-                },
+              // 1. اختيار العميل مع أيقونة إضافة عميل جديد
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<Client>(
+                      key: ValueKey('client_dropdown_${_selectedClient?.id}'),
+                      initialValue: _selectedClient,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'الجهة المالكة / العميل *',
+                        hintText: 'اختر الجهة المالكة...',
+                        prefixIcon: const Icon(Icons.business_rounded, color: AppTheme.primaryNavy, size: 20),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      items: clients.map((c) {
+                        return DropdownMenuItem(
+                          value: c,
+                          child: Text(c.displayName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        );
+                      }).toList(),
+                      onChanged: (client) {
+                        if (client != null) {
+                          HapticFeedback.selectionClick();
+                          _markEdited();
+                          setState(() {
+                            _selectedClient = client;
+                            _selectedSite = null;
+                            _ownerEntityCtrl.text = client.displayName;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: 'إضافة عميل جديد',
+                    child: Material(
+                      color: AppTheme.primaryNavy,
+                      borderRadius: BorderRadius.circular(10),
+                      elevation: 1,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => _showAddClientDialog(context),
+                        child: Container(
+                          height: 48,
+                          width: 48,
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 22),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
 
-              // 2. اختيار الموقع
-              DropdownButtonFormField<Site>(
-                initialValue: _selectedSite,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: 'الموقع الميداني / المنشأة *',
-                  hintText: _selectedClient == null ? 'اختر العميل أولاً لعرض مواقعه' : 'اختر المنشأة...',
-                  prefixIcon: const Icon(Icons.location_on_rounded, color: AppTheme.primaryNavy, size: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-                items: availableSites.map((site) {
-                  final loc = [site.governorate, site.directorate].where((s) => s.isNotEmpty).join(' • ');
-                  return DropdownMenuItem(
-                    value: site,
-                    child: Text(
-                      loc.isNotEmpty ? '${site.nameAr} ($loc)' : site.nameAr,
-                      style: const TextStyle(fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
+              // 2. اختيار الموقع مع أيقونة إضافة موقع ميداني جديد
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<Site>(
+                      key: ValueKey('site_dropdown_${_selectedSite?.id}'),
+                      initialValue: _selectedSite,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'الموقع الميداني / المنشأة *',
+                        hintText: _selectedClient == null ? 'اختر العميل أولاً لعرض مواقعه' : 'اختر المنشأة...',
+                        prefixIcon: const Icon(Icons.location_on_rounded, color: AppTheme.primaryNavy, size: 20),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      items: availableSites.map((site) {
+                        final loc = [site.governorate, site.directorate].where((s) => s.isNotEmpty).join(' • ');
+                        return DropdownMenuItem(
+                          value: site,
+                          child: Text(
+                            loc.isNotEmpty ? '${site.nameAr} ($loc)' : site.nameAr,
+                            style: const TextStyle(fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: _selectedClient == null
+                          ? null
+                          : (site) {
+                              if (site != null) {
+                                HapticFeedback.selectionClick();
+                                _markEdited();
+                                _populateFromSite(site, _selectedClient!);
+                              }
+                            },
                     ),
-                  );
-                }).toList(),
-                onChanged: _selectedClient == null
-                    ? null
-                    : (site) {
-                        if (site != null) {
-                          HapticFeedback.selectionClick();
-                          _markEdited();
-                          _populateFromSite(site, _selectedClient!);
-                        }
-                      },
+                  ),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: _selectedClient != null ? 'إضافة موقع ميداني جديد لهذا العميل' : 'حدد العميل أولاً لإضافة موقع',
+                    child: Material(
+                      color: _selectedClient != null ? AppTheme.brandCyan : const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(10),
+                      elevation: _selectedClient != null ? 1 : 0,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: _selectedClient != null ? () => _openAddSiteForClient(_selectedClient!) : null,
+                        child: Container(
+                          height: 48,
+                          width: 48,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.add_location_alt_rounded,
+                            color: _selectedClient != null ? Colors.white : AppTheme.textMuted,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              if (_selectedClient != null && availableSites.isEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Color(0xFF16A34A), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'لا توجد مواقع مسجلة للعميل "${_selectedClient!.displayName}" بعد.',
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF166534), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF15803D),
+                          backgroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.add_location_alt_rounded, size: 16),
+                        label: const Text('إضافة موقع الآن', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        onPressed: () => _openAddSiteForClient(_selectedClient!),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ] else ...[
             // استنساخ من تقرير سابق

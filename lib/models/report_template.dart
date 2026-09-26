@@ -148,7 +148,7 @@ class ReportTemplate {
       photos: const [],
       signatures: const [],
       approvalStatement: ApprovalStatement(),
-      attendanceList: DefaultTemplates.blankAttendanceList,
+      attendanceList: const [],
       activeBatteryGroups: activeBatteryGroups ?? const [1, 2, 3, 4],
       activeCombinerBoxes: activeCombinerBoxes ?? const [1, 2, 3, 4],
       status: ReportStatus.draft,

@@ -68,6 +68,7 @@ class AttendanceRecord {
   });
 
   AttendanceRecord copyWith({
+    int? serialNo,
     String? name,
     String? role,
     String? affiliation,
@@ -75,7 +76,7 @@ class AttendanceRecord {
     String? notes,
   }) {
     return AttendanceRecord(
-      serialNo: serialNo,
+      serialNo: serialNo ?? this.serialNo,
       name: name ?? this.name,
       role: role ?? this.role,
       affiliation: affiliation ?? this.affiliation,

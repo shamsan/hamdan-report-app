@@ -417,18 +417,11 @@ class DefaultTemplates {
     return list;
   }
 
-  /// Blank attendance list for new sessions
-  static List<AttendanceRecord> get blankAttendanceList {
-    return [
-      const AttendanceRecord(serialNo: 1, name: '', role: 'مهندس صيانة المنظومة (رئيس الفريق)', affiliation: '', notes: ''),
-      const AttendanceRecord(serialNo: 2, name: '', role: 'فني كهرباء وطاقة شمسية', affiliation: '', notes: ''),
-      const AttendanceRecord(serialNo: 3, name: '', role: 'فني بطاريات وتكييف', affiliation: '', notes: ''),
-      const AttendanceRecord(serialNo: 4, name: '', role: 'ممثل المرفق الخدمي / المستفيد', affiliation: '', notes: ''),
-    ];
-  }
+  /// Blank attendance list for new sessions (manual user addition only)
+  static List<AttendanceRecord> get blankAttendanceList => const [];
 
   /// Team attendance list with blank names
-  static List<AttendanceRecord> get defaultAttendanceList => blankAttendanceList;
+  static List<AttendanceRecord> get defaultAttendanceList => const [];
 
   /// Default full report matching the institutional solar maintenance report 1:1
   static Report get sampleDialysisReport {
@@ -476,6 +469,7 @@ class DefaultTemplates {
       batteryMeasurements: sampleBatteryMeasurements,
       operationalData: defaultOperationalData,
       stringMeasurements: defaultStringMeasurements,
+      arrayPanelCounts: const {1: 24, 2: 24, 3: 24, 4: 24},
       correctiveActions: [
         const CorrectiveAction(
           id: 'ca_1',

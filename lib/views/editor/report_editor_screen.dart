@@ -12,7 +12,6 @@ import '../../models/report.dart';
 import '../../models/inspection_item.dart';
 import '../../models/measurement_data.dart';
 import '../../models/signature_data.dart';
-import '../../services/default_templates.dart';
 import '../../state/branding_provider.dart';
 import '../../state/reports_provider.dart';
 import '../preview/pdf_preview_screen.dart';
@@ -170,7 +169,23 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
       });
       return;
     }
-    _report = match.first;
+    final loaded = match.first;
+    // Clean up any legacy default blank placeholder attendance records (empty name and no signature)
+    final cleanedAttendance = loaded.attendanceList.where((a) =>
+      a.name.trim().isNotEmpty || (a.signatureBase64 != null && a.signatureBase64!.trim().isNotEmpty)
+    ).toList();
+    if (cleanedAttendance.length != loaded.attendanceList.length) {
+      final reindexed = <AttendanceRecord>[];
+      for (int i = 0; i < cleanedAttendance.length; i++) {
+        reindexed.add(cleanedAttendance[i].copyWith(serialNo: i + 1));
+      }
+      _report = loaded.copyWith(attendanceList: reindexed);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(reportsProvider.notifier).updateReport(_report);
+      });
+    } else {
+      _report = loaded;
+    }
     _isLoaded = true;
   }
 
@@ -1026,11 +1041,6 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                           'label': 'منظمة الصحة العالمية',
                           'ar': 'منظمة الصحة العالمية - WHO',
                           'en': 'World Health Organization - WHO',
-                        },
-                        {
-                          'label': 'مركز الملك سلمان',
-                          'ar': 'مركز الملك سلمان للإغاثة والأعمال الإنسانية',
-                          'en': 'King Salman Humanitarian Aid & Relief Centre',
                         },
                         {
                           'label': 'اليونيسف (UNICEF)',
@@ -3255,19 +3265,41 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            IconButton(
-              tooltip: 'استعادة الفريق الافتراضي',
-              icon: const Icon(Icons.restart_alt_rounded, size: 19, color: AppTheme.textMuted),
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              padding: const EdgeInsets.all(7),
-              style: IconButton.styleFrom(
-                backgroundColor: const Color(0xFFF1F5F9),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            if (totalCount > 0)
+              IconButton(
+                tooltip: 'مسح قائمة الفريق',
+                icon: const Icon(Icons.delete_sweep_rounded, size: 20, color: AppTheme.statusRejected),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                padding: const EdgeInsets.all(7),
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFFEF2F2),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      title: const Text('مسح قائمة أعضاء الفريق', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      content: const Text('هل أنت متأكد من مسح جميع أعضاء الفريق المسجلين؟'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('إلغاء'),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.statusRejected),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _onReportUpdated(_report.copyWith(attendanceList: const []));
+                          },
+                          child: const Text('مسح الكل', style: TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-              onPressed: () {
-                _onReportUpdated(_report.copyWith(attendanceList: DefaultTemplates.defaultAttendanceList));
-              },
-            ),
             const SizedBox(width: 8),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(

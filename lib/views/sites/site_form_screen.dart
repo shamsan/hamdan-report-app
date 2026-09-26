@@ -376,7 +376,6 @@ class _SiteFormScreenState extends ConsumerState<SiteFormScreen> {
                     children: [
                       _buildFunderChip('UNOPS (الأمم المتحدة)', 'مكتب الأمم المتحدة لخدمات المشاريع - UNOPS', 'UNOPS'),
                       _buildFunderChip('البنك الدولي (World Bank)', 'البنك الدولي - World Bank', 'World Bank Group'),
-                      _buildFunderChip('مركز الملك سلمان', 'مركز الملك سلمان للإغاثة والأعمال الإنسانية', 'KSRelief'),
                       _buildFunderChip('منظمة اليونيسف (UNICEF)', 'منظمة الأمم المتحدة للطفولة - UNICEF', 'UNICEF'),
                     ],
                   ),

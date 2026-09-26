@@ -182,7 +182,7 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
               canChangeOrientation: false,
               canChangePageFormat: false,
               canDebug: false,
-              initialPageFormat: PdfPageFormat.a4,
+              initialPageFormat: _pageOrientations.values.any((v) => v.toLowerCase().contains('a3')) ? PdfPageFormat.a3 : PdfPageFormat.a4,
               pdfFileName: '${_report.facilityInfo.facilityName}_تقرير_الصيانة.pdf',
               onShared: (context) {
                 ref.read(reportsProvider.notifier).updateReport(

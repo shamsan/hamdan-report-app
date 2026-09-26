@@ -186,15 +186,13 @@ class PdfExportService {
     } catch (_) {}
 
     // 2.5. Load Digital Signatures & Stamps for Running Footer & Page 10
-    final engSigBase64 = (report.approvalStatement.contractorSignatureBase64 != null && report.approvalStatement.contractorSignatureBase64!.isNotEmpty)
-        ? report.approvalStatement.contractorSignatureBase64
+    final engSigBase64 = (report.approvalStatement.contractorSignatureBase64 != null && report.approvalStatement.contractorSignatureBase64!.trim().isNotEmpty)
+        ? report.approvalStatement.contractorSignatureBase64!.trim()
         : report.signatures.cast<ReportSignature?>().firstWhere(
-            (s) => s != null && s.signatureBase64 != null && s.signatureBase64!.isNotEmpty &&
-                   (s.role.contains('مهندس') || s.role.contains('صيانة') || s.role.contains('مقاول')),
-            orElse: () => report.signatures.cast<ReportSignature?>().firstWhere(
-              (s) => s != null && s.signatureBase64 != null && s.signatureBase64!.isNotEmpty,
-              orElse: () => null,
-            ),
+            (s) => s != null && s.signatureBase64 != null && s.signatureBase64!.trim().isNotEmpty &&
+                   (s.role.contains('مهندس') || s.role.contains('صيانة') || s.role.contains('مقاول') || s.role.contains('فني')) &&
+                   !s.role.contains('مستفيد') && !s.role.contains('مرفق') && !s.role.contains('عميل'),
+            orElse: () => null,
           )?.signatureBase64;
 
     final pw.MemoryImage? engineerSigImage = safeSignatureImage(engSigBase64);
@@ -203,18 +201,20 @@ class PdfExportService {
         ? report.approvalStatement.beneficiaryRepName
         : report.facilityInfo.contactPerson;
 
-    final benSigBase64 = (report.approvalStatement.beneficiarySignatureBase64 != null && report.approvalStatement.beneficiarySignatureBase64!.isNotEmpty)
-        ? report.approvalStatement.beneficiarySignatureBase64
+    final benSigBase64 = (report.approvalStatement.beneficiarySignatureBase64 != null && report.approvalStatement.beneficiarySignatureBase64!.trim().isNotEmpty)
+        ? report.approvalStatement.beneficiarySignatureBase64!.trim()
         : (report.signatures.cast<ReportSignature?>().firstWhere(
-            (s) => s != null && s.signatureBase64 != null && s.signatureBase64!.isNotEmpty &&
+            (s) => s != null && s.signatureBase64 != null && s.signatureBase64!.trim().isNotEmpty &&
                    (s.role.contains('مستفيد') || s.role.contains('مرفق') || s.role.contains('مدير') || s.role.contains('عميل') || s.role.contains('إدارة') ||
-                    (effectiveRepName.isNotEmpty && (s.signerName == effectiveRepName || s.signerName.contains(effectiveRepName)))),
+                    (effectiveRepName.isNotEmpty && (s.signerName == effectiveRepName || s.signerName.contains(effectiveRepName)))) &&
+                   !s.role.contains('مهندس') && !s.role.contains('صيانة') && !s.role.contains('مقاول'),
             orElse: () => null,
           )?.signatureBase64 ??
           report.attendanceList.cast<AttendanceRecord?>().firstWhere(
-            (a) => a != null && a.signatureBase64 != null && a.signatureBase64!.isNotEmpty &&
+            (a) => a != null && a.signatureBase64 != null && a.signatureBase64!.trim().isNotEmpty &&
                    (a.role.contains('مدير') || a.role.contains('مستفيد') || a.role.contains('مرفق') || a.role.contains('مسؤول') ||
-                    (effectiveRepName.isNotEmpty && (a.name == effectiveRepName || a.name.contains(effectiveRepName) || effectiveRepName.contains(a.name)))),
+                    (effectiveRepName.isNotEmpty && (a.name == effectiveRepName || a.name.contains(effectiveRepName) || effectiveRepName.contains(a.name)))) &&
+                   !a.role.contains('مهندس') && !a.role.contains('صيانة') && !a.role.contains('فني'),
             orElse: () => null,
           )?.signatureBase64);
 
@@ -306,7 +306,27 @@ class PdfExportService {
     final headerEnglishBlack = PdfColors.black;
 
 
+    // Strictly vertical pages with extreme vertical density (42 items, 28 items, official signatures)
+    // These pages must remain Portrait to prevent content truncation or PDF layout exceptions.
+    const lockedPortraitPages = {1, 2, 3, 4, 5, 10, 11};
+
     String getPageMode(int pageNumber) {
+      if (lockedPortraitPages.contains(pageNumber)) {
+        return 'portrait';
+      }
+      // الصفحة 9: مصفوفة سلاسل التوليد وصناديق التجميع الـ 16 (أفقي أو دفتري فقط لضمان سلامة كامل البيانات)
+      if (pageNumber == 9) {
+        String? rawPref = report.pageOrientations[9];
+        if (rawPref == null) {
+          final dynamicMap = report.pageOrientations as dynamic;
+          try {
+            rawPref = dynamicMap['9']?.toString();
+          } catch (_) {}
+        }
+        final pref = (rawPref ?? '').toLowerCase().trim();
+        if (pref.contains('book') || pref.contains('rotated')) return 'book';
+        return 'landscape';
+      }
       String? rawPref = report.pageOrientations[pageNumber];
       if (rawPref == null) {
         final dynamicMap = report.pageOrientations as dynamic;
@@ -318,19 +338,22 @@ class PdfExportService {
       if (pref.contains('book') || pref.contains('rotated')) return 'book';
       if (pref.contains('landscape') || pref.contains('horizontal')) return 'landscape';
       if (pref.contains('portrait') || pref.contains('vertical')) return 'portrait';
-      return (pageNumber == 8 || pageNumber == 9) ? 'book' : 'portrait';
+      // Default: pages 8 and 9 are True Landscape for pristine digital display on phones & WhatsApp
+      return (pageNumber == 8 || pageNumber == 9) ? 'landscape' : 'portrait';
     }
 
     String getPageSize(int pageNumber) {
-      String? rawPref = report.pageOrientations[pageNumber];
-      if (rawPref == null) {
-        final dynamicMap = report.pageOrientations as dynamic;
-        try {
-          rawPref = dynamicMap[pageNumber.toString()]?.toString();
-        } catch (_) {}
+      // Document-wide paper size consistency check:
+      // Ensures document never mixes A4 and A3 (preventing printer tray errors and scaling issues)
+      final orientations = report.pageOrientations;
+      bool hasA3 = false;
+      for (final val in orientations.values) {
+        if (val.toLowerCase().contains('a3')) {
+          hasA3 = true;
+          break;
+        }
       }
-      final pref = (rawPref ?? '').toLowerCase().trim();
-      return pref.contains('a3') ? 'a3' : 'a4';
+      return hasA3 ? 'a3' : 'a4';
     }
 
     // Helper: Dynamically resolve page format and orientation based on engineer's choice (A4/A3, Portrait/Landscape/Book)
@@ -2272,14 +2295,15 @@ class PdfExportService {
       final pFormat = resolvePageFormat(8);
       final pMode = getPageMode(8);
       final isLandscape = pFormat.width > pFormat.height;
-      final isBookMode = pMode == 'book' || (!isLandscape && pMode == 'portrait');
+      final isBookMode = pMode == 'book';
+      final isPortrait = !isLandscape && !isBookMode;
       final rotW = pFormat.height;
       final rotH = pFormat.width;
 
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: (isLandscape && !isBookMode)
+          margin: (isLandscape && !isBookMode) || isPortrait
               ? const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10)
               : pw.EdgeInsets.zero,
           build: (pw.Context context) {
@@ -2311,18 +2335,20 @@ class PdfExportService {
             final monitorScreenGood = report.inspectionGroups.any((g) =>
                 g.items.any((item) => item.description.contains('المراقبة') && item.status == InspectionStatus.good));
 
-            final effectivePageW = isLandscape ? pFormat.width : rotW;
-            final effectivePageH = isLandscape ? pFormat.height : rotH;
+            final effectivePageW = isBookMode ? rotW : pFormat.width;
+            final effectivePageH = isBookMode ? rotH : pFormat.height;
             final availableTableWidth = effectivePageW - 28.0 - 19.0;
 
-            // Dynamic columns calculation: if small site (<= 6 units), provide spacious columns!
+            // Dynamic columns calculation: if small site (<= 6 units) or portrait, provide spacious columns!
             final maxUnits = [invCount, ccCount, 1].reduce((a, b) => a > b ? a : b);
-            final totalCols = maxUnits <= 6 ? (maxUnits < 3 ? 3 : maxUnits) : 13;
-            final labelColWidth = availableTableWidth > 950 ? 250.0 : 200.0;
+            final totalCols = isPortrait
+                ? (maxUnits <= 6 ? (maxUnits < 2 ? 2 : maxUnits) : 6)
+                : (maxUnits <= 6 ? (maxUnits < 3 ? 3 : maxUnits) : 13);
+            final labelColWidth = availableTableWidth > 950 ? 250.0 : (isPortrait ? (availableTableWidth < 500 ? 160.0 : 185.0) : 200.0);
             final unitColWidth = (availableTableWidth - labelColWidth) / totalCols;
-            final unitFontSize = availableTableWidth > 950 ? 9.5 : (totalCols <= 6 ? 9.0 : 8.0);
-            final labelFontSize = availableTableWidth > 950 ? 9.5 : 8.2;
-            final cellVPadding = isLandscape ? (effectivePageH > 650 ? 8.5 : 6.5) : 5.0;
+            final unitFontSize = availableTableWidth > 950 ? 9.5 : (isPortrait ? (totalCols <= 3 ? 9.5 : 8.0) : (totalCols <= 6 ? 9.0 : 8.0));
+            final labelFontSize = availableTableWidth > 950 ? 9.5 : (isPortrait ? 8.5 : 8.2);
+            final cellVPadding = isPortrait ? 7.5 : (isLandscape ? (effectivePageH > 650 ? 8.5 : 6.5) : 5.0);
             final cellPad = pw.EdgeInsets.symmetric(vertical: cellVPadding, horizontal: 3.5);
 
             final pageContent = wrapWithPageFrame(
@@ -2330,7 +2356,7 @@ class PdfExportService {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  buildRunningHeader(isLandscape: true),
+                  buildRunningHeader(isLandscape: !isPortrait),
                   pw.Container(
                     padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 10),
                     decoration: pw.BoxDecoration(
@@ -2486,17 +2512,16 @@ class PdfExportService {
       final pNum = currentPageNumber++;
       final pFormat = resolvePageFormat(9);
       final pMode = getPageMode(9);
-      final isLandscape = pFormat.width > pFormat.height;
-      final isBookMode = pMode == 'book' || (!isLandscape && pMode == 'portrait');
+      final isBookMode = pMode == 'book';
       final rotW = pFormat.height;
       final rotH = pFormat.width;
 
       pdf.addPage(
         pw.Page(
           pageFormat: pFormat,
-          margin: (isLandscape && !isBookMode)
-              ? const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8)
-              : pw.EdgeInsets.zero,
+          margin: isBookMode
+              ? pw.EdgeInsets.zero
+              : const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8),
           build: (pw.Context context) {
             // Determine maximum combiner box number to display
             // Standard official form always displays 4 blocks (Boxes 1..16, 64 strings total)
@@ -2509,10 +2534,8 @@ class PdfExportService {
               return [startBox, startBox + 1, startBox + 2, startBox + 3];
             });
 
-            final panelSpecDisplay = report.systemSpecs.panelsCountAndWatt.trim();
-
-            final effectivePageW = isLandscape ? pFormat.width : rotW;
-            final effectivePageH = isLandscape ? pFormat.height : rotH;
+            final effectivePageW = isBookMode ? rotW : pFormat.width;
+            final effectivePageH = isBookMode ? rotH : pFormat.height;
             final availableTableWidth = effectivePageW - 28.0 - 19.0;
             final notesWidth = (availableTableWidth > 950) ? 75.0 : 54.0;
             final metricWidth = (availableTableWidth > 950) ? 140.0 : 100.0;
@@ -2577,6 +2600,10 @@ class PdfExportService {
                     // In RTL, Box 1 is on the right, Box 4 on the left.
                     // So in LTR Row: Box 4, Box 3, Box 2, Box 1!
                     ...boxes.reversed.map((bNum) {
+                      final isBoxActive = report.activeCombinerBoxes.contains(bNum);
+                      final boxPanels = report.getBoxPanelCount(bNum);
+                      final panelText = (isBoxActive && boxPanels > 0) ? '$boxPanels' : '';
+
                       return pw.Container(
                         width: boxWidth,
                         height: blockHeight,
@@ -2598,8 +2625,8 @@ class PdfExportService {
                               ),
                               alignment: pw.Alignment.center,
                               child: pw.Text(
-                                panelSpecDisplay.isNotEmpty
-                                    ? _ar('عدد الالواح في المصفوفة : ( $panelSpecDisplay )')
+                                panelText.isNotEmpty
+                                    ? _ar('عدد الالواح في المصفوفة : ( $panelText )')
                                     : _ar('عدد الالواح في المصفوفة : (         )'),
                                 style: textStyle(size: availableTableWidth > 950 ? 8.5 : 7.0, isBold: true, color: darkNavyColor),
                               ),
@@ -2815,7 +2842,7 @@ class PdfExportService {
                     ),
                   ),
                   pw.SizedBox(height: 4),
-                  // Master Grid of 4 Combiner Blocks spanning full available width
+                  // Master Grid of Combiner Blocks spanning full available width
                   pw.FittedBox(
                     fit: pw.BoxFit.scaleDown,
                     child: pw.Container(
@@ -2868,16 +2895,20 @@ class PdfExportService {
           build: (pw.Context context) {
             // Clean facility name resolution to prevent contractor duplication
             final rawFacNameAr = report.facilityInfo.facilityName.trim();
-            final facNameAr = rawFacNameAr.isNotEmpty && rawFacNameAr != contractorAr
-                ? rawFacNameAr
-                : (rawFacNameAr.isNotEmpty ? rawFacNameAr : '.....................................................');
+            final hasFacNameAr = rawFacNameAr.isNotEmpty &&
+                rawFacNameAr != contractorAr &&
+                !rawFacNameAr.contains('......');
+            final facNameAr = hasFacNameAr ? rawFacNameAr : '';
+            final facDisplayAr = hasFacNameAr ? facNameAr : '.....................................................';
 
             final rawFacNameEn = report.facilityInfo.facilityNameEn.trim();
-            final facNameEn = (rawFacNameEn.isNotEmpty && rawFacNameEn != contractorEn)
-                ? rawFacNameEn
-                : (facNameAr != '.....................................................'
-                    ? (ArabicReshaper.hasArabic(facNameAr) ? _ar(facNameAr) : facNameAr)
-                    : '.....................................................');
+            final hasFacNameEn = rawFacNameEn.isNotEmpty &&
+                rawFacNameEn != contractorEn &&
+                !rawFacNameEn.contains('Al-Etqan') &&
+                !rawFacNameEn.contains('......') &&
+                !ArabicReshaper.hasArabic(rawFacNameEn);
+            final facNameEn = hasFacNameEn ? rawFacNameEn : '';
+            final facDisplayEn = hasFacNameEn ? facNameEn : '.....................................................';
 
             final currentYear = DateTime.now().year;
             final dateText = report.visitDate.isNotEmpty ? report.visitDate : '....../....../$currentYear';
@@ -2902,8 +2933,8 @@ class PdfExportService {
                 ? ', which was funded by $rightEn.'
                 : '.';
 
-            final fullStatementAr = 'تؤكد إدارة $facNameAr أن مندوب $contractorAr قام بزيارة الموقع للصيانة الوقائية الدورية لمنظومة الطاقة الشمسية المركبة بتاريخ ($installDateDisplay). وخلال هذه الزيارة قاموا بإتمام كافة أعمال الصيانة الوقائية اللازمة لمنظومة الطاقة الشمسية$funderSuffixAr';
-            final fullStatementEn = 'The management of $facNameEn certifies that a representative from $contractorEn made the periodic preventive maintenance visit for the solar system installed on ($installDateDisplay). During this visit, they completed all the necessary preventive maintenance work for the solar system$funderSuffixEn';
+            final fullStatementAr = 'تؤكد إدارة $facDisplayAr أن مندوب $contractorAr قام بزيارة الموقع للصيانة الوقائية الدورية لمنظومة الطاقة الشمسية المركبة بتاريخ ($installDateDisplay). وخلال هذه الزيارة قاموا بإتمام كافة أعمال الصيانة الوقائية اللازمة لمنظومة الطاقة الشمسية$funderSuffixAr';
+            final fullStatementEn = 'The management of $facDisplayEn certifies that a representative from $contractorEn made the periodic preventive maintenance visit for the solar system installed on ($installDateDisplay). During this visit, they completed all the necessary preventive maintenance work for the solar system$funderSuffixEn';
 
             final effectivePageW = isWide ? (isLandscape ? pFormat.width : rotW) : pFormat.width;
             final availableContentWidth = effectivePageW - 47.0;
@@ -2968,7 +2999,7 @@ class PdfExportService {
                                 ),
                                 pw.Expanded(
                                   child: pw.Text(
-                                    (rawFacNameEn.isNotEmpty && !ArabicReshaper.hasArabic(rawFacNameEn) && !rawFacNameEn.contains('Al-Etqan'))
+                                    hasFacNameEn
                                         ? rawFacNameEn
                                         : '................................................................',
                                     style: textStyle(size: sigFontSize),
@@ -3066,7 +3097,9 @@ class PdfExportService {
                           crossAxisAlignment: pw.CrossAxisAlignment.end,
                           children: [
                             pw.Text(
-                              _ar('ادارة ................................................................'),
+                              _ar(hasFacNameAr
+                                  ? (facNameAr.startsWith('إدارة') || facNameAr.startsWith('ادارة') ? facNameAr : 'ادارة $facNameAr')
+                                  : 'ادارة ................................................................'),
                               style: textStyle(size: sigFontSize + 0.5, isBold: true),
                               textAlign: pw.TextAlign.right,
                             ),
@@ -3277,6 +3310,10 @@ class PdfExportService {
                     final attFontSize = isWide ? 8.8 : 7.5;
                     final targetRowCount = isWide ? 8 : 4;
 
+                    final validAttendance = report.attendanceList.where((a) =>
+                      a.name.trim().isNotEmpty || (a.signatureBase64 != null && a.signatureBase64!.trim().isNotEmpty)
+                    ).toList();
+
                     // Team Table (LTR Layout: NO | Trainee Name | Signature | Role)
                     return pw.Table(
                       border: pw.TableBorder.all(color: borderGrey, width: 0.5),
@@ -3296,11 +3333,13 @@ class PdfExportService {
                             pw.Padding(padding: attHeaderPad, child: pw.Center(child: pw.Text('Role', style: textStyle(size: 8.5, isBold: true, color: PdfColors.white)))),
                           ],
                         ),
-                        ...report.attendanceList.map((att) {
+                        ...validAttendance.asMap().entries.map((entry) {
+                          final attIdx = entry.key;
+                          final att = entry.value;
                           final attSigImg = safeSignatureImage(att.signatureBase64);
                           return pw.TableRow(
                             children: [
-                              pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text('${att.serialNo}', style: textStyle(size: attFontSize, isBold: true)))),
+                              pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text('${attIdx + 1}', style: textStyle(size: attFontSize, isBold: true)))),
                               pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text(_ar(att.name), style: textStyle(size: attFontSize + 0.5, isBold: true)))),
                               pw.Padding(
                                 padding: const pw.EdgeInsets.all(2.5),
@@ -3346,9 +3385,9 @@ class PdfExportService {
                           );
                         }),
                         ...List.generate(
-                          (targetRowCount - report.attendanceList.length).clamp(0, targetRowCount),
+                          (targetRowCount - validAttendance.length).clamp(0, targetRowCount),
                           (padIdx) {
-                            final rowNo = report.attendanceList.length + padIdx + 1;
+                            final rowNo = validAttendance.length + padIdx + 1;
                             return pw.TableRow(
                               children: [
                                 pw.Padding(padding: attCellPad, child: pw.Center(child: pw.Text('$rowNo', style: textStyle(size: attFontSize, isBold: true)))),
