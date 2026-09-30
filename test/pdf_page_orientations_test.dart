@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:report_craft/services/default_templates.dart';
 import 'package:report_craft/services/pdf_export_service.dart';
@@ -7,6 +8,7 @@ import 'package:report_craft/models/maintenance_need.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  FlutterSecureStorage.setMockInitialValues({});
 
   const branding = OrganizationProfile(
     id: 'org_test',

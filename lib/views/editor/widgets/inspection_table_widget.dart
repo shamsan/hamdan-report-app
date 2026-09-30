@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/inspection_item.dart';
 import '../../../services/preset_notes_service.dart';
@@ -124,7 +125,7 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
 
         // Inspection Items
         ListView.separated(
@@ -132,7 +133,7 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
           physics: const NeverScrollableScrollPhysics(),
           primary: false,
           itemCount: displayedItems.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (context, idx) {
             final item = displayedItems[idx];
             final realIndex = items.indexOf(item);
@@ -141,7 +142,7 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFFCBD5E1), width: 1.1),
               ),
               child: Column(
@@ -350,44 +351,76 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
     );
   }
 
+  (Color bg, Color fg) _getStatusColors(InspectionStatus s, bool isSelected) {
+    switch (s) {
+      case InspectionStatus.good:
+        return isSelected
+            ? (const Color(0xFFECFDF5), const Color(0xFF065F46))
+            : (const Color(0xFFF8FAFC), const Color(0xFF64748B));
+      case InspectionStatus.acceptable:
+        return isSelected
+            ? (const Color(0xFFE0F2FE), const Color(0xFF0369A1))
+            : (const Color(0xFFF8FAFC), const Color(0xFF64748B));
+      case InspectionStatus.needsFollowup:
+        return isSelected
+            ? (const Color(0xFFFFFBEB), const Color(0xFFB45309))
+            : (const Color(0xFFF8FAFC), const Color(0xFF64748B));
+      case InspectionStatus.rejected:
+        return isSelected
+            ? (const Color(0xFFFEF2F2), const Color(0xFFB91C1C))
+            : (const Color(0xFFF8FAFC), const Color(0xFF64748B));
+      case InspectionStatus.notApplicable:
+      case InspectionStatus.uninspected:
+        return isSelected
+            ? (const Color(0xFFF1F5F9), const Color(0xFF334155))
+            : (const Color(0xFFF8FAFC), const Color(0xFF64748B));
+    }
+  }
+
   Widget _buildStatusChip({
     required InspectionStatus status,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final (bg, fg) = _getStatusColors(status, isSelected);
     return Padding(
-      padding: const EdgeInsets.only(left: 6),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: isSelected ? status.color.withValues(alpha: 0.15) : const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected ? status.color : AppTheme.borderSubtle,
-              width: isSelected ? 1.5 : 1.0,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isSelected) ...[
-                Icon(status.icon, size: 14, color: status.color),
-                const SizedBox(width: 4),
-              ],
-              Text(
-                status.labelAr,
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  color: isSelected ? status.color : AppTheme.textMuted,
-                ),
+      padding: const EdgeInsets.only(left: 8),
+      child: Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap();
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            constraints: const BoxConstraints(minHeight: 44, minWidth: 52),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected ? fg : const Color(0xFFE2E8F0),
+                width: isSelected ? 1.6 : 1.0,
               ),
-            ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(status.icon, size: 15, color: fg),
+                const SizedBox(width: 5),
+                Text(
+                  status.labelAr,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11.5,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    color: fg,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -402,37 +435,44 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
     Color? customIconColor,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(left: 6),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
-          decoration: BoxDecoration(
-            color: isSelected ? AppTheme.statusGood.withValues(alpha: 0.12) : const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: isSelected ? AppTheme.statusGood.withValues(alpha: 0.4) : AppTheme.borderSubtle,
+      padding: const EdgeInsets.only(left: 8),
+      child: Material(
+        color: isSelected ? AppTheme.statusGood.withValues(alpha: 0.12) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap();
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 36),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isSelected ? AppTheme.statusGood.withValues(alpha: 0.4) : AppTheme.borderSubtle,
+              ),
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                customIcon ?? (isSelected ? Icons.check : Icons.add),
-                size: 11,
-                color: customIconColor ?? (isSelected ? AppTheme.statusGood : AppTheme.brandCyan),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                phrase,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? AppTheme.primaryNavy : AppTheme.textDark,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  customIcon ?? (isSelected ? Icons.check : Icons.add),
+                  size: 13,
+                  color: customIconColor ?? (isSelected ? AppTheme.statusGood : AppTheme.brandCyan),
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Text(
+                  phrase,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? AppTheme.primaryNavy : AppTheme.textDark,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

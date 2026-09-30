@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:report_craft/models/signature_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:report_craft/core/utils/arabic_reshaper.dart';
@@ -11,6 +12,7 @@ import 'package:report_craft/state/reports_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  FlutterSecureStorage.setMockInitialValues({});
 
   group('ReportCraft Core Workflow Tests', () {
     test('Default 11-page solar template structure', () {

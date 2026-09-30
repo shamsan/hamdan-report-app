@@ -140,7 +140,7 @@ void main() {
 
       // Quick chips should now be visible
       expect(find.text('2.15V'), findsWidgets);
-      expect(find.text('واقعي ±0.01'), findsOneWidget);
+      expect(find.text('واقعي (2V) ±0.01'), findsOneWidget);
 
       // Verify table headers and tabs
       expect(find.text('الجهد (V)'), findsWidgets);

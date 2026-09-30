@@ -677,21 +677,27 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.primaryNavy,
               side: const BorderSide(color: AppTheme.primaryNavy, width: 1.5),
-              minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             icon: const Icon(Icons.tune_rounded, size: 20),
             label: const Text(
               'معالج الإعداد المخصص (3 خطوات)',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
             ),
-            onPressed: () => _goToStep(1),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              _goToStep(1);
+            },
           ),
           const SizedBox(height: 8),
 
           // 3. مسار التخطي المباشر
           TextButton(
-            onPressed: _skipToDashboard,
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              _skipToDashboard();
+            },
             child: const Text(
               'تخطي والدخول المباشر إلى لوحة التحكم',
               style: TextStyle(
@@ -887,19 +893,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.textSecondary,
                   side: const BorderSide(color: AppTheme.borderSubtle),
+                  minimumSize: const Size(0, 48),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: () => _goToStep(0),
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  _goToStep(0);
+                },
                 child: const Text('السابق', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.primaryNavy,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    minimumSize: const Size(double.infinity, 48),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: const Icon(Icons.arrow_back_rounded, size: 18),
@@ -907,7 +917,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     'التالي: إضافة أول منشأة',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
-                  onPressed: _saveStep1Company,
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    _saveStep1Company();
+                  },
                 ),
               ),
             ],
@@ -1129,19 +1142,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.textSecondary,
                     side: const BorderSide(color: AppTheme.borderSubtle),
+                    minimumSize: const Size(0, 48),
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  onPressed: () => _goToStep(1),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _goToStep(1);
+                  },
                   child: const Text('السابق', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.primaryNavy,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      minimumSize: const Size(double.infinity, 48),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     icon: _isSubmitting
@@ -1155,7 +1172,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       _isSubmitting ? 'جاري الحفظ...' : 'التالي: تأكيد الجاهزية',
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                     ),
-                    onPressed: _isSubmitting ? null : _saveStep2ClientAndSite,
+                    onPressed: _isSubmitting
+                        ? null
+                        : () {
+                            HapticFeedback.mediumImpact();
+                            _saveStep2ClientAndSite();
+                          },
                   ),
                 ),
               ],
@@ -1227,13 +1249,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
           // أزرار الانطلاق
           if (hasEntity) ...[
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.brandCyan,
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.primaryNavy,
                 foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                elevation: 3,
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               icon: _isSubmitting
                   ? const SizedBox(
@@ -1246,52 +1267,68 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 _isSubmitting ? 'جاري التحضير...' : 'بدء أول زيارة صيانة ميدانية الآن 🚀',
                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
               ),
-              onPressed: _isSubmitting ? null : _startFirstInspection,
+              onPressed: _isSubmitting
+                  ? null
+                  : () {
+                      HapticFeedback.mediumImpact();
+                      _startFirstInspection();
+                    },
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.primaryNavy,
                 side: const BorderSide(color: AppTheme.primaryNavy),
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               icon: const Icon(Icons.dashboard_outlined, size: 18),
               label: const Text(
                 'الانتقال إلى لوحة التحكم',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
-              onPressed: _skipToDashboard,
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                _skipToDashboard();
+              },
             ),
           ] else ...[
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.primaryNavy,
                 foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               icon: const Icon(Icons.dashboard_rounded, size: 20),
               label: const Text(
                 'الدخول إلى لوحة التحكم 🚀',
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
               ),
-              onPressed: _skipToDashboard,
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                _skipToDashboard();
+              },
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.solarGold,
-                side: const BorderSide(color: AppTheme.solarGold, width: 1.5),
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                foregroundColor: AppTheme.primaryNavy,
+                side: const BorderSide(color: AppTheme.primaryNavy, width: 1.5),
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              icon: const Icon(Icons.rocket_launch_rounded, size: 18),
+              icon: const Icon(Icons.rocket_launch_rounded, size: 18, color: AppTheme.solarGold),
               label: const Text(
                 'أو استكشاف تقرير تجريبي جاهز (11 صفحة)',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
               ),
-              onPressed: _isLoadingDemo ? null : _loadDemoReport,
+              onPressed: _isLoadingDemo
+                  ? null
+                  : () {
+                      HapticFeedback.lightImpact();
+                      _loadDemoReport();
+                    },
             ),
           ],
           const SizedBox(height: 16),

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/breadcrumb_widget.dart';
@@ -223,16 +224,18 @@ class ClientDetailsScreen extends ConsumerWidget {
                               'كافة المنشآت التابعة (${sites.length})',
                               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
                             ),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
+                            FilledButton.icon(
+                              style: FilledButton.styleFrom(
                                 backgroundColor: AppTheme.solarGold,
-                                foregroundColor: Colors.white,
+                                foregroundColor: AppTheme.textDark,
+                                minimumSize: const Size(0, 40),
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               icon: const Icon(Icons.add_location_alt, size: 16),
                               label: const Text('إضافة موقع جديد', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               onPressed: () {
+                                HapticFeedback.lightImpact();
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -438,29 +441,33 @@ class ClientDetailsScreen extends ConsumerWidget {
                                         children: [
                                           OutlinedButton.icon(
                                             style: OutlinedButton.styleFrom(
+                                              minimumSize: const Size(0, 40),
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                             ),
                                             icon: const Icon(Icons.assignment, size: 14),
                                             label: const Text('المحرر', style: TextStyle(fontSize: 11)),
                                             onPressed: () {
+                                              HapticFeedback.lightImpact();
                                               Navigator.push(
                                                 context,
                                                 MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: report.id)),
                                               );
                                             },
                                           ),
-                                          const SizedBox(width: 6),
-                                          ElevatedButton.icon(
-                                            style: ElevatedButton.styleFrom(
+                                          const SizedBox(width: 8),
+                                          FilledButton.icon(
+                                            style: FilledButton.styleFrom(
                                               backgroundColor: AppTheme.primaryNavy,
                                               foregroundColor: Colors.white,
+                                              minimumSize: const Size(0, 40),
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                             ),
                                             icon: const Icon(Icons.fact_check_rounded, size: 14),
                                             label: const Text('جلسة الفحص', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                             onPressed: () {
+                                              HapticFeedback.lightImpact();
                                               Navigator.push(
                                                 context,
                                                 MaterialPageRoute(builder: (_) => MaintenanceSessionScreen(reportId: report.id)),
@@ -684,12 +691,13 @@ class ClientDetailsScreen extends ConsumerWidget {
                   ),
                   Row(
                     children: [
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 40),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         icon: const Icon(Icons.rocket_launch, size: 14),
                         label: Text(
@@ -697,6 +705,7 @@ class ClientDetailsScreen extends ConsumerWidget {
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                         ),
                         onPressed: () async {
+                          HapticFeedback.lightImpact();
                           final newReport = await ref.read(reportsProvider.notifier).createReportForSite(
                             site: site,
                             client: client,
@@ -712,14 +721,16 @@ class ClientDetailsScreen extends ConsumerWidget {
                           }
                         },
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       OutlinedButton(
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.primaryNavy,
+                          minimumSize: const Size(0, 40),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         onPressed: () {
+                          HapticFeedback.lightImpact();
                           Navigator.push(
                             context,
                             MaterialPageRoute(

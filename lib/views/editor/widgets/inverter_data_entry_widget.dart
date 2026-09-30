@@ -223,9 +223,18 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
         title: Text('مسح بيانات الإنفرتر #$u'),
         content: const Text('هل أنت متأكد من رغبتك في مسح قراءات هذا الإنفرتر؟'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.statusRejected),
+          TextButton(
+            style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.statusRejected,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: const Size(0, 48),
+            ),
             onPressed: () {
               Navigator.pop(ctx);
               HapticFeedback.mediumImpact();
@@ -241,7 +250,7 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
               setState(() => _revision++);
               widget.onReportUpdated(widget.report.copyWith(operationalData: list));
             },
-            child: const Text('مسح', style: TextStyle(color: Colors.white)),
+            child: const Text('مسح'),
           ),
         ],
       ),
@@ -637,22 +646,25 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
     return Tooltip(
       message: tooltip,
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(7),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          width: 38,
-          height: 32,
+          width: 44,
+          height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(8),
             boxShadow: isSelected
                 ? [const BoxShadow(color: Colors.black12, blurRadius: 3, offset: Offset(0, 1))]
                 : null,
           ),
           child: Icon(
             icon,
-            size: 18,
+            size: 20,
             color: isSelected ? AppTheme.primaryNavy : Colors.grey[600],
           ),
         ),
@@ -672,22 +684,22 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
       message: tooltip,
       child: Material(
         color: bgColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();
             onTap();
           },
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: Container(
-            width: 36,
-            height: 36,
+            width: 44,
+            height: 44,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: borderColor),
             ),
-            child: Icon(icon, size: 17, color: color),
+            child: Icon(icon, size: 19, color: color),
           ),
         ),
       ),
@@ -907,24 +919,28 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
 
           // 5. Navigation Footer (In Focus Mode only)
           if (!isCompact && _effectiveInvCount > 1) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             const Divider(height: 1, color: Color(0xFFE2E8F0)),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 // Previous button
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: u > 1 ? const Color(0xFFF1F5F9) : Colors.grey[200],
-                    foregroundColor: u > 1 ? AppTheme.textDark : Colors.grey[400],
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: u > 1 ? AppTheme.primaryNavy : Colors.grey[400],
+                    side: BorderSide(
+                      color: u > 1 ? const Color(0xFFCBD5E1) : Colors.grey.shade200,
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   ),
-                  icon: const Icon(Icons.arrow_forward_rounded, size: 15),
-                  label: const Text('السابق', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                  label: const Text('السابق', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   onPressed: u > 1
                       ? () {
+                          HapticFeedback.selectionClick();
                           setState(() => _selectedInverterIndex = u - 1);
                           _scrollToSelectedChip(u - 1);
                         }
@@ -932,21 +948,24 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
                 ),
 
                 // Next / Finish button
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
                     backgroundColor: u < _effectiveInvCount ? AppTheme.primaryNavy : const Color(0xFF16A34A),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   ),
                   icon: Icon(
                     u < _effectiveInvCount ? Icons.arrow_back_rounded : Icons.check_rounded,
-                    size: 15,
+                    size: 16,
                   ),
                   label: Text(
                     u < _effectiveInvCount ? 'التالي (إنفرتر #${u + 1})' : 'تم مراجعة الكل',
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                   onPressed: () {
+                    HapticFeedback.selectionClick();
                     if (u < _effectiveInvCount) {
                       setState(() => _selectedInverterIndex = u + 1);
                       _scrollToSelectedChip(u + 1);

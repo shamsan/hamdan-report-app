@@ -248,9 +248,9 @@ class _QuickNeedDialogState extends State<QuickNeedDialog> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        left: 20,
-        right: 20,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+        left: 16,
+        right: 16,
         top: 16,
       ),
       child: SingleChildScrollView(
@@ -552,12 +552,13 @@ class _QuickNeedDialogState extends State<QuickNeedDialog> {
             ),
             const SizedBox(height: 18),
 
-            // Submit Button
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
+            // Submit Button (M3 FilledButton)
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.primaryNavy,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 13),
+                minimumSize: const Size(0, 48),
+                padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               icon: const Icon(Icons.check_circle_outline, size: 20, color: AppTheme.solarGold),

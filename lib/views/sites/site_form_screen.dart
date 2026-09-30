@@ -160,14 +160,15 @@ class _SiteFormScreenState extends ConsumerState<SiteFormScreen> {
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('البقاء للإكمال', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
+          FilledButton(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.statusRejected,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              minimumSize: const Size(0, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('تجاهل والخروج'),
+            child: const Text('تجاهل والخروج', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -523,18 +524,24 @@ class _SiteFormScreenState extends ConsumerState<SiteFormScreen> {
               // Save Button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.primaryNavy,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
                   ),
                   icon: const Icon(Icons.check_circle_outline, color: AppTheme.solarGold, size: 20),
                   label: Text(
                     _isEditing ? 'حفظ تعديلات الموقع' : 'اعتماد وإضافة الموقع للمنظومة',
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
-                  onPressed: _saveSite,
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    _saveSite();
+                  },
                 ),
               ),
               const SizedBox(height: 30),
@@ -732,7 +739,7 @@ class _SiteFormScreenState extends ConsumerState<SiteFormScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('إلغاء', style: TextStyle(color: AppTheme.textMuted)),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () {
               if (customCtrl.text.trim().isNotEmpty) {
                 setState(() {
@@ -741,8 +748,13 @@ class _SiteFormScreenState extends ConsumerState<SiteFormScreen> {
               }
               Navigator.pop(ctx);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brandCyan),
-            child: const Text('تأكيد', style: TextStyle(color: Colors.white)),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.brandCyan,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('تأكيد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -863,10 +875,10 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
   Widget build(BuildContext context) {
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.75,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.75,
       ),
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
       ),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -983,18 +995,20 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                         ),
                         if (widget.onCustomEntry != null && _searchCtrl.text.trim().isNotEmpty) ...[
                           const SizedBox(height: 12),
-                          ElevatedButton.icon(
+                          FilledButton.icon(
                             onPressed: () {
                               final query = _searchCtrl.text.trim();
                               Navigator.pop(context);
                               widget.onSelected(query);
                             },
                             icon: const Icon(Icons.check_rounded, size: 18),
-                            label: Text('استخدام "${_searchCtrl.text.trim()}"'),
-                            style: ElevatedButton.styleFrom(
+                            label: Text('استخدام "${_searchCtrl.text.trim()}"', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            style: FilledButton.styleFrom(
                               backgroundColor: AppTheme.brandCyan,
                               foregroundColor: Colors.white,
+                              minimumSize: const Size(0, 44),
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
                         ],

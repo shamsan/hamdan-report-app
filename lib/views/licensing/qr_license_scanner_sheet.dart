@@ -59,7 +59,7 @@ class _QrLicenseScannerSheetState extends State<QrLicenseScannerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
+    final size = MediaQuery.sizeOf(context);
     final scanAreaSize = (size.width * 0.7).clamp(220.0, 300.0);
 
     return Container(

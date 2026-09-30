@@ -255,13 +255,12 @@ class _LicensingCommandEventListenerState extends State<LicensingCommandEventLis
                         SizedBox(
                           width: double.infinity,
                           height: 48,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
                               backgroundColor: primaryColor,
                               foregroundColor: Colors.white,
-                              elevation: 2,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
                             onPressed: () {
@@ -418,7 +417,14 @@ class _LicensingCommandEventListenerState extends State<LicensingCommandEventLis
                           if (!event.isMandatory) ...[
                             Expanded(
                               child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size(0, 48),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
                                 onPressed: () {
+                                  HapticFeedback.lightImpact();
                                   setState(() => _activeUpdate = null);
                                 },
                                 child: const Text('لاحقاً'),
@@ -427,12 +433,20 @@ class _LicensingCommandEventListenerState extends State<LicensingCommandEventLis
                             const SizedBox(width: 12),
                           ],
                           Expanded(
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
+                            child: FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppTheme.primaryNavy,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(0, 48),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
                               onPressed: () {
+                                HapticFeedback.mediumImpact();
                                 setState(() => _activeUpdate = null);
                               },
-                              child: const Text('حسناً', style: TextStyle(color: Colors.white)),
+                              child: const Text('حسناً', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],

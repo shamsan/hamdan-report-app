@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' as intl;
 
@@ -352,13 +353,14 @@ class DashboardScreen extends ConsumerWidget {
               valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF16A34A)),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
                 flex: 3,
-                child: ElevatedButton.icon(
+                child: FilledButton.icon(
                   onPressed: () {
+                    HapticFeedback.lightImpact();
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -366,16 +368,17 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.play_circle_fill_rounded, size: 18),
+                  icon: const Icon(Icons.play_circle_fill_rounded, size: 20),
                   label: const Text(
                     'متابعة الفحص الميداني ⚡',
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                   ),
-                  style: ElevatedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF16A34A),
                     foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 48),
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
@@ -385,6 +388,7 @@ class DashboardScreen extends ConsumerWidget {
                 flex: 2,
                 child: OutlinedButton.icon(
                   onPressed: () {
+                    HapticFeedback.lightImpact();
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -392,16 +396,17 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.edit_note_rounded, size: 18),
+                  icon: const Icon(Icons.edit_note_rounded, size: 20),
                   label: const Text(
                     'المحرر',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                   ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF15803D),
-                    side: const BorderSide(color: Color(0xFF86EFAC), width: 1.2),
+                    side: const BorderSide(color: Color(0xFF86EFAC), width: 1.5),
                     backgroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
@@ -688,13 +693,15 @@ class DashboardScreen extends ConsumerWidget {
                           const Spacer(),
                           OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              side: BorderSide(color: AppTheme.primaryNavy.withValues(alpha: 0.25)),
+                              minimumSize: const Size(0, 40),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              side: const BorderSide(color: AppTheme.borderMedium, width: 1.2),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
-                            icon: const Icon(Icons.flash_on_rounded, size: 15, color: AppTheme.solarGold),
+                            icon: const Icon(Icons.flash_on_rounded, size: 16, color: AppTheme.solarGold),
                             label: const Text('متابعة الفحص', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                             onPressed: () {
+                              HapticFeedback.lightImpact();
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(builder: (_) => MaintenanceSessionScreen(reportId: draft.id)),
@@ -702,16 +709,19 @@ class DashboardScreen extends ConsumerWidget {
                             },
                           ),
                           const SizedBox(width: 8),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
+                          FilledButton.icon(
+                            style: FilledButton.styleFrom(
                               backgroundColor: AppTheme.primaryNavy,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              minimumSize: const Size(0, 40),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
                             ),
                             icon: const Icon(Icons.edit_note_rounded, size: 16),
                             label: const Text('المحرر', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                             onPressed: () {
+                              HapticFeedback.lightImpact();
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: draft.id)),

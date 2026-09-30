@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
@@ -85,91 +86,108 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
             onPressed: () => Navigator.of(context).pop(_report),
           ),
           title: const Text('معاينة وتصدير التقرير'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.send_rounded, color: Colors.greenAccent),
-            tooltip: 'مشاركة التقرير مع نص رسمي',
-            onPressed: () => _shareViaWhatsApp(context, branding),
-          ),
-          IconButton(
-            icon: const Icon(Icons.tune_rounded),
-            tooltip: 'إعدادات مقاسات وتنسيق الصفحات (A4 / A3)',
-            onPressed: () => _showPageSelectorSheet(context),
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            tooltip: 'خيارات إضافية',
-            onSelected: (val) {
-              if (val == 'validate') _showValidationDialog(context, branding);
-              if (val == 'branding') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BrandingScreen()),
-                );
-              }
-              if (val == 'pages') _showPageSelectorSheet(context);
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(
-                value: 'validate',
-                child: Row(
-                  children: [
-                    Icon(Icons.fact_check_outlined, size: 18, color: AppTheme.primaryNavy),
-                    SizedBox(width: 8),
-                    Text('فحص جاهزية التقرير للتصدير', style: TextStyle(fontSize: 12.5)),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'branding',
-                child: Row(
-                  children: [
-                    Icon(Icons.palette_outlined, size: 18, color: AppTheme.primaryNavy),
-                    SizedBox(width: 8),
-                    Text('تخصيص الشعارات والهوية', style: TextStyle(fontSize: 12.5)),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'pages',
-                child: Row(
-                  children: [
-                    Icon(Icons.tune_rounded, size: 18, color: AppTheme.primaryNavy),
-                    SizedBox(width: 8),
-                    Text('إدارة وتنسيق الصفحات', style: TextStyle(fontSize: 12.5)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Pre-export validation warning banner if missing fields exist
-          if (missingFields.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: const Color(0xFFFFF3E0),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFED6C02), size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'تنبيه: يوجد ${missingFields.length} ملاحظات/حقول ناقصة في التقرير قبل التصدير النهائي.',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFFE65100), fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  TextButton(
-                    child: const Text('عرض التفاصيل'),
-                    onPressed: () => _showValidationDialog(context, branding),
-                  ),
-                ],
-              ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.send_rounded, color: Color(0xFF16A34A)),
+              tooltip: 'مشاركة التقرير مع نص رسمي',
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                _shareViaWhatsApp(context, branding);
+              },
             ),
+            IconButton(
+              icon: const Icon(Icons.tune_rounded),
+              tooltip: 'إعدادات مقاسات وتنسيق الصفحات (A4 / A3)',
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                _showPageSelectorSheet(context);
+              },
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              tooltip: 'خيارات إضافية',
+              onSelected: (val) {
+                if (val == 'validate') _showValidationDialog(context, branding);
+                if (val == 'branding') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const BrandingScreen()),
+                  );
+                }
+                if (val == 'pages') _showPageSelectorSheet(context);
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'validate',
+                  child: Row(
+                    children: [
+                      Icon(Icons.fact_check_outlined, size: 18, color: AppTheme.primaryNavy),
+                      SizedBox(width: 8),
+                      Text('فحص جاهزية التقرير للتصدير', style: TextStyle(fontSize: 12.5)),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'branding',
+                  child: Row(
+                    children: [
+                      Icon(Icons.palette_outlined, size: 18, color: AppTheme.primaryNavy),
+                      SizedBox(width: 8),
+                      Text('تخصيص الشعارات والهوية', style: TextStyle(fontSize: 12.5)),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'pages',
+                  child: Row(
+                    children: [
+                      Icon(Icons.tune_rounded, size: 18, color: AppTheme.primaryNavy),
+                      SizedBox(width: 8),
+                      Text('إدارة وتنسيق الصفحات', style: TextStyle(fontSize: 12.5)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
+        body: Column(
+          children: [
+            // Pre-export validation warning banner if missing fields exist
+            if (missingFields.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFFBEB),
+                  border: Border(bottom: BorderSide(color: Color(0xFFFDE68A))),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'تنبيه: يوجد ${missingFields.length} ملاحظات أو حقول غير مكتملة قبل التصدير.',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFB45309),
+                        minimumSize: const Size(48, 36),
+                      ),
+                      icon: const Icon(Icons.fact_check_outlined, size: 16),
+                      label: const Text('فحص الجاهزية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        _showValidationDialog(context, branding);
+                      },
+                    ),
+                  ],
+                ),
+              ),
           // Interactive PDF Preview Widget
           Expanded(
             child: PdfPreview(
@@ -200,7 +218,7 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
       ),
       bottomNavigationBar: SafeArea(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border(top: BorderSide(color: AppTheme.borderSubtle)),
@@ -216,34 +234,42 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
             children: [
               Expanded(
                 flex: 3,
-                child: ElevatedButton.icon(
-                  onPressed: () => _shareViaWhatsApp(context, branding),
-                  style: ElevatedButton.styleFrom(
+                child: FilledButton.icon(
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    _shareViaWhatsApp(context, branding);
+                  },
+                  style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF16A34A),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 1,
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
                   ),
-                  icon: const Icon(Icons.share_rounded, size: 18),
+                  icon: const Icon(Icons.share_rounded, size: 20),
                   label: const Text(
                     'مشاركة وإرسال التقرير',
                     style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 flex: 2,
                 child: OutlinedButton.icon(
-                  onPressed: () => _directPrint(context, branding),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _directPrint(context, branding);
+                  },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.primaryNavy,
-                    side: const BorderSide(color: AppTheme.primaryNavy),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    side: const BorderSide(color: AppTheme.borderMedium, width: 1.5),
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  icon: const Icon(Icons.print_rounded, size: 18),
+                  icon: const Icon(Icons.print_rounded, size: 20),
                   label: const Text(
                     'طباعة مباشرة',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),

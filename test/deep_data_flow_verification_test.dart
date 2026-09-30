@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:report_craft/models/report.dart';
 import 'package:report_craft/models/organization.dart';
@@ -11,6 +12,7 @@ import 'package:report_craft/services/default_templates.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  FlutterSecureStorage.setMockInitialValues({});
 
   test('Deep Data Flow Verification: Custom inputs across all 11 pages render correctly in PDF', () async {
     const contractorTitle = 'مكتب الأتقان الهندسي للخدمات الهندسية وحلول الطاقة';

@@ -267,8 +267,11 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
                         // أ) زر بدء التجربة / التحقق التلقائي
                         if (license.lockReason == LicenseLockReason.notRegistered ||
                             license.lockReason == LicenseLockReason.hwidMismatch) ...[
-                          ElevatedButton.icon(
-                            onPressed: _isRequestingTrial ? null : _handleRequestTrial,
+                          FilledButton.icon(
+                            onPressed: _isRequestingTrial ? null : () {
+                              HapticFeedback.mediumImpact();
+                              _handleRequestTrial();
+                            },
                             icon: _isRequestingTrial
                                 ? const SizedBox(
                                     width: 18,
@@ -284,11 +287,12 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
                                       : 'بدء الفترة التجريبية المجانية الآن'),
                               style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
                             ),
-                            style: ElevatedButton.styleFrom(
+                            style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFF16A34A),
                               foregroundColor: Colors.white,
+                              minimumSize: const Size(double.infinity, 48),
                               padding: const EdgeInsets.symmetric(vertical: 13),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -370,8 +374,11 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
                         const SizedBox(height: 12),
 
                         // زر التفعيل
-                        ElevatedButton.icon(
-                          onPressed: _isActivating ? null : _handleActivate,
+                        FilledButton.icon(
+                          onPressed: _isActivating ? null : () {
+                            HapticFeedback.mediumImpact();
+                            _handleActivate();
+                          },
                           icon: _isActivating
                               ? const SizedBox(
                                   width: 18,
@@ -383,18 +390,20 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
                             _isActivating ? 'جاري التحقق من المفتاح...' : 'تفعيل الترخيص',
                             style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
                           ),
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             backgroundColor: AppTheme.primaryNavy,
                             foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 48),
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
 
                         // زر طلب ترخيص جديد للإدارة
                         OutlinedButton.icon(
                           onPressed: () {
+                            HapticFeedback.lightImpact();
                             showModalBottomSheet(
                               context: context,
                               isScrollControlled: true,
@@ -409,16 +418,18 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.primaryNavy,
                             side: const BorderSide(color: AppTheme.primaryNavy),
+                            minimumSize: const Size(double.infinity, 48),
                             padding: const EdgeInsets.symmetric(vertical: 11),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
 
                         // إذا كان السبب hwidMismatch: إضافة زر مخصص لنقل الترخيص السابق
                         if (license.lockReason == LicenseLockReason.hwidMismatch) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 10),
                           OutlinedButton.icon(
                             onPressed: () {
+                              HapticFeedback.lightImpact();
                               showModalBottomSheet(
                                 context: context,
                                 isScrollControlled: true,
@@ -435,8 +446,9 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
                             ),
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: Color(0xFFD97706)),
+                              minimumSize: const Size(double.infinity, 48),
                               padding: const EdgeInsets.symmetric(vertical: 11),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                           ),
                         ],
@@ -502,25 +514,29 @@ class _LicenseLockScreenState extends ConsumerState<LicenseLockScreen> {
                         ),
                         const SizedBox(height: 10),
                         // زر مشاركة عبر واتساب
-                        ElevatedButton.icon(
+                        FilledButton.icon(
                           onPressed: _hwid != null
-                              ? () => LicenseWhatsAppHelper.shareViaWhatsApp(
+                              ? () {
+                                  HapticFeedback.mediumImpact();
+                                  LicenseWhatsAppHelper.shareViaWhatsApp(
                                     context,
                                     hwid: _hwid!,
                                     currentTier: license.tier,
                                     currentKey: license.licenseKey,
-                                  )
+                                  );
+                                }
                               : null,
                           icon: const Icon(Icons.chat_bubble_rounded, size: 16),
                           label: const Text(
                             'مراسلة الإدارة ومشاركة البصمة عبر واتساب',
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                           ),
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xFF25D366),
                             foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 44),
                             padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/inspection_item.dart';
 import '../../services/default_templates.dart';
@@ -141,19 +142,21 @@ class _PresetNotesManagerScreenState extends State<PresetNotesManagerScreen> {
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('إلغاء'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
+          FilledButton(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.primaryNavy,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              minimumSize: const Size(110, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () {
+              HapticFeedback.mediumImpact();
               final text = controller.text.trim();
               if (text.isNotEmpty) {
                 Navigator.pop(ctx, true);
               }
             },
-            child: const Text('حفظ الملاحظة'),
+            child: const Text('حفظ الملاحظة', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -376,17 +379,20 @@ class _PresetNotesManagerScreenState extends State<PresetNotesManagerScreen> {
                                           ],
                                         ),
                                       ),
-                                      ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
+                                      FilledButton.tonalIcon(
+                                        style: FilledButton.styleFrom(
                                           backgroundColor: AppTheme.brandCyan.withValues(alpha: 0.12),
                                           foregroundColor: AppTheme.brandCyan,
-                                          elevation: 0,
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          minimumSize: const Size(0, 40),
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                         ),
                                         icon: const Icon(Icons.add, size: 14),
                                         label: const Text('إضافة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                        onPressed: () => _promptAddNote(item),
+                                        onPressed: () {
+                                          HapticFeedback.lightImpact();
+                                          _promptAddNote(item);
+                                        },
                                       ),
                                     ],
                                   ),

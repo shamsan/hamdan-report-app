@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_theme.dart';
 
 /// نتيجة إعدادات مقاسات وتنسيق الصفحات
@@ -244,8 +245,8 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final availableHeight = mq.size.height * 0.90;
+    final mqSize = MediaQuery.sizeOf(context);
+    final availableHeight = mqSize.height * 0.90;
 
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: availableHeight),
@@ -805,20 +806,24 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
             child: Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.primaryNavy,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      minimumSize: const Size(double.infinity, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 2,
+                      elevation: 0,
                     ),
                     icon: const Icon(Icons.check_circle_rounded, size: 20, color: AppTheme.solarGold),
                     label: Text(
                       'حفظ وتطبيق التنسيق (${_documentPaperSize.toUpperCase()} • ${_pageLabels.length} صفحة)',
                       style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
                     ),
-                    onPressed: _saveAndClose,
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      _saveAndClose();
+                    },
                   ),
                 ),
               ],

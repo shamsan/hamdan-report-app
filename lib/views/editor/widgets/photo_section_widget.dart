@@ -129,12 +129,13 @@ class PhotoSectionWidget extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.primaryNavy,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  minimumSize: const Size(0, 48),
                 ),
                 icon: const Icon(Icons.camera_alt, size: 20),
                 label: const Text('التقاط فوري بالكاميرا', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
@@ -143,13 +144,14 @@ class PhotoSectionWidget extends StatelessWidget {
                   _captureFromCamera(context);
                 },
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.brandCyan,
                   side: const BorderSide(color: AppTheme.brandCyan),
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  minimumSize: const Size(0, 48),
                 ),
                 icon: const Icon(Icons.photo_library_outlined, size: 20),
                 label: const Text('اختيار من ألبوم الصور (الاستوديو)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
@@ -420,8 +422,8 @@ class PhotoSectionWidget extends StatelessWidget {
                             Positioned(
                               bottom: 8,
                               left: 8,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
+                              child: FilledButton.icon(
+                                style: FilledButton.styleFrom(
                                   backgroundColor: Colors.black87,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -605,15 +607,20 @@ class PhotoSectionWidget extends StatelessWidget {
             actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             actions: [
               OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  minimumSize: const Size(0, 48),
+                ),
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('إلغاء'),
               ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.primaryNavy,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  minimumSize: const Size(0, 48),
                 ),
                 icon: const Icon(Icons.check_rounded, size: 16),
                 label: const Text('اعتماد وحفظ', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -685,12 +692,13 @@ class PhotoSectionWidget extends StatelessWidget {
                   ],
                 ),
               ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.primaryNavy,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  minimumSize: const Size(0, 44),
                 ),
                 icon: const Icon(Icons.add_a_photo_rounded, size: 16),
                 label: const Text('إضافة صورة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -698,7 +706,7 @@ class PhotoSectionWidget extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           if (photos.isEmpty)
             InkWell(
               onTap: () => _showAddPhotoSheet(context),

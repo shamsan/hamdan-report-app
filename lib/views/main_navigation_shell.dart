@@ -23,6 +23,7 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
   int _currentIndex = 0;
 
   void _onTabTapped(int index) {
+    HapticFeedback.selectionClick();
     setState(() {
       _currentIndex = index;
     });
@@ -61,22 +62,30 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
         actions: [
           OutlinedButton(
             style: OutlinedButton.styleFrom(
+              minimumSize: const Size(110, 44),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.pop(ctx, false);
+            },
             child: const Text('البقاء في التطبيق', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.statusRejected,
               foregroundColor: Colors.white,
+              minimumSize: const Size(110, 44),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             icon: const Icon(Icons.power_settings_new_rounded, size: 16),
             label: const Text('خروج', style: TextStyle(fontWeight: FontWeight.bold)),
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              Navigator.pop(ctx, true);
+            },
           ),
         ],
       ),
@@ -170,14 +179,14 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
                   icon: Badge(
                     isLabelVisible: count > 0,
                     backgroundColor: AppTheme.solarGold,
-                    textColor: Colors.white,
+                    textColor: AppTheme.textDark,
                     label: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
                     child: Icon(item.$1),
                   ),
                   selectedIcon: Badge(
                     isLabelVisible: count > 0,
                     backgroundColor: AppTheme.solarGold,
-                    textColor: Colors.white,
+                    textColor: AppTheme.textDark,
                     label: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
                     child: Icon(item.$2),
                   ),
@@ -218,14 +227,14 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
                   icon: Badge(
                     isLabelVisible: count > 0,
                     backgroundColor: AppTheme.solarGold,
-                    textColor: Colors.white,
+                    textColor: AppTheme.textDark,
                     label: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
                     child: Icon(item.$1),
                   ),
                   selectedIcon: Badge(
                     isLabelVisible: count > 0,
                     backgroundColor: AppTheme.solarGold,
-                    textColor: Colors.white,
+                    textColor: AppTheme.textDark,
                     label: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
                     child: Icon(item.$2),
                   ),

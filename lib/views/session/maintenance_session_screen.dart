@@ -671,8 +671,9 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF475569),
                           side: const BorderSide(color: Color(0xFFCBD5E1)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          minimumSize: const Size(0, 48),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         icon: const Icon(Icons.remove_circle_outline, size: 16),
                         label: const Text('غير متوفر بالموقع (N/A)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -687,12 +688,13 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF16A34A),
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.statusGood,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          minimumSize: const Size(0, 48),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         icon: const Icon(Icons.check_circle_outline, size: 16),
                         label: const Text('تعيين الكل: سليم', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -831,21 +833,26 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
             style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
           ),
           actions: [
-            TextButton(
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('متابعة الفحص', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0B3A60),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.primaryNavy,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
               onPressed: () {
                 ref.read(reportsProvider.notifier).updateReport(_report);
                 Navigator.pop(ctx, true);
               },
-              child: const Text('حفظ وخروج'),
+              child: const Text('حفظ وخروج', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -1092,23 +1099,25 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
                 // Previous Button
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     side: BorderSide(
                       color: _currentIndex > 0 ? AppTheme.borderMedium : AppTheme.borderSubtle,
                     ),
                   ),
                   icon: const Icon(Icons.chevron_right, size: 20), // ← chevron_right = "السابق" في RTL
-                  label: const Text('السابق', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  label: const Text('السابق', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                   onPressed: _currentIndex > 0 ? _handlePrevious : null,
                 ),
                 const SizedBox(width: 8),
 
                 // Enhanced Multi-Skip Button (Tap to skip 1, Long-press or tap arrow for bulk options)
                 Container(
+                  height: 48,
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFFBEB),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFFCD34D)),
                   ),
                   child: Row(
@@ -1117,9 +1126,9 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
                       InkWell(
                         onTap: _handleSkip,
                         onLongPress: _showSkipOptionsMenu,
-                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(9)),
+                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(11)),
                         child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -1128,7 +1137,7 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
                               Text(
                                 'تخطي',
                                 style: TextStyle(
-                                  fontSize: 12.5,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFFD97706),
                                 ),
@@ -1139,19 +1148,19 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
                       ),
                       Container(
                         width: 1,
-                        height: 22,
+                        height: 24,
                         color: const Color(0xFFFCD34D),
                       ),
                       InkWell(
                         onTap: _showSkipOptionsMenu,
-                        borderRadius: const BorderRadius.horizontal(left: Radius.circular(9)),
+                        borderRadius: const BorderRadius.horizontal(left: Radius.circular(11)),
                         child: const Tooltip(
                           message: 'خيارات التخطي السريع وتخطي القسم',
                           child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                             child: Icon(
                               Icons.arrow_drop_down,
-                              size: 20,
+                              size: 22,
                               color: Color(0xFFD97706),
                             ),
                           ),
@@ -1162,21 +1171,21 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
                 ),
                 const SizedBox(width: 8),
 
-                // Next / Finish Button
+                // Next / Finish Button (Primary Action: Single FilledButton)
                 Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
                       backgroundColor: nextButtonColor,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      elevation: 2,
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    icon: Icon(nextButtonIcon, size: 18),
+                    icon: Icon(nextButtonIcon, size: 20),
                     label: Text(
                       nextButtonLabel,
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

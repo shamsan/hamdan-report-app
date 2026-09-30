@@ -175,12 +175,13 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('إلغاء'),
           ),
-          ElevatedButton.icon(
+          FilledButton.icon(
             icon: const Icon(Icons.delete_outline, size: 18),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: Colors.red.shade600,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: const Size(0, 48),
             ),
             onPressed: () {
               Navigator.pop(ctx);
@@ -262,12 +263,17 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
+          TextButton(
+            style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.primaryNavy,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: const Size(0, 48),
             ),
             onPressed: () {
               final val = double.tryParse(ctrl.text.trim());
@@ -322,12 +328,17 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
+          TextButton(
+            style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.primaryNavy,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: const Size(0, 48),
             ),
             onPressed: () {
               final val = double.tryParse(ctrl.text.trim());
@@ -359,8 +370,8 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
             return SafeArea(
               child: Padding(
                 padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 12,
-                  top: 12, left: 20, right: 20,
+                  bottom: MediaQuery.viewInsetsOf(ctx).bottom + 16,
+                  top: 16, left: 16, right: 16,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1352,17 +1363,18 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
       message: tooltip,
       child: Material(
         color: (color ?? AppTheme.primaryNavy).withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();
             onTap();
           },
-          borderRadius: BorderRadius.circular(9),
+          borderRadius: BorderRadius.circular(12),
           child: Container(
-            width: 38, height: 38,
+            width: 48,
+            height: 48,
             alignment: Alignment.center,
-            child: Icon(icon, size: 18, color: color ?? AppTheme.primaryNavy),
+            child: Icon(icon, size: 20, color: color ?? AppTheme.primaryNavy),
           ),
         ),
       ),
@@ -1411,15 +1423,18 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
 
     return Material(
       color: chipBg,
-      borderRadius: BorderRadius.circular(9),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(9),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(10),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 40),
+          constraints: const BoxConstraints(minHeight: 44),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: chipBorder, width: 1),
           ),
           child: Row(
@@ -1452,7 +1467,8 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
         side: BorderSide(
           color: isActive ? AppTheme.primaryNavy : const Color(0xFFCBD5E1),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        minimumSize: const Size(0, 48),
         padding: const EdgeInsets.symmetric(vertical: 10),
       ),
       onPressed: () {

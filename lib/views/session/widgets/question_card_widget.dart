@@ -151,11 +151,21 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.primaryNavy,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('إضافة وحفظ', style: TextStyle(color: Colors.white)),
+            child: const Text('إضافة وحفظ', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -267,7 +277,7 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
             const Divider(height: 20),
             ConstrainedBox(
               constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.45,
+                maxHeight: MediaQuery.sizeOf(context).height * 0.45,
               ),
               child: SingleChildScrollView(
                 child: Wrap(
@@ -690,6 +700,31 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
   }) {
     final isSelected = item.status == status;
 
+    // خلفيات ناعمة ونصوص عالية التباين متوافقة مع ضوء الشمس (قواعد المشروع 1.1 و 1.5)
+    Color selectedBg;
+    Color selectedTextColor;
+    switch (status) {
+      case InspectionStatus.good:
+        selectedBg = const Color(0xFFECFDF5);
+        selectedTextColor = const Color(0xFF065F46);
+        break;
+      case InspectionStatus.acceptable:
+        selectedBg = const Color(0xFFE0F2FE);
+        selectedTextColor = const Color(0xFF0369A1);
+        break;
+      case InspectionStatus.needsFollowup:
+        selectedBg = const Color(0xFFFFFBEB);
+        selectedTextColor = const Color(0xFFB45309);
+        break;
+      case InspectionStatus.rejected:
+        selectedBg = const Color(0xFFFEF2F2);
+        selectedTextColor = const Color(0xFFB91C1C);
+        break;
+      default:
+        selectedBg = const Color(0xFFF1F5F9);
+        selectedTextColor = const Color(0xFF334155);
+    }
+
     return Expanded(
       child: Material(
         color: Colors.transparent,
@@ -698,9 +733,10 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
           borderRadius: BorderRadius.circular(12),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+            constraints: const BoxConstraints(minHeight: 52), // هدف لمس ميداني >= 48dp
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
-              color: isSelected ? color.withValues(alpha: 0.12) : Colors.white,
+              color: isSelected ? selectedBg : Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isSelected ? color : AppTheme.borderSubtle,
@@ -709,7 +745,7 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: color.withValues(alpha: 0.18),
+                        color: color.withValues(alpha: 0.15),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
@@ -725,30 +761,30 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
             child: Row(
               children: [
                 Container(
-                  width: 20,
-                  height: 20,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: isSelected ? color : const Color(0xFFCBD5E1),
-                      width: 1.8,
+                      width: 2.0,
                     ),
                     color: isSelected ? color : Colors.white,
                   ),
                   child: isSelected
-                      ? const Icon(Icons.check, size: 12, color: Colors.white)
+                      ? const Icon(Icons.check, size: 13, color: Colors.white)
                       : null,
                 ),
                 const SizedBox(width: 8),
-                Icon(icon, color: color, size: 19),
-                const SizedBox(width: 6),
+                Icon(icon, color: isSelected ? selectedTextColor : color, size: 20),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     label,
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 13,
                       fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                      color: isSelected ? color : AppTheme.textDark,
+                      color: isSelected ? selectedTextColor : AppTheme.textDark,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -774,9 +810,10 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
         borderRadius: BorderRadius.circular(12),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          constraints: const BoxConstraints(minHeight: 48), // هدف لمس ميداني >= 48dp
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? color.withValues(alpha: 0.1) : const Color(0xFFF8FAFC),
+            color: isSelected ? const Color(0xFFF1F5F9) : const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isSelected ? color : AppTheme.borderSubtle,
@@ -786,8 +823,8 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
           child: Row(
             children: [
               Container(
-                width: 18,
-                height: 18,
+                width: 20,
+                height: 20,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
@@ -797,32 +834,32 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                   color: isSelected ? color : Colors.white,
                 ),
                 child: isSelected
-                    ? const Icon(Icons.check, size: 11, color: Colors.white)
+                    ? const Icon(Icons.check, size: 12, color: Colors.white)
                     : null,
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.do_not_disturb_on_rounded, color: color, size: 17),
+              const Icon(Icons.do_not_disturb_on_rounded, color: color, size: 18),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
                   'غير منطبق (N/A) - المكون غير متوفر بالمنشأة',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 12.5,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF475569),
+                    color: Color(0xFF334155),
                   ),
                 ),
               ),
               if (isSelected)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
                     color: color,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
                     'محدد',
-                    style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
             ],
@@ -1087,18 +1124,18 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                   children: [
                     Expanded(
                       flex: 3,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          elevation: 0,
+                          minimumSize: const Size(0, 48),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        icon: const Icon(Icons.camera_alt, size: 17),
+                        icon: const Icon(Icons.camera_alt, size: 18),
                         label: const Text(
                           'التقاط فوري بالكاميرا',
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                         onPressed: _captureFromCamera,
                       ),
@@ -1110,13 +1147,14 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.brandCyan,
                           side: const BorderSide(color: AppTheme.brandCyan),
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          minimumSize: const Size(0, 48),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        icon: const Icon(Icons.photo_library_outlined, size: 16),
+                        icon: const Icon(Icons.photo_library_outlined, size: 18),
                         label: const Text(
                           'الاستوديو',
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                         onPressed: _pickFromGallery,
                       ),
@@ -1383,16 +1421,16 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                   ],
                 ),
               ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.solarGold,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  elevation: 0,
+                  minimumSize: const Size(0, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                icon: const Icon(Icons.add, size: 15),
-                label: const Text('طلب مادة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('طلب مادة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 onPressed: () {
                   QuickNeedDialog.show(
                     context,

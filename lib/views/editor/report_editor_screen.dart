@@ -365,19 +365,24 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
         actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('متابعة التحرير', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           TextButton(
-            style: TextButton.styleFrom(foregroundColor: AppTheme.statusRejected),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.statusRejected,
+              minimumSize: const Size(0, 48),
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('تجاهل التغييرات'),
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.primaryNavy,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: const Size(0, 48),
             ),
             icon: const Icon(Icons.save_rounded, size: 16),
             label: const Text('حفظ وخروج', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -705,8 +710,11 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                               flex: 1,
                               child: OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primaryNavy,
+                                  side: const BorderSide(color: Color(0xFFCBD5E1)),
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  minimumSize: const Size(0, 48),
                                 ),
                                 icon: const Icon(Icons.arrow_back, size: 16),
                                 label: Text(
@@ -720,17 +728,18 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                                 },
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 8),
                           ],
                           if (_activePhase < 4)
                             Expanded(
                               flex: _activePhase > 0 ? 2 : 1,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
+                              child: FilledButton.icon(
+                                style: FilledButton.styleFrom(
                                   backgroundColor: AppTheme.primaryNavy,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  minimumSize: const Size(0, 48),
                                 ),
                                 icon: const Icon(Icons.arrow_forward, size: 16),
                                 label: Text(
@@ -748,14 +757,15 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                           else
                             Expanded(
                               flex: 3,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
+                              child: FilledButton.icon(
+                                style: FilledButton.styleFrom(
                                   backgroundColor: AppTheme.solarGold,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  foregroundColor: AppTheme.textDark,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  minimumSize: const Size(0, 48),
                                 ),
-                                icon: const Icon(Icons.picture_as_pdf_rounded, size: 17),
+                                icon: const Icon(Icons.picture_as_pdf_rounded, size: 17, color: AppTheme.primaryNavy),
                                 label: const Text(
                                   'معاينة التقرير المعتمد (PDF)',
                                   maxLines: 1,
@@ -787,7 +797,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
           ],
         ),
         bottomNavigationBar: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white,
             border: const Border(top: BorderSide(color: AppTheme.borderSubtle)),
@@ -807,31 +817,33 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.primaryNavy,
                       side: const BorderSide(color: AppTheme.primaryNavy, width: 1.4),
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      minimumSize: const Size(0, 48),
                     ),
-                    icon: const Icon(Icons.flash_on_rounded, size: 17, color: AppTheme.solarGold),
+                    icon: const Icon(Icons.flash_on_rounded, size: 18, color: AppTheme.solarGold),
                     label: const Text(
                       'جلسة الفحص',
-                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
                     ),
                     onPressed: _openMaintenanceSession,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.solarGold,
                       foregroundColor: AppTheme.textDark,
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      elevation: 2,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      minimumSize: const Size(0, 48),
+                      elevation: 1,
                     ),
-                    icon: const Icon(Icons.picture_as_pdf_rounded, size: 17, color: AppTheme.primaryNavy),
+                    icon: const Icon(Icons.picture_as_pdf_rounded, size: 18, color: AppTheme.primaryNavy),
                     label: const Text(
                       'معاينة وتصدير PDF',
-                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
                     ),
                     onPressed: _openPdfPreview,
                   ),
@@ -1301,15 +1313,16 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: ElevatedButton.icon(
+                        child: FilledButton.icon(
                           onPressed: _syncSpecsToMasterSite,
                           icon: const Icon(Icons.sync_rounded, size: 16),
-                          label: const Text('مزامنة مع سجل الموقع الأصلي', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(
+                          label: const Text('مزامنة مع سجل الموقع الأصلي', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: FilledButton.styleFrom(
                             backgroundColor: AppTheme.primaryNavy,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            minimumSize: const Size(0, 48),
                           ),
                         ),
                       ),
@@ -1319,12 +1332,13 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                           HapticFeedback.selectionClick();
                           setState(() => _isMasterSpecsUnlocked = false);
                         },
-                        icon: const Icon(Icons.lock_outline_rounded, size: 15),
-                        label: const Text('إعادة القفل', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        icon: const Icon(Icons.lock_outline_rounded, size: 16),
+                        label: const Text('إعادة القفل', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.textDark,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          minimumSize: const Size(0, 48),
                         ),
                       ),
                     ],
@@ -1906,24 +1920,27 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                             spacing: 8,
                             runSpacing: 6,
                             children: [
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
                                   backgroundColor: AppTheme.brandCyan,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(0, 40),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
-                                icon: const Icon(Icons.upload_file, size: 14),
-                                label: const Text('تغيير الشعار', style: TextStyle(fontSize: 11)),
+                                icon: const Icon(Icons.upload_file, size: 15),
+                                label: const Text('تغيير الشعار', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                                 onPressed: () => _pickReportLogo('funder'),
                               ),
                               if (_report.funderLogoBase64 != null)
                                 OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    minimumSize: const Size(0, 40),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
-                                  icon: const Icon(Icons.refresh, size: 14),
-                                  label: const Text('استعادة الافتراضي', style: TextStyle(fontSize: 11)),
+                                  icon: const Icon(Icons.refresh, size: 15),
+                                  label: const Text('استعادة الافتراضي', style: TextStyle(fontSize: 11.5)),
                                   onPressed: () => _clearReportLogo('funder'),
                                 ),
                             ],
@@ -2075,24 +2092,27 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                           spacing: 8,
                           runSpacing: 6,
                           children: [
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
+                            FilledButton.icon(
+                              style: FilledButton.styleFrom(
                                 backgroundColor: AppTheme.primaryNavy,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(0, 40),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
-                              icon: const Icon(Icons.upload_file, size: 14),
-                              label: const Text('تغيير الشعار', style: TextStyle(fontSize: 11)),
+                              icon: const Icon(Icons.upload_file, size: 15),
+                              label: const Text('تغيير الشعار', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                               onPressed: () => _pickReportLogo('ministry'),
                             ),
                             if (_report.ministryLogoBase64 != null)
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  minimumSize: const Size(0, 40),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
-                                icon: const Icon(Icons.refresh, size: 14),
-                                label: const Text('استعادة الافتراضي', style: TextStyle(fontSize: 11)),
+                                icon: const Icon(Icons.refresh, size: 15),
+                                label: const Text('استعادة الافتراضي', style: TextStyle(fontSize: 11.5)),
                                 onPressed: () => _clearReportLogo('ministry'),
                               ),
                           ],
@@ -2242,24 +2262,27 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                           spacing: 8,
                           runSpacing: 6,
                           children: [
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
+                            FilledButton.icon(
+                              style: FilledButton.styleFrom(
                                 backgroundColor: AppTheme.solarGold,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                foregroundColor: AppTheme.textDark,
+                                minimumSize: const Size(0, 40),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
-                              icon: const Icon(Icons.upload_file, size: 14),
-                              label: const Text('تغيير الشعار', style: TextStyle(fontSize: 11)),
+                              icon: const Icon(Icons.upload_file, size: 15),
+                              label: const Text('تغيير الشعار', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                               onPressed: () => _pickReportLogo('contractor'),
                             ),
                             if (_report.contractorLogoBase64 != null)
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  minimumSize: const Size(0, 40),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
-                                icon: const Icon(Icons.refresh, size: 14),
-                                label: const Text('استعادة الافتراضي', style: TextStyle(fontSize: 11)),
+                                icon: const Icon(Icons.refresh, size: 15),
+                                label: const Text('استعادة الافتراضي', style: TextStyle(fontSize: 11.5)),
                                 onPressed: () => _clearReportLogo('contractor'),
                               ),
                           ],
@@ -2413,20 +2436,22 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.solarGold,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                elevation: 2,
+                foregroundColor: AppTheme.textDark,
+                minimumSize: const Size(double.infinity, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
               ),
               icon: Icon(inspectedItems == 0 ? Icons.play_arrow_rounded : Icons.flash_on_rounded, size: 20),
               label: Text(
                 inspectedItems == 0 ? 'بدء جلسة الفحص التفاعلية الآن 🚀' : 'متابعة جلسة الفحص الميداني ($inspectedItems/$totalItems) ⚡',
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
               onPressed: () async {
+                HapticFeedback.lightImpact();
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -2764,15 +2789,16 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
               ),
               const SizedBox(height: 10),
             ],
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.statusGood,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                elevation: 1,
+                minimumSize: const Size(double.infinity, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
               ),
-              icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+              icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
               label: const Text(
                 'اعتماد التقرير رسمياً كنسخة مكتملة ✅',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
@@ -3908,13 +3934,13 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                           },
                         ),
                       if (hasSig) const SizedBox(width: 4),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
                           backgroundColor: hasSig ? AppTheme.primaryNavy : AppTheme.brandCyan,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          visualDensity: VisualDensity.compact,
+                          minimumSize: const Size(0, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           elevation: 0,
                         ),
                         icon: Icon(hasSig ? Icons.edit_rounded : Icons.draw_rounded, size: 15),
@@ -4039,9 +4065,11 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
                             backgroundColor: AppTheme.brandCyan,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(0, 44),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
@@ -4388,11 +4416,13 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(
                                 backgroundColor: hasBenSig ? AppTheme.primaryNavy : AppTheme.brandCyan,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(0, 44),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               icon: Icon(hasBenSig ? Icons.edit_note_rounded : Icons.draw_rounded, size: 16),
                               label: Text(
@@ -4533,13 +4563,18 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                           onPressed: () => Navigator.pop(ctx),
                           child: const Text('إلغاء'),
                         ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.statusRejected),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.statusRejected,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(0, 44),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
                           onPressed: () {
                             Navigator.pop(ctx);
                             _onReportUpdated(_report.copyWith(attendanceList: const []));
                           },
-                          child: const Text('مسح الكل', style: TextStyle(color: Colors.white)),
+                          child: const Text('مسح الكل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -4547,17 +4582,17 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                 },
               ),
             const SizedBox(width: 8),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.brandCyan,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                minimumSize: const Size(0, 40),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 elevation: 0,
-                visualDensity: VisualDensity.compact,
               ),
-              icon: const Icon(Icons.person_add_rounded, size: 15),
-              label: const Text('إضافة عضو', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+              icon: const Icon(Icons.person_add_rounded, size: 16),
+              label: const Text('إضافة عضو', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               onPressed: () => _showAddAttendanceDialog(),
             ),
           ],
@@ -4647,10 +4682,17 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                 const SizedBox(height: 6),
                 const Text('لم يتم إضافة أي عضو لفريق الصيانة بعد', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
                 const SizedBox(height: 8),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.primaryNavy,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.person_add_rounded, size: 16),
                   onPressed: () => _showAddAttendanceDialog(),
-                  child: const Text('إضافة عضو جديد الآن', style: TextStyle(fontSize: 11)),
+                  label: const Text('إضافة عضو جديد الآن', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -5036,7 +5078,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
             top: 20,
             left: 20,
             right: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -5282,10 +5324,12 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.primaryNavy,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 48),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     icon: const Icon(Icons.check_circle_outline, color: Colors.white),
@@ -5362,7 +5406,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
             top: 20,
             left: 20,
             right: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -5456,6 +5500,10 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 48),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                         onPressed: () => Navigator.pop(ctx),
                         child: const Text('إلغاء'),
                       ),
@@ -5463,12 +5511,13 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 48),
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         icon: const Icon(Icons.edit_note_rounded, size: 20),
                         label: const Text('إنشاء وفتح للتعديل', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),

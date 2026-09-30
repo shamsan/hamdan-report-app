@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/breadcrumb_widget.dart';
@@ -466,13 +467,13 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            bottom: MediaQuery.viewInsetsOf(ctx).bottom + 20,
             top: 16,
             left: 20,
             right: 20,
           ),
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(ctx).size.height * 0.9,
+            maxHeight: MediaQuery.sizeOf(ctx).height * 0.9,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -667,16 +668,18 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 48),
                           padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         icon: const Icon(Icons.check_circle_rounded, size: 18),
                         label: const Text('حفظ بيانات العميل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                         onPressed: () async {
+                          HapticFeedback.mediumImpact();
                           if (nameArCtrl.text.trim().isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('يرجى إدخال اسم العميل بالعربي على الأقل')),
@@ -724,13 +727,13 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            bottom: MediaQuery.viewInsetsOf(ctx).bottom + 20,
             top: 16,
             left: 20,
             right: 20,
           ),
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(ctx).size.height * 0.9,
+            maxHeight: MediaQuery.sizeOf(ctx).height * 0.9,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -921,16 +924,18 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.brandCyan,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 48),
                           padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         icon: const Icon(Icons.save_rounded, size: 18),
                         label: const Text('حفظ التعديلات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                         onPressed: () async {
+                          HapticFeedback.mediumImpact();
                           if (nameArCtrl.text.trim().isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('اسم العميل بالعربي مطلوب')),
@@ -1025,12 +1030,15 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('إلغاء'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
+          FilledButton(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.statusRejected,
               foregroundColor: Colors.white,
+              minimumSize: const Size(120, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () async {
+              HapticFeedback.mediumImpact();
               await deleteClientCascade(ref, client.id);
               if (ctx.mounted) Navigator.pop(ctx);
               if (context.mounted) {
@@ -1042,7 +1050,7 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                 );
               }
             },
-            child: const Text('حذف نهائي شامل'),
+            child: const Text('حذف نهائي شامل', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

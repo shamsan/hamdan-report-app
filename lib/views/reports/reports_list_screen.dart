@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/responsive_layout.dart';
@@ -762,11 +763,12 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                     // Primary Action Button (Field Session or Editor)
                     Expanded(
                       flex: 3,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          minimumSize: const Size(0, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           elevation: 0,
                         ),
@@ -780,6 +782,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                         onPressed: () {
+                          HapticFeedback.lightImpact();
                           if (isCompleted) {
                             Navigator.push(
                               context,
@@ -801,13 +804,15 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.primaryNavy,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          side: BorderSide(color: AppTheme.primaryNavy.withValues(alpha: 0.25)),
+                          minimumSize: const Size(0, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          side: const BorderSide(color: AppTheme.borderMedium, width: 1.2),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 15),
+                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
                         label: const Text('PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () {
+                          HapticFeedback.lightImpact();
                           Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => PdfPreviewScreen(report: report)),
@@ -838,8 +843,13 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
         content: Text('هل أنت متأكد من حذف التقرير الخاص بـ "${report.facilityInfo.facilityName.isNotEmpty ? report.facilityInfo.facilityName : report.title}"؟'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.statusRejected, foregroundColor: Colors.white),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.statusRejected,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
             onPressed: () {
               Navigator.pop(ctx);
               ref.read(reportsProvider.notifier).deleteReport(report.id);
@@ -851,7 +861,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                 },
               );
             },
-            child: const Text('حذف'),
+            child: const Text('حذف', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -885,7 +895,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
             top: 20,
             left: 20,
             right: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -979,6 +989,10 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 48),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                         onPressed: () => Navigator.pop(ctx),
                         child: const Text('إلغاء'),
                       ),
@@ -986,12 +1000,13 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 48),
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         icon: const Icon(Icons.edit_note_rounded, size: 20),
                         label: const Text('إنشاء وفتح للتعديل', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),

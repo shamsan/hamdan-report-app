@@ -317,16 +317,18 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
             ),
             actions: [
               TextButton(
+                style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('إلغاء'),
               ),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 icon: const Icon(Icons.check_rounded, size: 17),
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.primaryNavy,
                   foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  minimumSize: const Size(0, 48),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: () {
                   final val = int.tryParse(ctrl.text.trim()) ?? 0;
@@ -401,15 +403,17 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
         content: Text('سيتم تصفير جميع قراءات سلاسل الصناديق النشطة (${_activeBoxes.length} صناديق).\nهل أنت متأكد؟'),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('إلغاء'),
           ),
-          ElevatedButton.icon(
+          FilledButton.icon(
             icon: const Icon(Icons.delete_outline, size: 18),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: Colors.red.shade600,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: const Size(0, 48),
             ),
             onPressed: () {
               Navigator.pop(ctx);
@@ -552,12 +556,17 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
+          TextButton(
+            style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.primaryNavy,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: const Size(0, 48),
             ),
             onPressed: () {
               final v = double.tryParse(vocCtrl.text.trim()) ?? 135.2;
@@ -587,8 +596,8 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
             return SafeArea(
               child: Padding(
                 padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 14,
-                  top: 12, left: 20, right: 20,
+                  bottom: MediaQuery.viewInsetsOf(ctx).bottom + 16,
+                  top: 16, left: 16, right: 16,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -822,10 +831,10 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               padding: EdgeInsets.only(
-                top: 12,
-                left: 20,
-                right: 20,
-                bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 20,
+                top: 16,
+                left: 16,
+                right: 16,
+                bottom: MediaQuery.viewInsetsOf(sheetCtx).bottom + 16,
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -1126,15 +1135,16 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
                       );
                     }),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          minimumSize: const Size(0, 48),
                         ),
                         onPressed: () => Navigator.pop(ctx),
                         child: const Text('إغلاق وتطبيق', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
@@ -1309,20 +1319,22 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
                   const PopupMenuItem(
                     value: 'config_boxes',
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.tune_rounded, size: 16, color: AppTheme.primaryNavy),
                         SizedBox(width: 8),
-                        Text('تحديد الصناديق المضمنة بالتقرير'),
+                        Flexible(child: Text('تحديد الصناديق المضمنة بالتقرير', overflow: TextOverflow.ellipsis)),
                       ],
                     ),
                   ),
                   const PopupMenuItem(
                     value: 'manage_panels',
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.solar_power_rounded, size: 16, color: AppTheme.primaryNavy),
                         SizedBox(width: 8),
-                        Text('إدارة وتوزيع ألواح المنظومة ⚡'),
+                        Flexible(child: Text('إدارة وتوزيع ألواح المنظومة ⚡', overflow: TextOverflow.ellipsis)),
                       ],
                     ),
                   ),
@@ -1330,10 +1342,11 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
                     const PopupMenuItem(
                       value: 'copy_all',
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.copy_all_rounded, size: 16, color: Color(0xFF16A34A)),
                           SizedBox(width: 8),
-                          Text('نسخ قراءات الصندوق #1 لباقي الصناديق'),
+                          Flexible(child: Text('نسخ قراءات الصندوق #1 لباقي الصناديق', overflow: TextOverflow.ellipsis)),
                         ],
                       ),
                     ),
@@ -2116,20 +2129,24 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
 
           // ── Focus Mode Box Navigation Footer ──
           if (!isOverview && _activeBoxes.length > 1) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
             Row(
               children: [
                 if (hasPrev)
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _selectBoxWithAnimation(_activeBoxes[currentIndex - 1]),
-                      icon: const Icon(Icons.arrow_forward_rounded, size: 14),
-                      label: Text('صندوق #${_activeBoxes[currentIndex - 1]} السابق', style: const TextStyle(fontSize: 11)),
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        _selectBoxWithAnimation(_activeBoxes[currentIndex - 1]);
+                      },
+                      icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                      label: Text('صندوق #${_activeBoxes[currentIndex - 1]} السابق', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.primaryNavy,
                         side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        minimumSize: const Size(0, 48),
                       ),
                     ),
                   )
@@ -2138,15 +2155,19 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
                 const SizedBox(width: 8),
                 if (hasNext)
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _selectBoxWithAnimation(_activeBoxes[currentIndex + 1]),
-                      icon: const Icon(Icons.arrow_back_rounded, size: 14),
-                      label: Text('صندوق #${_activeBoxes[currentIndex + 1]} التالي', style: const TextStyle(fontSize: 11)),
-                      style: ElevatedButton.styleFrom(
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        _selectBoxWithAnimation(_activeBoxes[currentIndex + 1]);
+                      },
+                      icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                      label: Text('صندوق #${_activeBoxes[currentIndex + 1]} التالي', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      style: FilledButton.styleFrom(
                         backgroundColor: AppTheme.primaryNavy,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        minimumSize: const Size(0, 48),
                       ),
                     ),
                   )

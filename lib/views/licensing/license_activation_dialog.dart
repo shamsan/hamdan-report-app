@@ -288,8 +288,11 @@ class _LicenseActivationDialogState extends ConsumerState<LicenseActivationDialo
               const SizedBox(height: 16),
 
               // ─── زر التفعيل ───
-              ElevatedButton.icon(
-                onPressed: _isLoading ? null : _handleActivate,
+              FilledButton.icon(
+                onPressed: _isLoading ? null : () {
+                  HapticFeedback.mediumImpact();
+                  _handleActivate();
+                },
                 icon: _isLoading
                     ? const SizedBox(
                         height: 18,
@@ -301,11 +304,12 @@ class _LicenseActivationDialogState extends ConsumerState<LicenseActivationDialo
                   _isLoading ? 'جاري التفعيل والتحقق...' : 'تفعيل الترخيص الآن',
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.primaryNavy,
                   foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
               const SizedBox(height: 12),
@@ -313,6 +317,7 @@ class _LicenseActivationDialogState extends ConsumerState<LicenseActivationDialo
               // ─── زر طلب ترخيص جديد أو نقل ترخيص ───
               OutlinedButton.icon(
                 onPressed: () {
+                  HapticFeedback.lightImpact();
                   Navigator.of(context).pop();
                   showModalBottomSheet(
                     context: context,
@@ -328,8 +333,9 @@ class _LicenseActivationDialogState extends ConsumerState<LicenseActivationDialo
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.primaryNavy,
                   side: const BorderSide(color: AppTheme.primaryNavy),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  minimumSize: const Size(double.infinity, 48),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
               const SizedBox(height: 8),

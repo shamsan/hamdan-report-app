@@ -274,10 +274,11 @@ class LicenseStatusBottomSheet extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.primaryNavy,
                     foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 48),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -287,6 +288,7 @@ class LicenseStatusBottomSheet extends ConsumerWidget {
                     style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Almarai'),
                   ),
                   onPressed: () {
+                    HapticFeedback.lightImpact();
                     Navigator.pop(context);
                     showDialog(
                       context: context,
@@ -295,11 +297,12 @@ class LicenseStatusBottomSheet extends ConsumerWidget {
                   },
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF25D366),
                   side: const BorderSide(color: Color(0xFF25D366), width: 1.2),
+                  minimumSize: const Size(0, 48),
                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -309,6 +312,7 @@ class LicenseStatusBottomSheet extends ConsumerWidget {
                   style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Almarai'),
                 ),
                 onPressed: () {
+                  HapticFeedback.lightImpact();
                   LicenseWhatsAppHelper.openWhatsAppForSupport(
                     context: context,
                     subject: isTrial ? 'طلب ترقية ترخيص تجريبي' : 'استفسار عن الترخيص',

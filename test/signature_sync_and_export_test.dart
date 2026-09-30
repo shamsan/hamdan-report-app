@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:report_craft/core/utils/ui_helpers.dart';
 import 'package:report_craft/models/organization.dart';
@@ -7,6 +8,7 @@ import 'package:report_craft/services/pdf_export_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  FlutterSecureStorage.setMockInitialValues({});
 
   group('Signature Base64 Sanitization & Safety Tests', () {
     test('safeDecodeBase64 strips data URI scheme and decodes bytes', () {

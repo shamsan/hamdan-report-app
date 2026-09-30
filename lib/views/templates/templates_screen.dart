@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/responsive_layout.dart';
@@ -17,16 +18,18 @@ class TemplatesScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('إدارة قوالب التقارير المعتمدة'),
         actions: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.solarGold,
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.textDark,
+              minimumSize: const Size(0, 40),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('قالب جديد', style: TextStyle(fontSize: 12)),
+            label: const Text('قالب جديد', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             onPressed: () {
+              HapticFeedback.lightImpact();
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const TemplateEditorScreen()),
@@ -114,6 +117,7 @@ class TemplatesScreen extends ConsumerWidget {
                             children: [
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size(0, 44),
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   side: const BorderSide(color: AppTheme.borderSubtle),
@@ -121,6 +125,7 @@ class TemplatesScreen extends ConsumerWidget {
                                 icon: const Icon(Icons.copy_rounded, size: 16),
                                 label: const Text('نسخ القالب', style: TextStyle(fontSize: 12)),
                                 onPressed: () async {
+                                  HapticFeedback.lightImpact();
                                   final cloned = await ref.read(templatesProvider.notifier).cloneTemplate(tmpl);
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -129,16 +134,18 @@ class TemplatesScreen extends ConsumerWidget {
                                   }
                                 },
                               ),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
                                   backgroundColor: AppTheme.primaryNavy,
                                   foregroundColor: Colors.white,
+                                  minimumSize: const Size(0, 44),
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
                                 icon: const Icon(Icons.post_add_rounded, size: 16),
                                 label: const Text('إنشاء تقرير من هذا القالب', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                 onPressed: () {
+                                  HapticFeedback.lightImpact();
                                   CreateSessionDialog.show(context, initialTemplate: tmpl);
                                 },
                               ),

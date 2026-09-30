@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/breadcrumb_widget.dart';
@@ -271,9 +272,10 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
       ),
       bottomNavigationBar: SafeArea(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white,
+            border: const Border(top: BorderSide(color: AppTheme.borderSubtle)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.08),
@@ -282,20 +284,24 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
               ),
             ],
           ),
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.solarGold,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 13),
+              foregroundColor: AppTheme.textDark,
+              minimumSize: const Size(double.infinity, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 2,
+              elevation: 0,
             ),
-            icon: const Icon(Icons.rocket_launch, size: 19),
+            icon: const Icon(Icons.rocket_launch, size: 20),
             label: Text(
               '🚀 بدء زيارة صيانة جديدة للموقع (الزيارة رقم $nextVisitNum)',
               style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
             ),
-            onPressed: () => _startNewVisitForSite(context, site, client, nextVisitNum),
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              _startNewVisitForSite(context, site, client, nextVisitNum);
+            },
           ),
         ),
       ),
@@ -620,13 +626,14 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
                         TextButton.icon(
                           style: TextButton.styleFrom(
                             foregroundColor: AppTheme.primaryNavy,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            minimumSize: const Size(0, 36),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          icon: const Icon(Icons.checklist_rtl, size: 15),
-                          label: const Text('جلسة الفحص', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          icon: const Icon(Icons.checklist_rtl, size: 16),
+                          label: const Text('جلسة الفحص', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                           onPressed: () {
+                            HapticFeedback.lightImpact();
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -635,17 +642,18 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
                             );
                           },
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 6),
                         TextButton.icon(
                           style: TextButton.styleFrom(
                             foregroundColor: AppTheme.brandCyan,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            minimumSize: const Size(0, 36),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          icon: const Icon(Icons.edit_note, size: 15),
-                          label: const Text('المحرر', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          icon: const Icon(Icons.edit_note, size: 16),
+                          label: const Text('المحرر', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                           onPressed: () {
+                            HapticFeedback.lightImpact();
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -654,19 +662,20 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
                             );
                           },
                         ),
-                        const SizedBox(width: 6),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
                             backgroundColor: AppTheme.solarGold,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                            foregroundColor: AppTheme.textDark,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            minimumSize: const Size(0, 36),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            elevation: 0,
                           ),
-                          icon: const Icon(Icons.picture_as_pdf, size: 14),
-                          label: const Text('PDF', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                          icon: const Icon(Icons.picture_as_pdf, size: 15),
+                          label: const Text('PDF', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                           onPressed: () {
+                            HapticFeedback.lightImpact();
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -894,10 +903,15 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('إلغاء'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.primaryNavy,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('بدء الزيارة الميدانية'),
+            child: const Text('بدء الزيارة الميدانية', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -980,10 +994,12 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
             onPressed: () => Navigator.pop(ctx),
             child: const Text('إلغاء'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
+          FilledButton(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.statusRejected,
               foregroundColor: Colors.white,
+              minimumSize: const Size(0, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () async {
               await deleteSiteCascade(ref, site.id);
@@ -998,7 +1014,7 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
                 );
               }
             },
-            child: const Text('حذف نهائي شامل'),
+            child: const Text('حذف نهائي شامل', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

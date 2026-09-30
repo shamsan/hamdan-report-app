@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/ui_helpers.dart';
@@ -435,38 +435,47 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.textMuted,
                         side: const BorderSide(color: AppTheme.borderSubtle),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        minimumSize: const Size(0, 48),
                       ),
                       icon: const Icon(Icons.clear_rounded, size: 16),
                       label: const Text('مسح', style: TextStyle(fontSize: 12)),
-                      onPressed: () => setState(() {
-                        _lines.clear();
-                        _existingDismissed = true;
-                      }),
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        setState(() {
+                          _lines.clear();
+                          _existingDismissed = true;
+                        });
+                      },
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.textMuted,
                         side: const BorderSide(color: AppTheme.borderSubtle),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        minimumSize: const Size(0, 48),
                       ),
                       icon: const Icon(Icons.undo_rounded, size: 16),
                       label: const Text('تراجع', style: TextStyle(fontSize: 12)),
                       onPressed: _lines.isNotEmpty
-                          ? () => setState(() => _lines.removeLast())
+                          ? () {
+                              HapticFeedback.lightImpact();
+                              setState(() => _lines.removeLast());
+                            }
                           : null,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          minimumSize: const Size(0, 48),
                         ),
                         icon: const Icon(Icons.check_rounded, size: 17),
                         label: const Text(
@@ -474,7 +483,10 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
                           style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        onPressed: _exportSignature,
+                        onPressed: () {
+                          HapticFeedback.mediumImpact();
+                          _exportSignature();
+                        },
                       ),
                     ),
                   ],

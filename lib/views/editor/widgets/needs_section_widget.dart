@@ -286,17 +286,17 @@ class NeedsSectionWidget extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.primaryNavy,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                minimumSize: const Size(0, 44),
                 elevation: 0,
               ),
               icon: const Icon(Icons.add_circle_outline, size: 16, color: AppTheme.solarGold),
-              label: const Text('إضافة مادة', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+              label: const Text('إضافة مادة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               onPressed: () {
                 QuickNeedDialog.show(
                   context,
@@ -310,7 +310,7 @@ class NeedsSectionWidget extends StatelessWidget {
 
         // 4. Select All / Deselect All Action Bar
         if (totalNeeds > 0) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(

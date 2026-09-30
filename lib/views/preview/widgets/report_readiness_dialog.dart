@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../models/report.dart';
 import '../../../models/inspection_item.dart';
 import '../../../core/theme/app_theme.dart';
@@ -19,7 +20,7 @@ class ReportReadinessDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
+    final size = MediaQuery.sizeOf(context);
 
     // Calculate detailed readiness metrics
     final missingFields = report.validateMissingFields();
@@ -701,7 +702,7 @@ class ReportReadinessDialog extends StatelessWidget {
   /// Fixed Bottom Action Bar
   Widget _buildBottomBar(BuildContext context, int percent) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: AppTheme.borderSubtle, width: 1)),
@@ -712,34 +713,42 @@ class ReportReadinessDialog extends StatelessWidget {
             Expanded(
               flex: 1,
               child: OutlinedButton.icon(
-                icon: const Icon(Icons.edit_note_rounded, size: 18),
+                icon: const Icon(Icons.edit_note_rounded, size: 20),
                 label: const Text('تعديل التقرير'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.primaryNavy,
-                  side: const BorderSide(color: AppTheme.borderMedium),
-                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  side: const BorderSide(color: AppTheme.borderMedium, width: 1.5),
+                  minimumSize: const Size(0, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: onEditReport,
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  onEditReport?.call();
+                },
               ),
             ),
-          if (onEditReport != null) const SizedBox(width: 10),
+          if (onEditReport != null) const SizedBox(width: 12),
           Expanded(
             flex: onEditReport != null ? 2 : 1,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.share_rounded, size: 18),
+            child: FilledButton.icon(
+              icon: const Icon(Icons.share_rounded, size: 20),
               label: Text(
                 percent >= 90 ? 'تصدير ومشاركة التقرير' : 'متابعة التصدير على أية حال',
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
               ),
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 backgroundColor: percent >= 90 ? const Color(0xFF10B981) : AppTheme.primaryNavy,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                minimumSize: const Size(0, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 2,
+                elevation: 0,
               ),
-              onPressed: onExportNow,
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                onExportNow();
+              },
             ),
           ),
         ],

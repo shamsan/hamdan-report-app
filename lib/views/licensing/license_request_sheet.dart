@@ -7,6 +7,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/licensing/security/hardware_fingerprint.dart';
 import '../../core/licensing/utils/license_whatsapp_helper.dart';
@@ -119,7 +120,7 @@ class _LicenseRequestSheetState extends ConsumerState<LicenseRequestSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
         left: 20,
         right: 20,
         top: 20,
@@ -289,8 +290,11 @@ class _LicenseRequestSheetState extends ConsumerState<LicenseRequestSheet> {
               const SizedBox(height: 16),
 
               // ─── زر الإرسال ───
-              ElevatedButton.icon(
-                onPressed: _isLoading ? null : _handleSubmit,
+              FilledButton.icon(
+                onPressed: _isLoading ? null : () {
+                  HapticFeedback.mediumImpact();
+                  _handleSubmit();
+                },
                 icon: _isLoading
                     ? const SizedBox(
                         height: 18,
@@ -302,19 +306,21 @@ class _LicenseRequestSheetState extends ConsumerState<LicenseRequestSheet> {
                   _isLoading ? 'جاري إرسال الطلب...' : 'إرسال الطلب للإدارة الآن',
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.primaryNavy,
                   foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
                   padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
               // ─── زر بديل: إرسال الطلب السريع عبر واتساب ───
               OutlinedButton.icon(
                 onPressed: _hwid != null
                     ? () {
+                        HapticFeedback.lightImpact();
                         Navigator.of(context).pop();
                         LicenseWhatsAppHelper.shareViaWhatsApp(
                           context,
@@ -334,11 +340,12 @@ class _LicenseRequestSheetState extends ConsumerState<LicenseRequestSheet> {
                 ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFF16A34A)),
+                  minimumSize: const Size(double.infinity, 48),
                   padding: const EdgeInsets.symmetric(vertical: 11),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
             ],
           ),
         ),

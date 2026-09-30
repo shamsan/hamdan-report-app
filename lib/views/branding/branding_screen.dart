@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/utils/responsive_layout.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/organization.dart';
 import '../../state/branding_provider.dart';
 import '../../core/widgets/yemeni_phone_field.dart';
 
@@ -138,6 +140,34 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
     }
   }
 
+  Future<void> _saveBranding(OrganizationProfile branding) async {
+    HapticFeedback.mediumImpact();
+    await ref.read(brandingProvider.notifier).updateProfile(
+      branding.copyWith(
+        name: _nameController.text.trim(),
+        subTitle: _subTitleController.text.trim(),
+        contactPhone: _phoneController.text.trim(),
+        contactEmail: _emailController.text.trim(),
+        address: _addressController.text.trim(),
+        contractorNameAr: _contractorNameArController.text.trim(),
+        contractorSubtitleAr: _contractorSubtitleArController.text.trim(),
+        contractorNameEn: _contractorNameEnController.text.trim(),
+        ministryNameAr: _ministryNameArController.text.trim(),
+        ministryNameEn: _ministryNameEnController.text.trim(),
+        rightLogoNameAr: _rightLogoNameArController.text.trim(),
+        rightLogoNameEn: _rightLogoNameEnController.text.trim(),
+      ),
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم حفظ بيانات الهوية المؤسسية والشعارات بنجاح'),
+          backgroundColor: AppTheme.primaryNavy,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final branding = ref.watch(brandingProvider);
@@ -149,29 +179,7 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
           IconButton(
             icon: const Icon(Icons.save),
             tooltip: 'حفظ التغييرات',
-            onPressed: () async {
-              await ref.read(brandingProvider.notifier).updateProfile(
-                branding.copyWith(
-                  name: _nameController.text.trim(),
-                  subTitle: _subTitleController.text.trim(),
-                  contactPhone: _phoneController.text.trim(),
-                  contactEmail: _emailController.text.trim(),
-                  address: _addressController.text.trim(),
-                  contractorNameAr: _contractorNameArController.text.trim(),
-                  contractorSubtitleAr: _contractorSubtitleArController.text.trim(),
-                  contractorNameEn: _contractorNameEnController.text.trim(),
-                  ministryNameAr: _ministryNameArController.text.trim(),
-                  ministryNameEn: _ministryNameEnController.text.trim(),
-                  rightLogoNameAr: _rightLogoNameArController.text.trim(),
-                  rightLogoNameEn: _rightLogoNameEnController.text.trim(),
-                ),
-              );
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('تم حفظ بيانات الهوية المؤسسية والشعارات بنجاح')),
-                );
-              }
-            },
+            onPressed: () => _saveBranding(branding),
           ),
         ],
       ),
@@ -527,7 +535,10 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
                     ].map((c) {
                       final isSelected = branding.primaryColorValue == c;
                       return GestureDetector(
-                        onTap: () => ref.read(brandingProvider.notifier).updateColors(primaryColor: c),
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          ref.read(brandingProvider.notifier).updateColors(primaryColor: c);
+                        },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.all(3),
@@ -626,8 +637,34 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
         ),
       ),
     ),
-  );
-}
+    bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.primaryNavy,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.check_circle_rounded, size: 20),
+            label: const Text('حفظ إعدادات الهوية المؤسسية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            onPressed: () => _saveBranding(branding),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildLogoSlot({
     required String label,
@@ -678,19 +715,30 @@ class _BrandingScreenState extends ConsumerState<BrandingScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 TextButton.icon(
-                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4)),
-                  icon: const Icon(Icons.upload, size: 13),
-                  label: const Text('تغيير', style: TextStyle(fontSize: 11)),
-                  onPressed: onPick,
-                ),
-                if (isCustom)
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    icon: const Icon(Icons.refresh, size: 16, color: Colors.red),
-                    tooltip: 'استعادة الافتراضي',
-                    onPressed: onReset,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                    minimumSize: const Size(44, 40),
                   ),
+                  icon: const Icon(Icons.upload, size: 14),
+                  label: const Text('تغيير', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    onPick();
+                  },
+                ),
+                if (isCustom) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    padding: const EdgeInsets.all(6),
+                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                    icon: const Icon(Icons.refresh, size: 16, color: AppTheme.statusRejected),
+                    tooltip: 'استعادة الافتراضي',
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      onReset();
+                    },
+                  ),
+                ],
               ],
             ),
           ],

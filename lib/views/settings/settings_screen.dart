@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/responsive_layout.dart';
@@ -78,10 +79,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
           actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('تم'),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.primaryNavy,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(100, 44),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                Navigator.pop(ctx);
+              },
+              child: const Text('تم', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -143,10 +152,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
           actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('تم'),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.primaryNavy,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(100, 44),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                Navigator.pop(ctx);
+              },
+              child: const Text('تم', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -189,7 +206,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             top: 20,
             left: 20,
             right: 20,
-            bottom: MediaQuery.of(modalContext).viewInsets.bottom + 20,
+            bottom: MediaQuery.viewInsetsOf(modalContext).bottom + 20,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -274,23 +291,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.pop(ctx);
+                      },
                       child: const Text('إلغاء'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: mergeMode ? AppTheme.primaryNavy : Colors.red,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: mergeMode ? AppTheme.primaryNavy : AppTheme.statusRejected,
                         foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 48),
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       icon: const Icon(Icons.cloud_download_rounded, size: 18),
                       label: Text(mergeMode ? 'تأكيد الدمج والاستعادة' : 'تأكيد الاستبدال الكامل', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                       onPressed: () async {
+                        HapticFeedback.mediumImpact();
                         final navigator = Navigator.of(ctx);
                         final scaffoldMessenger = ScaffoldMessenger.of(context);
                         final success = await BackupService.executeRestore(
@@ -403,10 +429,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         content: const Text('هل ترغب في إعادة تحميل تقرير مركز الكلى عبس والقالب المعتمد المكون من 11 صفحة؟'),
         actions: [
           TextButton(child: const Text('إلغاء'), onPressed: () => Navigator.pop(ctx)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
-            child: const Text('تأكيد الاستعادة'),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.primaryNavy,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(110, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('تأكيد الاستعادة', style: TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () async {
+              HapticFeedback.mediumImpact();
               Navigator.pop(ctx);
               await StorageService().saveReports([DefaultTemplates.sampleDialysisReport]);
               await ref.read(reportsProvider.notifier).load();
@@ -793,8 +825,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     // الأزرار فوق بعض للشاشات الصغيرة
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton.icon(
+                      child: FilledButton.icon(
                         onPressed: () {
+                          HapticFeedback.lightImpact();
                           showDialog(
                             context: context,
                             builder: (ctx) => const LicenseActivationDialog(),
@@ -802,11 +835,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         },
                         icon: const Icon(Icons.vpn_key_rounded, size: 16),
                         label: Text(isPro ? 'إدارة الترخيص' : 'تفعيل / ترقية'),
-                        style: ElevatedButton.styleFrom(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 44),
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ),
@@ -815,6 +849,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () {
+                          HapticFeedback.lightImpact();
                           showModalBottomSheet(
                             context: context,
                             isScrollControlled: true,
@@ -829,8 +864,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.primaryNavy,
                           side: const BorderSide(color: AppTheme.primaryNavy),
+                          minimumSize: const Size(0, 44),
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ),
@@ -839,8 +875,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: ElevatedButton.icon(
+                          child: FilledButton.icon(
                             onPressed: () {
+                              HapticFeedback.lightImpact();
                               showDialog(
                                 context: context,
                                 builder: (ctx) => const LicenseActivationDialog(),
@@ -848,17 +885,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             },
                             icon: const Icon(Icons.vpn_key_rounded, size: 16),
                             label: Text(isPro ? 'إدارة الترخيص' : 'تفعيل / ترقية'),
-                            style: ElevatedButton.styleFrom(
+                            style: FilledButton.styleFrom(
                               backgroundColor: AppTheme.primaryNavy,
                               foregroundColor: Colors.white,
+                              minimumSize: const Size(0, 44),
                               padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         OutlinedButton.icon(
                           onPressed: () {
+                            HapticFeedback.lightImpact();
                             showModalBottomSheet(
                               context: context,
                               isScrollControlled: true,
@@ -873,8 +912,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.primaryNavy,
                             side: const BorderSide(color: AppTheme.primaryNavy),
+                            minimumSize: const Size(0, 44),
                             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ],

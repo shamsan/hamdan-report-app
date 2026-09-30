@@ -87,18 +87,25 @@ class SessionCompletionDialog {
           ),
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
             child: const Text('إغلاق والمتابعة لاحقاً'),
             onPressed: () => Navigator.pop(ctx),
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.primaryNavy,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-            label: const Text('الانتقال لأول سؤال متبقي', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+            label: const Text('الانتقال لأول سؤال متبقي', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
             onPressed: () {
               Navigator.pop(ctx);
               if (remainingQuestions.isNotEmpty) {
@@ -201,21 +208,21 @@ class SessionCompletionDialog {
               const SizedBox(height: 18),
 
               // Actions
-              // 1. الخيار الأساسي: الانتقال للمحرر لإكمال القياسات والتواقيع
+              // 1. الخيار الأساسي: الانتقال للمحرر لإكمال القياسات والتواقيع (Single FilledButton)
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.primaryNavy,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 2,
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: const Icon(Icons.edit_note_rounded, size: 20, color: AppTheme.solarGold),
                   label: const Text(
                     'متابعة القياسات والتواقيع (المحرر) 📝',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
                   ),
                   onPressed: () {
                     Navigator.pop(ctx);
@@ -225,32 +232,36 @@ class SessionCompletionDialog {
               ),
               const SizedBox(height: 8),
 
-              // 2. خيار معاينة وتصدير PDF
+              // 2. خيار معاينة وتصدير PDF (OutlinedButton)
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     side: const BorderSide(color: AppTheme.borderSubtle),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  icon: const Icon(Icons.picture_as_pdf, size: 17, color: AppTheme.primaryNavy),
-                  label: const Text('معاينة وتصدير PDF', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
+                  icon: const Icon(Icons.picture_as_pdf, size: 18, color: AppTheme.primaryNavy),
+                  label: const Text('معاينة وتصدير PDF', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
                   onPressed: () {
                     Navigator.pop(ctx);
                     onPreviewPdf();
                   },
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
 
-              // 3. حفظ وخروج
+              // 3. حفظ وخروج (TextButton)
               TextButton(
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                ),
                 onPressed: () {
                   Navigator.pop(ctx);
                   onSaveAndFinish();
                 },
-                child: const Text('حفظ والخروج للرئيسية', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                child: const Text('حفظ والخروج للرئيسية', style: TextStyle(fontSize: 12.5, color: AppTheme.textMuted)),
               ),
             ],
           ),

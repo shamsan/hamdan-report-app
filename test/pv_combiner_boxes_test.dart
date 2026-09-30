@@ -66,21 +66,15 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Check header and progress (4 out of 8 completed = 50%)
-      expect(find.text('قياسات سلاسل الألواح والصناديق'), findsOneWidget);
-      expect(find.text('4 من 8 سلسلة تم قياسها بالكامل'), findsOneWidget);
-      expect(find.text('50%'), findsOneWidget);
+      // Check header and progress
+      expect(find.text('قياسات سلاسل وصناديق التجميع'), findsOneWidget);
+      expect(find.text('2 صناديق نشطة • 8 سلسلة • 4 مقاسة'), findsOneWidget);
 
       // Check Box Selector Chips
-      expect(find.text('صندوق #1'), findsOneWidget);
-      expect(find.text('صندوق #2'), findsOneWidget);
-      expect(find.text('4 / 4 سلاسل'), findsOneWidget);
-      expect(find.text('0 / 4 سلاسل'), findsOneWidget);
-
-      // Check Active Box Card for Box 1
-      expect(find.text('صندوق التجميع #1'), findsOneWidget);
-      expect(find.text('السلاسل: 1 إلى 4'), findsOneWidget);
-      expect(find.text('مكتمل'), findsOneWidget);
+      expect(find.text('صندوق #1'), findsWidgets);
+      expect(find.text('صندوق #2'), findsWidgets);
+      expect(find.text('(4/4)'), findsOneWidget);
+      expect(find.text('(0/4)'), findsOneWidget);
 
       // Check strings #1 to #4 rendered
       expect(find.text('#1'), findsOneWidget);
@@ -89,47 +83,14 @@ void main() {
       expect(find.text('#4'), findsOneWidget);
 
       // Tap on Box #2 chip to switch focus
-      await tester.tap(find.text('صندوق #2'));
+      await tester.tap(find.text('صندوق #2').first);
       await tester.pumpAndSettle();
 
-      // Box 2 card should now be active
-      expect(find.text('صندوق التجميع #2'), findsOneWidget);
-      expect(find.text('السلاسل: 5 إلى 8'), findsOneWidget);
+      // Box 2 strings should now be active
       expect(find.text('#5'), findsOneWidget);
       expect(find.text('#6'), findsOneWidget);
       expect(find.text('#7'), findsOneWidget);
       expect(find.text('#8'), findsOneWidget);
-    });
-
-    testWidgets('Toggles collapsible Telemetry/KPIs accordion', (tester) async {
-      final report = createSampleReport();
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: PvCombinerBoxesWidget(
-                report: report,
-                onReportUpdated: (_) {},
-              ),
-            ),
-          ),
-        ),
-      );
-
-      await tester.pumpAndSettle();
-
-      // Telemetry header visible
-      expect(find.text('ملخص مؤشرات أداء السلاسل'), findsOneWidget);
-
-      // Tap to expand
-      await tester.tap(find.text('ملخص مؤشرات أداء السلاسل'));
-      await tester.pumpAndSettle();
-
-      // KPIs now visible in expanded child
-      expect(find.text('متوسط Voc'), findsOneWidget);
-      expect(find.text('متوسط Isc'), findsOneWidget);
-      expect(find.text('السلاسل المكتملة'), findsOneWidget);
     });
 
     testWidgets('Switches to Overview Mode rendering all active boxes', (tester) async {
@@ -154,12 +115,12 @@ void main() {
       await tester.tap(find.byIcon(Icons.view_agenda_outlined));
       await tester.pumpAndSettle();
 
-      // Both Box 1 and Box 2 cards should be visible simultaneously
-      expect(find.text('صندوق التجميع #1'), findsOneWidget);
-      expect(find.text('صندوق التجميع #2'), findsOneWidget);
+      // In overview mode, strings of both boxes are rendered
+      expect(find.text('#1'), findsOneWidget);
+      expect(find.text('#5'), findsOneWidget);
     });
 
-    testWidgets('Auto-fills typical values when clicking typical fill button', (tester) async {
+    testWidgets('Auto-fills typical values via popup menu action', (tester) async {
       final report = createSampleReport();
       Report? updatedReport;
 
@@ -178,8 +139,12 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Tap on typical auto-fill icon
-      await tester.tap(find.byIcon(Icons.auto_fix_high_rounded));
+      // Open toolbar PopupMenuButton
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+
+      // Tap fill standard
+      await tester.tap(find.text('تعبئة نموذجية: ألواح قياسية 330W-350W'));
       await tester.pumpAndSettle();
 
       expect(updatedReport, isNotNull);

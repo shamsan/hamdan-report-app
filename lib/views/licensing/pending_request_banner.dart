@@ -7,6 +7,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/licensing/network/license_sync_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -156,9 +157,12 @@ class _PendingRequestBannerState extends ConsumerState<PendingRequestBanner> {
                   ],
                 ),
               ),
-              const SizedBox(width: 6),
-              ElevatedButton.icon(
-                onPressed: _isChecking ? null : _handleCheckNow,
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _isChecking ? null : () {
+                  HapticFeedback.lightImpact();
+                  _handleCheckNow();
+                },
                 icon: _isChecking
                     ? const SizedBox(
                         width: 12,
@@ -166,14 +170,13 @@ class _PendingRequestBannerState extends ConsumerState<PendingRequestBanner> {
                         child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white),
                       )
                     : const Icon(Icons.refresh_rounded, size: 14),
-                label: const Text('تحقق الآن', style: TextStyle(fontSize: 11)),
-                style: ElevatedButton.styleFrom(
+                label: const Text('تحقق الآن', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFFD97706),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: const Size(0, 36),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ],

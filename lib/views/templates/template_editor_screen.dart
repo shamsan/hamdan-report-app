@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/report_template.dart';
@@ -184,15 +185,20 @@ class _TemplateEditorScreenState extends ConsumerState<TemplateEditorScreen> {
                   'صفحات القالب (${_pages.length} صفحات)',
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.textDark),
                 ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.primaryNavy,
                     foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: const Icon(Icons.add_to_photos_rounded, size: 16),
                   label: const Text('إضافة صفحة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  onPressed: _addPage,
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _addPage();
+                  },
                 ),
               ],
             ),

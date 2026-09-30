@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:report_craft/services/default_templates.dart';
 import 'package:report_craft/services/pdf_export_service.dart';
@@ -11,6 +12,7 @@ import 'package:report_craft/models/measurement_data.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  FlutterSecureStorage.setMockInitialValues({});
 
   test('Generates full 11-page PDF document and writes to disk', () async {
     final sampleReport = DefaultTemplates.sampleDialysisReport;
