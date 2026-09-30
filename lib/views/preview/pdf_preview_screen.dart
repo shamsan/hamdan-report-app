@@ -198,9 +198,87 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: AppTheme.borderSubtle)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: ElevatedButton.icon(
+                  onPressed: () => _shareViaWhatsApp(context, branding),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 1,
+                  ),
+                  icon: const Icon(Icons.share_rounded, size: 18),
+                  label: const Text(
+                    'مشاركة وإرسال التقرير',
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: OutlinedButton.icon(
+                  onPressed: () => _directPrint(context, branding),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryNavy,
+                    side: const BorderSide(color: AppTheme.primaryNavy),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.print_rounded, size: 18),
+                  label: const Text(
+                    'طباعة مباشرة',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     ),
   );
 }
+
+  Future<void> _directPrint(BuildContext context, dynamic branding) async {
+    try {
+      await Printing.layoutPdf(
+        onLayout: (format) => PdfExportService.generateReportPdf(
+          report: _report,
+          branding: branding,
+          pagesToExport: _selectedPages.length == _availablePages.length ? null : _selectedPages.toList(),
+        ),
+        name: '${_report.facilityInfo.facilityName}_تقرير_الصيانة',
+      );
+      if (!context.mounted) return;
+      ref.read(reportsProvider.notifier).updateReport(
+        _report.copyWith(status: ReportStatus.exported),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر إرسال أمر الطباعة: $e')),
+      );
+    }
+  }
 
   void _showValidationDialog(BuildContext context, dynamic branding) {
     showDialog(
@@ -227,6 +305,7 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
       initialSelectedPages: _selectedPages,
       allowPageSelection: true,
       customPageLabels: _pageTitles,
+      activeCombinerBoxesCount: _report.activeCombinerBoxes.length,
     );
     if (result != null && mounted) {
       setState(() {

@@ -90,7 +90,7 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
   final _ownerEntityCtrl = TextEditingController();
   final _funderCtrl = TextEditingController();
   final _contractorCtrl = TextEditingController();
-  final _governorateCtrl = TextEditingController(text: 'صنعاء');
+  final _governorateCtrl = TextEditingController(text: 'أمانة العاصمة');
   final _districtCtrl = TextEditingController(text: 'السبعين');
   final _locationCtrl = TextEditingController();
 
@@ -212,7 +212,7 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
       if (site.implementingContractor.isNotEmpty) {
         _contractorCtrl.text = site.implementingContractor;
       }
-      _governorateCtrl.text = site.governorate.isNotEmpty ? site.governorate : 'صنعاء';
+      _governorateCtrl.text = site.governorate.isNotEmpty ? YemenLocations.normalizeGovernorate(site.governorate) : 'أمانة العاصمة';
       _districtCtrl.text = site.directorate.isNotEmpty ? site.directorate : 'السبعين';
       _locationCtrl.text = site.locationAddress;
 
@@ -268,9 +268,37 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
     setState(() {
       _selectedSourceReport = source;
 
+      // محاولة الربط التلقائي بالعميل والموقع التابعين للتقرير السابق إن وُجدا
+      final clients = ref.read(clientsProvider);
+      final sites = ref.read(sitesProvider);
+
+      Client? foundClient;
+      if (source.clientId.isNotEmpty) {
+        foundClient = clients.where((c) => c.id == source.clientId).firstOrNull;
+      }
+
+      Site? foundSite;
+      if (source.siteId.isNotEmpty) {
+        foundSite = sites.where((s) => s.id == source.siteId).firstOrNull;
+      }
+      if (foundSite == null && source.facilityInfo.facilityName.isNotEmpty) {
+        foundSite = sites.where((s) => s.nameAr == source.facilityInfo.facilityName).firstOrNull;
+      }
+      if (foundClient == null && foundSite != null) {
+        foundClient = clients.where((c) => c.id == foundSite!.clientId).firstOrNull;
+      }
+
+      if (foundSite != null) _selectedSite = foundSite;
+      if (foundClient != null) {
+        _selectedClient = foundClient;
+        _ownerEntityCtrl.text = foundClient.displayName;
+      }
+
       _projectNameCtrl.text = source.projectInfo.projectName;
       _contractNumberCtrl.text = source.contractNumber;
-      _ownerEntityCtrl.text = source.projectInfo.ownerEntity;
+      if (foundClient == null) {
+        _ownerEntityCtrl.text = source.projectInfo.ownerEntity;
+      }
       _funderCtrl.text = source.projectInfo.funder;
       _contractorCtrl.text = source.projectInfo.implementingContractor;
       _governorateCtrl.text = source.projectInfo.governorate;
@@ -361,7 +389,7 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
 
     // حقول اختيارية لإنشاء أول موقع للعميل في خطوة واحدة
     final siteNameCtrl = TextEditingController();
-    final siteGovCtrl = TextEditingController(text: 'صنعاء');
+    final siteGovCtrl = TextEditingController(text: 'أمانة العاصمة');
     final siteDistCtrl = TextEditingController(text: 'السبعين');
     bool createSiteTogether = false;
 
@@ -900,6 +928,8 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
         systemSpecs: systemSpecs,
         clientId: resolvedClientId,
         siteId: resolvedSiteId,
+        site: _selectedSite,
+        client: _selectedClient,
         activeBatteryGroups: _activeBatteryGroups,
         activeCombinerBoxes: _activeCombinerBoxes,
         cloneSourceReport: _mode == SessionCreationMode.fromExisting ? _selectedSourceReport : null,
@@ -956,7 +986,7 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
           body: SingleChildScrollView(
             controller: _scrollController,
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 160),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1392,6 +1422,81 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
                 ],
               ),
             ),
+          ] else if (_mode == SessionCreationMode.fromExisting && _selectedSourceReport != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.link_off_rounded, color: AppTheme.solarGold, size: 18),
+                      SizedBox(width: 6),
+                      Text(
+                        'التقرير السابق غير مرتبط بموقع في الدليل',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'يرجى اختيار العميل والموقع الميداني لإقران التقرير الجديد بهما:',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF78350F)),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<Client>(
+                    initialValue: _selectedClient,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: 'الجهة المالكة / العميل *',
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.business_rounded, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    items: clients.map((c) => DropdownMenuItem(value: c, child: Text(c.displayName, style: const TextStyle(fontSize: 12.5)))).toList(),
+                    onChanged: (c) {
+                      if (c != null) {
+                        setState(() {
+                          _selectedClient = c;
+                          _selectedSite = null;
+                        });
+                      }
+                    },
+                  ),
+                  if (_selectedClient != null) ...[
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<Site>(
+                      initialValue: _selectedSite,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'الموقع الميداني *',
+                        isDense: true,
+                        prefixIcon: const Icon(Icons.location_on_rounded, size: 18),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      items: availableSites.map((s) => DropdownMenuItem(value: s, child: Text(s.nameAr, style: const TextStyle(fontSize: 12.5)))).toList(),
+                      onChanged: (s) {
+                        if (s != null) {
+                          setState(() {
+                            _selectedSite = s;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ],
         ],
       ),
@@ -1426,20 +1531,24 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
                   ]
                 : null,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 16, color: isSelected ? AppTheme.primaryNavy : AppTheme.textMuted),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                  color: isSelected ? AppTheme.primaryNavy : AppTheme.textMuted,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: isSelected ? AppTheme.primaryNavy : AppTheme.textMuted),
+                const SizedBox(width: 5),
+                Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected ? AppTheme.primaryNavy : AppTheme.textMuted,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1550,60 +1659,88 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: _governorateCtrl.text.isNotEmpty && YemenLocations.governorates.contains(_governorateCtrl.text)
-                      ? _governorateCtrl.text
-                      : 'صنعاء',
-                  decoration: InputDecoration(
-                    labelText: 'المحافظة',
-                    prefixIcon: const Icon(Icons.location_city_rounded, size: 18),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    filled: true,
-                    fillColor: Colors.white,
+          Builder(
+            builder: (context) {
+              final effectiveGov = YemenLocations.normalizeGovernorate(_governorateCtrl.text);
+              final dists = YemenLocations.getDistrictsFor(effectiveGov);
+              final effectiveDist = dists.contains(_districtCtrl.text)
+                  ? _districtCtrl.text
+                  : (dists.isNotEmpty ? dists.first : '');
+
+              return Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      key: ValueKey('gov_$effectiveGov'),
+                      initialValue: effectiveGov,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'المحافظة',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                        prefixIcon: const Icon(Icons.location_city_rounded, size: 18),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      items: YemenLocations.governorates.map((g) {
+                        return DropdownMenuItem(
+                          value: g,
+                          child: Text(
+                            g,
+                            style: const TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (gov) {
+                        if (gov != null) {
+                          _markEdited();
+                          setState(() {
+                            _governorateCtrl.text = gov;
+                            final newDists = YemenLocations.getDistrictsFor(gov);
+                            _districtCtrl.text = newDists.isNotEmpty ? newDists.first : '';
+                          });
+                        }
+                      },
+                    ),
                   ),
-                  items: YemenLocations.governorates.map((g) {
-                    return DropdownMenuItem(value: g, child: Text(g, style: const TextStyle(fontSize: 12.5)));
-                  }).toList(),
-                  onChanged: (gov) {
-                    if (gov != null) {
-                      _markEdited();
-                      setState(() {
-                        _governorateCtrl.text = gov;
-                        final dists = YemenLocations.getDistrictsFor(gov);
-                        _districtCtrl.text = dists.isNotEmpty ? dists.first : '';
-                      });
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: YemenLocations.getDistrictsFor(_governorateCtrl.text).contains(_districtCtrl.text)
-                      ? _districtCtrl.text
-                      : (YemenLocations.getDistrictsFor(_governorateCtrl.text).firstOrNull),
-                  decoration: InputDecoration(
-                    labelText: 'المديرية',
-                    prefixIcon: const Icon(Icons.map_rounded, size: 18),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    filled: true,
-                    fillColor: Colors.white,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      key: ValueKey('dist_${effectiveGov}_$effectiveDist'),
+                      initialValue: effectiveDist.isNotEmpty ? effectiveDist : null,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'المديرية',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                        prefixIcon: const Icon(Icons.map_rounded, size: 18),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      items: dists.map((d) {
+                        return DropdownMenuItem(
+                          value: d,
+                          child: Text(
+                            d,
+                            style: const TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (dist) {
+                        if (dist != null) {
+                          _markEdited();
+                          setState(() => _districtCtrl.text = dist);
+                        }
+                      },
+                    ),
                   ),
-                  items: YemenLocations.getDistrictsFor(_governorateCtrl.text).map((d) {
-                    return DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 12.5)));
-                  }).toList(),
-                  onChanged: (dist) {
-                    if (dist != null) {
-                      _markEdited();
-                      setState(() => _districtCtrl.text = dist);
-                    }
-                  },
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
           _buildStandardInput(
@@ -2544,47 +2681,87 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
         top: false,
         child: Row(
           children: [
-            // زر محرر التقرير (ثانوي)
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.primaryNavy,
-                side: const BorderSide(color: AppTheme.primaryNavy),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              icon: const Icon(Icons.edit_note_rounded, size: 18),
-              label: const Text(
-                'محرر التقرير',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-              ),
-              onPressed: _isSubmitting ? null : () => _submit(startInteractiveSession: false),
-            ),
-            const SizedBox(width: 10),
-
-            // زر بدء جلسة الفحص الميداني (أساسي)
-            Expanded(
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryNavy,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
+            if (!widget.openSessionDirectly) ...[
+              // نمط محرر التقرير كإجراء رئيسي أولاً
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryNavy,
+                  side: const BorderSide(color: AppTheme.primaryNavy),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 2,
                 ),
-                icon: _isSubmitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.play_circle_filled_rounded, color: AppTheme.solarGold, size: 22),
-                label: Text(
-                  _isSubmitting ? 'جاري إنشاء الجلسة...' : 'بدء الفحص الميداني الآن 🚀',
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
+                icon: const Icon(Icons.play_circle_outline_rounded, size: 18),
+                label: const Text(
+                  'الفحص الميداني',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
                 ),
                 onPressed: _isSubmitting ? null : () => _submit(startInteractiveSession: true),
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryNavy,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 2,
+                  ),
+                  icon: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.edit_note_rounded, color: AppTheme.solarGold, size: 22),
+                  label: Text(
+                    _isSubmitting ? 'جاري إنشاء التقرير...' : 'فتح محرر التقرير الشامل 📝',
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
+                  ),
+                  onPressed: _isSubmitting ? null : () => _submit(startInteractiveSession: false),
+                ),
+              ),
+            ] else ...[
+              // نمط الفحص الميداني كإجراء رئيسي أولاً
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryNavy,
+                  side: const BorderSide(color: AppTheme.primaryNavy),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.edit_note_rounded, size: 18),
+                label: const Text(
+                  'محرر التقرير',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                ),
+                onPressed: _isSubmitting ? null : () => _submit(startInteractiveSession: false),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryNavy,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 2,
+                  ),
+                  icon: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.play_circle_filled_rounded, color: AppTheme.solarGold, size: 22),
+                  label: Text(
+                    _isSubmitting ? 'جاري إنشاء الجلسة...' : 'بدء الفحص الميداني الآن 🚀',
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
+                  ),
+                  onPressed: _isSubmitting ? null : () => _submit(startInteractiveSession: true),
+                ),
+              ),
+            ],
           ],
         ),
       ),

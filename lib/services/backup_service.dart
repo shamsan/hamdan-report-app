@@ -1,30 +1,39 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/report.dart';
-import '../models/report_template.dart';
-import '../models/organization.dart';
 import 'storage_service.dart';
 
 class BackupInspectionResult {
   final bool isValid;
   final int reportCount;
   final int templateCount;
+  final int clientCount;
+  final int siteCount;
+  final int photosCount;
   final String exportedAt;
   final String version;
   final String rawJson;
+  final List<int>? rawZipBytes;
+  final bool isArchive;
   final String errorMessage;
 
   const BackupInspectionResult({
     required this.isValid,
     this.reportCount = 0,
     this.templateCount = 0,
+    this.clientCount = 0,
+    this.siteCount = 0,
+    this.photosCount = 0,
     this.exportedAt = '',
     this.version = '',
     this.rawJson = '',
+    this.rawZipBytes,
+    this.isArchive = false,
     this.errorMessage = '',
   });
 }
@@ -32,7 +41,37 @@ class BackupInspectionResult {
 class BackupService {
   static const String _keyLastBackup = 'reportcraft_last_backup_time';
 
-  /// 1. Export backup JSON and save to device local documents storage
+  /// 1. تصدير حزمة أرشيف شاملة (.rcbackup) مع كافة الصور وقاعدة البيانات وحفظها محلياً
+  static Future<String> exportArchiveLocalFile() async {
+    final storage = StorageService();
+    final zipBytes = await storage.exportFullArchiveZip();
+    final now = DateTime.now();
+    final dateStr =
+        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+    final fileName = 'reportcraft_archive_$dateStr.rcbackup';
+
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File('${dir.path}/$fileName');
+    await file.writeAsBytes(zipBytes, flush: true);
+
+    await _recordBackupTime(now);
+    return file.path;
+  }
+
+  /// 2. تصدير ومشاركة حزمة الأرشيف الشاملة مع كافة الصور مباشرة عبر التطبيقات
+  static Future<void> exportAndShareArchive() async {
+    final storage = StorageService();
+    final zipBytes = await storage.exportFullArchiveZip();
+    final now = DateTime.now();
+    final dateStr =
+        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    final fileName = 'reportcraft_archive_$dateStr.rcbackup';
+
+    await Printing.sharePdf(bytes: Uint8List.fromList(zipBytes), filename: fileName);
+    await _recordBackupTime(now);
+  }
+
+  /// 3. تصدير ملف JSON خفيف (بيانات وقوالب فقط) وحفظه في الذاكرة
   static Future<String> exportLocalFile() async {
     final storage = StorageService();
     final jsonStr = await storage.exportFullBackup();
@@ -49,7 +88,7 @@ class BackupService {
     return file.path;
   }
 
-  /// 2. Export and invoke Android native share sheet (WhatsApp, Drive, Email, etc.)
+  /// 4. تصدير ومشاركة ملف JSON خفيف
   static Future<void> exportAndShare() async {
     final storage = StorageService();
     final jsonStr = await storage.exportFullBackup();
@@ -63,7 +102,7 @@ class BackupService {
     await _recordBackupTime(now);
   }
 
-  /// 3. Pick a backup file and inspect its metadata before applying
+  /// 5. فحص ومعاينة ملف النسخة الاحتياطية (يدعم .rcbackup, .zip, .json تلقائياً)
   static Future<BackupInspectionResult> pickAndInspectBackup() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -78,121 +117,139 @@ class BackupService {
       }
 
       final pickedFile = result.files.first;
-      String content = '';
+      List<int>? rawBytes;
 
       if (pickedFile.bytes != null) {
-        content = utf8.decode(pickedFile.bytes!);
+        rawBytes = pickedFile.bytes;
       } else if (pickedFile.path != null) {
         final file = File(pickedFile.path!);
-        content = await file.readAsString();
+        rawBytes = await file.readAsBytes();
+      }
+
+      if (rawBytes == null || rawBytes.isEmpty) {
+        return const BackupInspectionResult(
+          isValid: false,
+          errorMessage: 'تعذر قراءة بيانات الملف المختار أو الملف فارغ',
+        );
+      }
+
+      final name = (pickedFile.name).toLowerCase();
+      // تحقق هل الملف حزمة مضغوطة (ZIP magic header: PK\x03\x04 أو الامتداد)
+      final isZip = (rawBytes.length >= 4 &&
+              rawBytes[0] == 0x50 &&
+              rawBytes[1] == 0x4B &&
+              rawBytes[2] == 0x03 &&
+              rawBytes[3] == 0x04) ||
+          name.endsWith('.rcbackup') ||
+          name.endsWith('.zip');
+
+      if (isZip) {
+        final archive = ZipDecoder().decodeBytes(rawBytes);
+        ArchiveFile? dbFile;
+        int photoCount = 0;
+
+        for (final file in archive) {
+          if (file.name == 'database.json') {
+            dbFile = file;
+          } else if (file.name.startsWith('photos/') && !file.isDirectory) {
+            photoCount++;
+          }
+        }
+
+        if (dbFile == null) {
+          return const BackupInspectionResult(
+            isValid: false,
+            errorMessage: 'حزمة الأرشيف لا تحتوي على ملف قاعدة البيانات database.json',
+          );
+        }
+
+        final content = utf8.decode(dbFile.content as List<int>);
+        final Map<String, dynamic> data = jsonDecode(content);
+
+        final reportsList = (data['reports'] as List? ?? []);
+        final templatesList = (data['templates'] as List? ?? []);
+        final clientsList = (data['clients'] as List? ?? []);
+        final sitesList = (data['sites'] as List? ?? []);
+        final exportedAt = data['exportedAt']?.toString() ?? 'غير محدد';
+        final version = data['version']?.toString() ?? '2.1.0';
+
+        return BackupInspectionResult(
+          isValid: true,
+          reportCount: reportsList.length,
+          templateCount: templatesList.length,
+          clientCount: clientsList.length,
+          siteCount: sitesList.length,
+          photosCount: photoCount,
+          exportedAt: exportedAt,
+          version: version,
+          rawJson: content,
+          rawZipBytes: rawBytes,
+          isArchive: true,
+        );
       } else {
-        return const BackupInspectionResult(
-          isValid: false,
-          errorMessage: 'تعذر قراءة بيانات الملف المختار',
+        // معالجة كملف JSON قياسي
+        final content = utf8.decode(rawBytes);
+        final Map<String, dynamic> data = jsonDecode(content);
+        if (!data.containsKey('reports') && !data.containsKey('templates')) {
+          return const BackupInspectionResult(
+            isValid: false,
+            errorMessage: 'الملف المختار ليس ملف نسخة احتياطية صالح لنظام ReportCraft',
+          );
+        }
+
+        final reportsList = (data['reports'] as List? ?? []);
+        final templatesList = (data['templates'] as List? ?? []);
+        final clientsList = (data['clients'] as List? ?? []);
+        final sitesList = (data['sites'] as List? ?? []);
+        final exportedAt = data['exportedAt']?.toString() ?? 'غير محدد';
+        final version = data['version']?.toString() ?? '1.0.0';
+
+        return BackupInspectionResult(
+          isValid: true,
+          reportCount: reportsList.length,
+          templateCount: templatesList.length,
+          clientCount: clientsList.length,
+          siteCount: sitesList.length,
+          photosCount: 0,
+          exportedAt: exportedAt,
+          version: version,
+          rawJson: content,
+          rawZipBytes: null,
+          isArchive: false,
         );
       }
-
-      final Map<String, dynamic> data = jsonDecode(content);
-      if (!data.containsKey('reports') && !data.containsKey('templates')) {
-        return const BackupInspectionResult(
-          isValid: false,
-          errorMessage: 'الملف المختار ليس ملف نسخة احتياطية صالح لنظام ReportCraft',
-        );
-      }
-
-      final reportsList = (data['reports'] as List? ?? []);
-      final templatesList = (data['templates'] as List? ?? []);
-      final exportedAt = data['exportedAt']?.toString() ?? 'غير محدد';
-      final version = data['version']?.toString() ?? '1.0.0';
-
-      return BackupInspectionResult(
-        isValid: true,
-        reportCount: reportsList.length,
-        templateCount: templatesList.length,
-        exportedAt: exportedAt,
-        version: version,
-        rawJson: content,
-      );
     } catch (e) {
       return BackupInspectionResult(
         isValid: false,
-        errorMessage: 'خطأ في معالجة الملف: ${e.toString()}',
+        errorMessage: 'خطأ أثناء معالجة الملف: ${e.toString()}',
       );
     }
   }
 
-  /// 4. Execute restore: Smart Merge (append/update) or Full Overwrite
+  /// 6. تنفيذ الاستعادة سواء كانت حزمة أرشيف شاملة أو ملف JSON قياسي
   static Future<bool> executeRestore(
-    String jsonContent, {
+    BackupInspectionResult inspection, {
     required bool mergeMode,
   }) async {
     try {
       final storage = StorageService();
-      final Map<String, dynamic> data = jsonDecode(jsonContent);
-
-      if (mergeMode) {
-        // Smart Merge: combine existing reports with incoming reports
-        if (data.containsKey('reports')) {
-          final currentReports = await storage.loadReports();
-          final List incomingList = data['reports'];
-          final incomingReports = incomingList.map((e) => Report.fromJson(e)).toList();
-
-          final mergedMap = <String, Report>{};
-          for (final r in currentReports) {
-            mergedMap[r.id] = r;
-          }
-          for (final r in incomingReports) {
-            mergedMap[r.id] = r; // updates existing or inserts new
-          }
-
-          await storage.saveReports(mergedMap.values.toList());
-        }
-
-        if (data.containsKey('templates')) {
-          final currentTemplates = await storage.loadTemplates();
-          final List incomingList = data['templates'];
-          final incomingTemplates = incomingList.map((e) => ReportTemplate.fromJson(e)).toList();
-
-          final mergedMap = <String, ReportTemplate>{};
-          for (final t in currentTemplates) {
-            mergedMap[t.id] = t;
-          }
-          for (final t in incomingTemplates) {
-            mergedMap[t.id] = t;
-          }
-          await storage.saveTemplates(mergedMap.values.toList());
-        }
+      if (inspection.isArchive && inspection.rawZipBytes != null) {
+        return await storage.importFullArchiveZip(inspection.rawZipBytes!, mergeMode: mergeMode);
       } else {
-        // Full Overwrite
-        if (data.containsKey('reports')) {
-          final List incomingList = data['reports'];
-          final reports = incomingList.map((e) => Report.fromJson(e)).toList();
-          await storage.saveReports(reports);
-        }
-        if (data.containsKey('templates')) {
-          final List incomingList = data['templates'];
-          final templates = incomingList.map((e) => ReportTemplate.fromJson(e)).toList();
-          await storage.saveTemplates(templates);
-        }
-        if (data.containsKey('branding')) {
-          final branding = OrganizationProfile.fromJson(data['branding']);
-          await storage.saveBranding(branding);
-        }
+        return await storage.importFullBackup(inspection.rawJson, mergeMode: mergeMode);
       }
-
-      return true;
     } catch (e) {
       return false;
     }
   }
 
-  /// 5. SharedPreferences helper for recording backup timestamp
+  /// 7. تسجيل وقت آخر عملية نسخ احتياطي
   static Future<void> _recordBackupTime(DateTime dt) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyLastBackup, dt.toIso8601String());
   }
 
-  /// 6. Get last backup timestamp formatted
+  /// 8. جلب وقت آخر نسخة احتياطية بصيغة مقروءة
   static Future<String?> getLastBackupFormatted() async {
     final prefs = await SharedPreferences.getInstance();
     final iso = prefs.getString(_keyLastBackup);

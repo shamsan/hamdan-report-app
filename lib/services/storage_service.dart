@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:archive/archive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/organization.dart';
@@ -451,6 +452,87 @@ class StorageService {
       if (data.containsKey('branding')) {
         final branding = OrganizationProfile.fromJson(data['branding'] as Map<String, dynamic>);
         await saveBranding(branding);
+      }
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Directory? get photosDir => _photosDir;
+
+  /// حل مسار الصورة للتعامل مع نقل البيانات بين أجهزة متعددة أو تغيير مسار التطبيق
+  Future<String?> resolvePhotoPath(String? rawPath) async {
+    if (rawPath == null || rawPath.isEmpty) return null;
+    final direct = File(rawPath);
+    if (await direct.exists()) return direct.path;
+    await _ensureDirs();
+    final filename = rawPath.split(RegExp(r'[/\\]')).last;
+    final local = File('${_photosDir!.path}/$filename');
+    if (await local.exists()) return local.path;
+    return null;
+  }
+
+  /// تصدير حزمة أرشيف شاملة (.rcbackup / .zip) تحتوي على قاعدة البيانات JSON وكافة الصور في مجلد photos/
+  Future<List<int>> exportFullArchiveZip() async {
+    await init();
+    final jsonStr = await exportFullBackup();
+    final archive = Archive();
+
+    // 1. إضافة ملف قاعدة البيانات database.json
+    final jsonBytes = utf8.encode(jsonStr);
+    archive.addFile(ArchiveFile('database.json', jsonBytes.length, jsonBytes));
+
+    // 2. إضافة كافة الصور الفيزيائية من مجلد الصور
+    if (_photosDir != null && await _photosDir!.exists()) {
+      final photoFiles = _photosDir!.listSync().whereType<File>();
+      for (final pFile in photoFiles) {
+        final filename = pFile.uri.pathSegments.last;
+        final bytes = await pFile.readAsBytes();
+        archive.addFile(ArchiveFile('photos/$filename', bytes.length, bytes));
+      }
+    }
+
+    final encoder = ZipEncoder();
+    final zipData = encoder.encode(archive);
+    return zipData;
+  }
+
+  /// استيراد حزمة أرشيف شاملة (.rcbackup / .zip) واستخراج قاعدة البيانات والصور
+  Future<bool> importFullArchiveZip(List<int> zipBytes, {bool mergeMode = true}) async {
+    try {
+      await init();
+      final decoder = ZipDecoder();
+      final archive = decoder.decodeBytes(zipBytes);
+
+      ArchiveFile? dbFile;
+      final photoFiles = <ArchiveFile>[];
+
+      for (final file in archive) {
+        if (file.name == 'database.json') {
+          dbFile = file;
+        } else if (file.name.startsWith('photos/') && !file.isDirectory) {
+          photoFiles.add(file);
+        }
+      }
+
+      if (dbFile == null) {
+        return false;
+      }
+
+      final jsonContent = utf8.decode(dbFile.content as List<int>);
+      final success = await importFullBackup(jsonContent, mergeMode: mergeMode);
+      if (!success) return false;
+
+      // كتابة الصور المستخرجة إلى مجلد الصور المحلي
+      await _ensureDirs();
+      for (final pFile in photoFiles) {
+        final filename = pFile.name.replaceFirst('photos/', '');
+        if (filename.isNotEmpty) {
+          final dest = File('${_photosDir!.path}/$filename');
+          await dest.writeAsBytes(pFile.content as List<int>, flush: true);
+        }
       }
 
       return true;

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -7,6 +8,9 @@ import 'services/storage_service.dart';
 import 'state/branding_provider.dart';
 import 'views/main_navigation_shell.dart';
 import 'views/onboarding/onboarding_screen.dart';
+import 'state/licensing_provider.dart';
+import 'views/licensing/license_lock_screen.dart';
+import 'views/licensing/command_ui_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
@@ -15,12 +19,12 @@ void main() async {
   // معالج أخطاء Flutter Framework العام
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
-    debugPrint('[ReportCraft] Framework Error: ${details.exceptionAsString()}');
+    stderr.writeln('[ReportCraft] Framework Error: ${details.exception}\n${details.stack}');
   };
 
   // معالج الأخطاء غير المتزامنة
   PlatformDispatcher.instance.onError = (error, stack) {
-    debugPrint('[ReportCraft] Async Runtime Error: $error');
+    stderr.writeln('[ReportCraft] Async Runtime Error: $error\n$stack');
     return true;
   };
 
@@ -71,6 +75,8 @@ void main() async {
   );
 }
 
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 class ReportCraftApp extends ConsumerWidget {
   final bool hasSeenOnboarding;
 
@@ -79,8 +85,17 @@ class ReportCraftApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final branding = ref.watch(brandingProvider);
+    final license = ref.watch(licensingProvider);
+
+    Widget homeWidget;
+    if (license.isLocked) {
+      homeWidget = const LicenseLockScreen();
+    } else {
+      homeWidget = hasSeenOnboarding ? const MainNavigationShell() : const OnboardingScreen();
+    }
 
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'منشئ التقارير الاحترافية - ReportCraft',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme(
@@ -103,10 +118,12 @@ class ReportCraftApp extends ConsumerWidget {
         final isRtl = locale.languageCode == 'ar';
         return Directionality(
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-          child: child ?? const SizedBox(),
+          child: LicensingCommandEventListener(
+            child: child ?? const SizedBox(),
+          ),
         );
       },
-      home: hasSeenOnboarding ? const MainNavigationShell() : const OnboardingScreen(),
+      home: homeWidget,
     );
   }
 }

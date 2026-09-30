@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/inspection_item.dart';
 import '../../../models/maintenance_need.dart';
@@ -20,6 +21,7 @@ class QuestionCardWidget extends StatefulWidget {
   final VoidCallback? onSkipSubcategory;
   final VoidCallback? onMarkSubcategoryGood;
   final VoidCallback? onMarkSubcategoryNA;
+  final VoidCallback? onAutoAdvance;
 
   const QuestionCardWidget({
     super.key,
@@ -32,6 +34,7 @@ class QuestionCardWidget extends StatefulWidget {
     this.onSkipSubcategory,
     this.onMarkSubcategoryGood,
     this.onMarkSubcategoryNA,
+    this.onAutoAdvance,
   });
 
   @override
@@ -43,11 +46,34 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
   List<String> _presetNotes = [];
   bool _isLoadingNotes = false;
 
+  // Progressive Disclosure (الظهور التدريجي لتقليل إجهاد التمرير)
+  bool _showNotes = false;
+  bool _showPhoto = false;
+  bool _showNeeds = false;
+
+  void _syncExpansionState(InspectionItem item) {
+    if (item.notes.trim().isNotEmpty) {
+      _showNotes = true;
+    }
+    if (item.photoBase64 != null && item.photoBase64!.isNotEmpty) {
+      _showPhoto = true;
+    }
+    if (widget.linkedNeeds.isNotEmpty) {
+      _showNeeds = true;
+    }
+    if (item.status == InspectionStatus.needsFollowup ||
+        item.status == InspectionStatus.rejected) {
+      _showNotes = true;
+      _showNeeds = true;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _notesController = TextEditingController(text: widget.question.item.notes);
     _notesController.addListener(_onNotesChanged);
+    _syncExpansionState(widget.question.item);
     _loadPresetNotes();
   }
 
@@ -60,10 +86,17 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.question.item.id != widget.question.item.id) {
       _notesController.text = widget.question.item.notes;
+      _showNotes = false;
+      _showPhoto = false;
+      _showNeeds = false;
+      _syncExpansionState(widget.question.item);
       _loadPresetNotes();
-    } else if (oldWidget.question.item.notes != widget.question.item.notes &&
-        _notesController.text != widget.question.item.notes) {
-      _notesController.text = widget.question.item.notes;
+    } else {
+      if (oldWidget.question.item.notes != widget.question.item.notes &&
+          _notesController.text != widget.question.item.notes) {
+        _notesController.text = widget.question.item.notes;
+      }
+      _syncExpansionState(widget.question.item);
     }
   }
 
@@ -567,27 +600,552 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
             ),
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
-          // Status Selection Cards (Large, Touch-Friendly)
-          const Text(
-            'نتيجة الفحص الميداني:',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+          // Status Selection Header
+          Row(
+            children: [
+              const Text(
+                'تقييم البند:',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+              ),
+              const Spacer(),
+              if (item.status != InspectionStatus.uninspected)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: item.status.color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    item.status.labelAr,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: item.status.color,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
 
+          // 2x2 Grid + N/A Card
           _buildStatusOptions(item),
 
-          const SizedBox(height: 16),
+          // Quick Action Dock (صورة، ملاحظة، قطع غيار)
+          _buildQuickActionDock(item),
 
-          // Quick Notes & Observations Header
+          // Collapsible Photo Section
+          if (_showPhoto) ...[
+            _buildPhotoSection(item),
+            const SizedBox(height: 10),
+          ],
+
+          // Collapsible Notes Section
+          if (_showNotes) ...[
+            _buildNotesSection(item),
+            const SizedBox(height: 10),
+          ],
+
+          // Collapsible Needs Section
+          if (_showNeeds) ...[
+            _buildNeedsSection(item),
+            const SizedBox(height: 12),
+          ],
+
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  void _selectStatus(InspectionStatus st) {
+    HapticFeedback.lightImpact();
+    final updated = widget.question.item.copyWith(status: st);
+    widget.onUpdated(updated);
+
+    if (st == InspectionStatus.good) {
+      if (widget.onAutoAdvance != null) {
+        Future.delayed(const Duration(milliseconds: 280), () {
+          if (mounted) {
+            widget.onAutoAdvance?.call();
+          }
+        });
+      }
+    } else if (st == InspectionStatus.needsFollowup || st == InspectionStatus.rejected) {
+      setState(() {
+        _showNotes = true;
+        _showNeeds = true;
+      });
+    }
+  }
+
+  Widget _buildStatusTile(
+    InspectionItem item, {
+    required InspectionStatus status,
+    required String label,
+    required IconData icon,
+    required Color color,
+  }) {
+    final isSelected = item.status == status;
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _selectStatus(status),
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+            decoration: BoxDecoration(
+              color: isSelected ? color.withValues(alpha: 0.12) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? color : AppTheme.borderSubtle,
+                width: isSelected ? 2.0 : 1.0,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.18),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? color : const Color(0xFFCBD5E1),
+                      width: 1.8,
+                    ),
+                    color: isSelected ? color : Colors.white,
+                  ),
+                  child: isSelected
+                      ? const Icon(Icons.check, size: 12, color: Colors.white)
+                      : null,
+                ),
+                const SizedBox(width: 8),
+                Icon(icon, color: color, size: 19),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      color: isSelected ? color : AppTheme.textDark,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotApplicableTile(InspectionItem item) {
+    const status = InspectionStatus.notApplicable;
+    final isSelected = item.status == status;
+    const color = Color(0xFF64748B);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _selectStatus(status),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withValues(alpha: 0.1) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? color : AppTheme.borderSubtle,
+              width: isSelected ? 2.0 : 1.0,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? color : const Color(0xFF94A3B8),
+                    width: 1.8,
+                  ),
+                  color: isSelected ? color : Colors.white,
+                ),
+                child: isSelected
+                    ? const Icon(Icons.check, size: 11, color: Colors.white)
+                    : null,
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.do_not_disturb_on_rounded, color: color, size: 17),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'غير منطبق (N/A) - المكون غير متوفر بالمنشأة',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF475569),
+                  ),
+                ),
+              ),
+              if (isSelected)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'محدد',
+                    style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusOptions(InspectionItem item) {
+    return Column(
+      children: [
+        // Row 1: Good & Acceptable
+        Row(
+          children: [
+            _buildStatusTile(
+              item,
+              status: InspectionStatus.good,
+              label: 'سليم / ممتاز',
+              icon: Icons.check_circle_rounded,
+              color: AppTheme.statusGood,
+            ),
+            const SizedBox(width: 8),
+            _buildStatusTile(
+              item,
+              status: InspectionStatus.acceptable,
+              label: 'مقبول / يعمل',
+              icon: Icons.sentiment_satisfied_alt_rounded,
+              color: AppTheme.statusAcceptable,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Row 2: Needs Followup & Rejected
+        Row(
+          children: [
+            _buildStatusTile(
+              item,
+              status: InspectionStatus.needsFollowup,
+              label: 'يحتاج متابعة',
+              icon: Icons.warning_amber_rounded,
+              color: AppTheme.statusFollowup,
+            ),
+            const SizedBox(width: 8),
+            _buildStatusTile(
+              item,
+              status: InspectionStatus.rejected,
+              label: 'مرفوض / عاطل',
+              icon: Icons.cancel_rounded,
+              color: AppTheme.statusRejected,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Row 3: Not Applicable
+        _buildNotApplicableTile(item),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionDock(InspectionItem item) {
+    final hasPhoto = item.photoBase64 != null && item.photoBase64!.isNotEmpty;
+    final hasNotes = item.notes.trim().isNotEmpty;
+    final needsCount = widget.linkedNeeds.length;
+    final hasNeeds = needsCount > 0;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12, bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderSubtle),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Photo Action
+          Expanded(
+            child: _buildDockButton(
+              icon: hasPhoto ? Icons.photo_camera_rounded : Icons.add_a_photo_outlined,
+              label: hasPhoto ? 'صورة مرفقة' : 'إرفاق صورة',
+              badgeCount: hasPhoto ? 1 : 0,
+              badgeColor: AppTheme.statusGood,
+              isSelected: _showPhoto,
+              activeColor: AppTheme.primaryNavy,
+              onTap: () {
+                setState(() {
+                  _showPhoto = !_showPhoto;
+                });
+              },
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Notes Action
+          Expanded(
+            child: _buildDockButton(
+              icon: hasNotes ? Icons.rate_review_rounded : Icons.edit_note_rounded,
+              label: hasNotes ? 'ملاحظة مسجلة' : 'ملاحظات فنية',
+              badgeCount: hasNotes ? 1 : 0,
+              badgeColor: AppTheme.brandCyan,
+              isSelected: _showNotes,
+              activeColor: AppTheme.brandCyan,
+              onTap: () {
+                setState(() {
+                  _showNotes = !_showNotes;
+                });
+              },
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Needs Action
+          Expanded(
+            child: _buildDockButton(
+              icon: hasNeeds ? Icons.build_circle_rounded : Icons.handyman_outlined,
+              label: hasNeeds ? 'احتياجات ($needsCount)' : 'طلب مواد',
+              badgeCount: needsCount,
+              badgeColor: AppTheme.solarGold,
+              isSelected: _showNeeds,
+              activeColor: AppTheme.solarGold,
+              onTap: () {
+                setState(() {
+                  _showNeeds = !_showNeeds;
+                });
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDockButton({
+    required IconData icon,
+    required String label,
+    required int badgeCount,
+    required Color badgeColor,
+    required bool isSelected,
+    required Color activeColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? activeColor.withValues(alpha: 0.1)
+              : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? activeColor.withValues(alpha: 0.5) : Colors.transparent,
+            width: 1.2,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: isSelected ? activeColor : AppTheme.textSecondary,
+                ),
+                if (badgeCount > 0)
+                  Positioned(
+                    top: -4,
+                    right: -6,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: badgeColor,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                      child: Center(
+                        child: Text(
+                          badgeCount > 1 ? '$badgeCount' : '✓',
+                          style: const TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: isSelected ? activeColor : AppTheme.textSecondary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoSection(InspectionItem item) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppTheme.primaryNavy.withValues(alpha: 0.2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: item.photoBase64 != null && item.photoBase64!.isNotEmpty
+            ? Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(
+                      base64Decode(item.photoBase64!),
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('تم إرفاق صورة توثيقية للبند',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        Text('ستظهر الصورة في ملحق التقرير المصدّر',
+                            style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                    tooltip: 'حذف الصورة',
+                    onPressed: _removePhoto,
+                  ),
+                ],
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryNavy,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.camera_alt, size: 17),
+                        label: const Text(
+                          'التقاط فوري بالكاميرا',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: _captureFromCamera,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.brandCyan,
+                          side: const BorderSide(color: AppTheme.brandCyan),
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.photo_library_outlined, size: 16),
+                        label: const Text(
+                          'الاستوديو',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: _pickFromGallery,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildNotesSection(InspectionItem item) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.brandCyan.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           Row(
             children: [
               const Icon(Icons.quickreply_rounded, size: 16, color: AppTheme.primaryNavy),
               const SizedBox(width: 6),
               const Text(
                 'الملاحظات المسبقة',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
               ),
               if (_presetNotes.isNotEmpty) ...[
                 const SizedBox(width: 6),
@@ -688,7 +1246,7 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
           else if (_presetNotes.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(bottom: 8),
-              height: 34,
+              height: 32,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: _presetNotes.length + (_presetNotes.length > 2 ? 1 : 0),
@@ -699,7 +1257,7 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                       avatar: const Icon(Icons.grid_view_rounded, size: 13, color: AppTheme.primaryNavy),
                       label: const Text(
                         'عرض الكل',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
                       ),
                       backgroundColor: AppTheme.primaryNavy.withValues(alpha: 0.08),
                       side: BorderSide(color: AppTheme.primaryNavy.withValues(alpha: 0.2)),
@@ -719,7 +1277,7 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                     label: Text(
                       note,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 10.5,
                         fontWeight: isIncluded ? FontWeight.bold : FontWeight.normal,
                         color: isIncluded ? AppTheme.primaryNavy : AppTheme.textDark,
                       ),
@@ -769,97 +1327,6 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
               widget.onUpdated(item.copyWith(notes: val));
             },
           ),
-
-          const SizedBox(height: 14),
-
-          // Photo Attachment
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: AppTheme.borderSubtle),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: item.photoBase64 != null && item.photoBase64!.isNotEmpty
-                  ? Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.memory(
-                            base64Decode(item.photoBase64!),
-                            width: 60,
-                            height: 60,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('تم إرفاق صورة توثيقية للبند', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                              Text('ستظهر الصورة في ملحق التقرير المصدّر', style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                          tooltip: 'حذف الصورة',
-                          onPressed: _removePhoto,
-                        ),
-                      ],
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryNavy,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                elevation: 0,
-                              ),
-                              icon: const Icon(Icons.camera_alt, size: 17),
-                              label: const Text(
-                                'التقاط فوري بالكاميرا',
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                              ),
-                              onPressed: _captureFromCamera,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 2,
-                            child: OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.brandCyan,
-                                side: const BorderSide(color: AppTheme.brandCyan),
-                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              icon: const Icon(Icons.photo_library_outlined, size: 16),
-                              label: const Text(
-                                'الاستوديو',
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                              ),
-                              onPressed: _pickFromGallery,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-            ),
-          ),
-
-          // Next Visit Material Requisition Section
-          _buildNeedsSection(item),
-
-          const SizedBox(height: 20),
         ],
       ),
     );
@@ -870,24 +1337,19 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
         item.status == InspectionStatus.rejected;
     final hasNeeds = widget.linkedNeeds.isNotEmpty;
 
-    if (!isProblematic && !hasNeeds) {
-      return const SizedBox.shrink();
-    }
-
     return Container(
-      margin: const EdgeInsets.only(top: 14),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isProblematic ? AppTheme.solarGold.withValues(alpha: 0.5) : AppTheme.borderSubtle,
+          color: isProblematic ? AppTheme.solarGold.withValues(alpha: 0.6) : AppTheme.borderSubtle,
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
             color: AppTheme.solarGold.withValues(alpha: 0.06),
-            blurRadius: 8,
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
@@ -912,11 +1374,11 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                   children: [
                     Text(
                       'الاحتياجات والمواد للزيارة القادمة',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
                     ),
                     Text(
-                      'سجل قطع الغيار والمواد المطلوبة لحل هذا العطل في الزيارة التالية',
-                      style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted),
+                      'سجل قطع الغيار والمواد المطلوبة لحل هذا العطل',
+                      style: TextStyle(fontSize: 10, color: AppTheme.textMuted),
                     ),
                   ],
                 ),
@@ -929,8 +1391,8 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
                 ),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('طلب مادة', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                icon: const Icon(Icons.add, size: 15),
+                label: const Text('طلب مادة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 onPressed: () {
                   QuickNeedDialog.show(
                     context,
@@ -949,16 +1411,16 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
             ...widget.linkedNeeds.map((need) {
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppTheme.borderSubtle),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: need.priority.backgroundColor,
                         borderRadius: BorderRadius.circular(6),
@@ -966,7 +1428,7 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                       ),
                       child: Text(
                         need.priority.labelAr,
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: need.priority.color),
+                        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: need.priority.color),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -976,12 +1438,12 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                         children: [
                           Text(
                             '${need.name} (${need.quantity % 1 == 0 ? need.quantity.toInt() : need.quantity} ${need.unit})',
-                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark),
                           ),
                           if (need.reason.isNotEmpty)
                             Text(
                               need.reason,
-                              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                              style: const TextStyle(fontSize: 10.5, color: AppTheme.textMuted),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -989,7 +1451,7 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.brandCyan),
+                      icon: const Icon(Icons.edit_outlined, size: 17, color: AppTheme.brandCyan),
                       visualDensity: VisualDensity.compact,
                       onPressed: () {
                         QuickNeedDialog.show(
@@ -1002,7 +1464,7 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                       },
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      icon: const Icon(Icons.delete_outline, size: 17, color: Colors.red),
                       visualDensity: VisualDensity.compact,
                       onPressed: () => widget.onDeleteNeed(need.id),
                     ),
@@ -1013,114 +1475,6 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
           ],
         ],
       ),
-    );
-  }
-
-  Widget _buildStatusOptions(InspectionItem item) {
-    const statuses = [
-      InspectionStatus.good,
-      InspectionStatus.acceptable,
-      InspectionStatus.needsFollowup,
-      InspectionStatus.rejected,
-      InspectionStatus.notApplicable,
-    ];
-
-    Color getStatusBg(InspectionStatus st, bool isSelected) {
-      if (!isSelected) return Colors.white;
-      switch (st) {
-        case InspectionStatus.good:
-          return AppTheme.statusGoodBg;
-        case InspectionStatus.acceptable:
-          return AppTheme.statusAcceptableBg;
-        case InspectionStatus.needsFollowup:
-          return AppTheme.statusFollowupBg;
-        case InspectionStatus.rejected:
-          return AppTheme.statusRejectedBg;
-        case InspectionStatus.notApplicable:
-        default:
-          return AppTheme.statusNABg;
-      }
-    }
-
-    return Column(
-      children: statuses.map((st) {
-        final isSelected = item.status == st;
-        final bg = getStatusBg(st, isSelected);
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: InkWell(
-            onTap: () {
-              widget.onUpdated(item.copyWith(status: st));
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected ? st.color : AppTheme.borderSubtle,
-                  width: isSelected ? 2.0 : 1.0,
-                ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: st.color.withValues(alpha: 0.14),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isSelected ? st.color : const Color(0xFFCBD5E1),
-                        width: 2,
-                      ),
-                      color: isSelected ? st.color : Colors.white,
-                    ),
-                    child: isSelected
-                        ? const Icon(Icons.check, size: 14, color: Colors.white)
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Icon(st.icon, color: st.color, size: 20),
-                  const SizedBox(width: 10),
-                  Text(
-                    st.labelAr,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                      color: isSelected ? st.color : AppTheme.textDark,
-                    ),
-                  ),
-                  const Spacer(),
-                  if (isSelected)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: st.color,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        'محدد',
-                        style: TextStyle(fontSize: 10.5, color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 }

@@ -106,8 +106,8 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
     final navItems = [
       (Icons.dashboard_outlined, Icons.dashboard, 'لوحة التحكم', 0),
       (Icons.description_outlined, Icons.description, 'التقارير', draftCount),
-      (Icons.business_outlined, Icons.business, 'العملاء والمواقع', 0),
-      (Icons.verified_user_outlined, Icons.verified_user, 'الهوية والشعارات', 0),
+      (Icons.business_outlined, Icons.business, 'العملاء', 0),
+      (Icons.verified_user_outlined, Icons.verified_user, 'الهوية', 0),
       (Icons.settings_outlined, Icons.settings, 'الإعدادات', 0),
     ];
 

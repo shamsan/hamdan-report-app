@@ -32,7 +32,7 @@ class YemenLocations {
       'المفتاح',
       'عاهم',
     ],
-    'صنعاء (أمانة العاصمة)': [
+    'أمانة العاصمة': [
       'معين',
       'السبعين',
       'الوحدة',
@@ -382,14 +382,14 @@ class YemenLocations {
     }
     final g = governorate.trim();
     if (governoratesAndDistricts.containsKey(g)) {
-      return governoratesAndDistricts[g]!;
+      return governoratesAndDistricts[g] ?? [];
     }
     // Normalization for common aliases
-    if (g == 'صنعاء' || g.contains('أمانة العاصمة')) {
-      return governoratesAndDistricts['صنعاء (أمانة العاصمة)']!;
+    if (g == 'صنعاء' || g.contains('أمانة العاصمة') || g.contains('صنعاء (أمانة العاصمة)')) {
+      return governoratesAndDistricts['أمانة العاصمة'] ?? governoratesAndDistricts['صنعاء (أمانة العاصمة)'] ?? [];
     }
     if (g.contains('سقطرى')) {
-      return governoratesAndDistricts['أرخبيل سقطرى']!;
+      return governoratesAndDistricts['أرخبيل سقطرى'] ?? [];
     }
     for (final entry in governoratesAndDistricts.entries) {
       if (entry.key.contains(g) || g.contains(entry.key)) {
@@ -397,5 +397,28 @@ class YemenLocations {
       }
     }
     return [];
+  }
+
+  /// توحيد اسم المحافظة إلى المسمى الرسمي المعتمد في القائمة
+  static String normalizeGovernorate(String? governorate) {
+    if (governorate == null || governorate.trim().isEmpty) {
+      return 'أمانة العاصمة';
+    }
+    final g = governorate.trim();
+    if (governoratesAndDistricts.containsKey(g)) {
+      return g;
+    }
+    if (g == 'صنعاء' || g.contains('أمانة العاصمة') || g.contains('صنعاء (أمانة العاصمة)')) {
+      return 'أمانة العاصمة';
+    }
+    if (g.contains('سقطرى')) {
+      return 'أرخبيل سقطرى';
+    }
+    for (final entry in governoratesAndDistricts.entries) {
+      if (entry.key.contains(g) || g.contains(entry.key)) {
+        return entry.key;
+      }
+    }
+    return governoratesAndDistricts.keys.first;
   }
 }

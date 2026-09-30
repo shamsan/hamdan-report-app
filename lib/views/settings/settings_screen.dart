@@ -7,8 +7,14 @@ import '../../services/backup_service.dart';
 import '../../services/default_templates.dart';
 import '../../state/reports_provider.dart';
 import '../../state/templates_provider.dart';
+import '../../state/clients_provider.dart';
+import '../../state/sites_provider.dart';
 import '../onboarding/onboarding_screen.dart';
 import '../session/preset_notes_manager_screen.dart';
+import '../../state/licensing_provider.dart';
+import '../licensing/license_activation_dialog.dart';
+import '../licensing/license_request_sheet.dart';
+import '../licensing/pending_request_banner.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -35,6 +41,71 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _exportArchiveLocalBackup(BuildContext context) async {
+    try {
+      final filePath = await BackupService.exportArchiveLocalFile();
+      await _loadLastBackupTime();
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          title: const Row(
+            children: [
+              Icon(Icons.inventory_2_rounded, color: AppTheme.statusGood, size: 22),
+              SizedBox(width: 8),
+              Text('تم حفظ الأرشيف الشامل بنجاح', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('تم تصدير حزمة الأرشيف الكاملة (.rcbackup) متضمنة قاعدة البيانات وكافة الصور المرفقة في ذاكرة الجهاز:', style: TextStyle(fontSize: 12.5)),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.bgSurface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.borderSubtle),
+                ),
+                child: SelectableText(
+                  filePath,
+                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: AppTheme.primaryNavy),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryNavy),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('تم'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('فشل حفظ حزمة الأرشيف: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _exportAndShareArchiveBackup(BuildContext context) async {
+    try {
+      await BackupService.exportAndShareArchive();
+      await _loadLastBackupTime();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('فشل مشاركة حزمة الأرشيف: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   Future<void> _exportLocalBackup(BuildContext context) async {
     try {
       final filePath = await BackupService.exportLocalFile();
@@ -55,7 +126,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('تم حفظ نسخة احتياطية كاملة لكافة التقارير والقوالب في ذاكرة الجهاز:', style: TextStyle(fontSize: 12.5)),
+              const Text('تم حفظ نسخة احتياطية خفيفة (JSON) في ذاكرة الجهاز:', style: TextStyle(fontSize: 12.5)),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(10),
@@ -88,17 +159,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _exportAndShareBackup(BuildContext context) async {
-    try {
-      await BackupService.exportAndShare();
-      await _loadLastBackupTime();
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل مشاركة النسخة: $e'), backgroundColor: Colors.red),
-      );
-    }
-  }
 
   Future<void> _importBackup(BuildContext context) async {
     final inspection = await BackupService.pickAndInspectBackup();
@@ -171,11 +231,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 child: Column(
                   children: [
-                    _buildInfoRow('تاريخ إنشاء النسخة:', inspection.exportedAt),
+                    _buildInfoRow('نوع الحزمة:', inspection.isArchive ? 'حزمة أرشيف شاملة (.rcbackup) 📦' : 'ملف بيانات JSON 📄'),
                     const Divider(height: 12),
+                    if (inspection.isArchive) ...[
+                      _buildInfoRow('الصور المرفقة:', '${inspection.photosCount} صورة فيزيائية 🖼️'),
+                      const Divider(height: 12),
+                    ],
                     _buildInfoRow('عدد التقارير المحفوظة:', '${inspection.reportCount} تقرير'),
                     const Divider(height: 12),
+                    _buildInfoRow('العملاء والمواقع:', '${inspection.clientCount} عميل • ${inspection.siteCount} موقع'),
+                    const Divider(height: 12),
                     _buildInfoRow('عدد النماذج والقوالب:', '${inspection.templateCount} قالب'),
+                    const Divider(height: 12),
+                    _buildInfoRow('تاريخ إنشاء النسخة:', inspection.exportedAt),
                     const Divider(height: 12),
                     _buildInfoRow('إصدار حزمة النسخ:', inspection.version),
                   ],
@@ -226,7 +294,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         final navigator = Navigator.of(ctx);
                         final scaffoldMessenger = ScaffoldMessenger.of(context);
                         final success = await BackupService.executeRestore(
-                          inspection.rawJson,
+                          inspection,
                           mergeMode: mergeMode,
                         );
                         if (!mounted) return;
@@ -234,9 +302,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         if (success) {
                           await ref.read(reportsProvider.notifier).load();
                           await ref.read(templatesProvider.notifier).load();
+                          await ref.read(clientsProvider.notifier).load();
+                          await ref.read(sitesProvider.notifier).load();
                           scaffoldMessenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('تمت استعادة النسخة الاحتياطية بنجاح!'),
+                            SnackBar(
+                              content: Text(inspection.isArchive
+                                  ? 'تمت استعادة حزمة الأرشيف (${inspection.reportCount} تقرير و ${inspection.photosCount} صورة) بنجاح!'
+                                  : 'تمت استعادة النسخة الاحتياطية بنجاح!'),
                               backgroundColor: AppTheme.statusGood,
                             ),
                           );
@@ -363,6 +435,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Licensing Card
+              _buildLicensingCard(context),
+
               // Header Status Card
               Container(
                 padding: const EdgeInsets.all(14),
@@ -416,15 +491,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         leading: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                            color: AppTheme.primaryNavy.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.save_alt_rounded, color: AppTheme.primaryNavy, size: 22),
+                          child: const Icon(Icons.inventory_2_rounded, color: AppTheme.primaryNavy, size: 22),
                         ),
-                        title: const Text('حفظ نسخة احتياطية محلياً (JSON)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark)),
-                        subtitle: const Text('حفظ ملف النسخة الكاملة مباشرة في ذاكرة تخزين الهاتف', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                        title: const Text('حفظ حزمة الأرشيف الشاملة (مع الصور)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark)),
+                        subtitle: const Text('تصدير حزمة مضغوطة (.rcbackup) تحتوي على كافة التقارير والعملاء والمواقع مع الصور المرفقة', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
                         trailing: const Icon(Icons.chevron_left_rounded, color: AppTheme.textMuted),
-                        onTap: () => _exportLocalBackup(context),
+                        onTap: () => _exportArchiveLocalBackup(context),
                       ),
                       const Divider(height: 1, indent: 16, endIndent: 16, color: AppTheme.borderSubtle),
                       ListTile(
@@ -432,15 +507,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         leading: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppTheme.brandCyan.withValues(alpha: 0.12),
+                            color: AppTheme.brandCyan.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(Icons.share_rounded, color: AppTheme.brandCyan, size: 22),
                         ),
-                        title: const Text('مشاركة النسخة الاحتياطية (Cloud / Apps)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark)),
-                        subtitle: const Text('إرسال فوري إلى WhatsApp، Google Drive، أو البريد الإلكتروني', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                        title: const Text('مشاركة حزمة الأرشيف الشاملة (مع الصور)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark)),
+                        subtitle: const Text('إرسال الحزمة المضغوطة كاملة إلى واتساب، جوجل درايف، أو البريد لنقلها لمهندس آخر', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
                         trailing: const Icon(Icons.chevron_left_rounded, color: AppTheme.textMuted),
-                        onTap: () => _exportAndShareBackup(context),
+                        onTap: () => _exportAndShareArchiveBackup(context),
                       ),
                       const Divider(height: 1, indent: 16, endIndent: 16, color: AppTheme.borderSubtle),
                       ListTile(
@@ -453,10 +528,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                           child: const Icon(Icons.file_open_rounded, color: Color(0xFF10B981), size: 22),
                         ),
-                        title: const Text('استيراد واستعادة من ملف احتياطي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark)),
-                        subtitle: const Text('اختيار ملف وفحصه ومعاينته مع خياري الدمج الذكي أو الاستبدال', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                        title: const Text('استيراد واستعادة من حزمة أرشيف أو ملف نسخ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark)),
+                        subtitle: const Text('فحص واستعادة حزم .rcbackup (مع الصور) أو ملفات JSON مع خياري الدمج أو الاستبدال', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
                         trailing: const Icon(Icons.chevron_left_rounded, color: AppTheme.textMuted),
                         onTap: () => _importBackup(context),
+                      ),
+                      const Divider(height: 1, indent: 16, endIndent: 16, color: AppTheme.borderSubtle),
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.blueGrey.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.code_rounded, color: Colors.blueGrey, size: 22),
+                        ),
+                        title: const Text('تصدير نسخة بيانات خفيفة (JSON فقط)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textDark)),
+                        subtitle: const Text('حفظ ملف نصوص خفيف يتضمن بيانات التقارير والقوالب بدون الصور الفيزيائية', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                        trailing: const Icon(Icons.chevron_left_rounded, color: AppTheme.textMuted),
+                        onTap: () => _exportLocalBackup(context),
                       ),
                       const Divider(height: 1, indent: 16, endIndent: 16, color: AppTheme.borderSubtle),
                       ListTile(
@@ -622,5 +713,184 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildLicensingCard(BuildContext context) {
+    final license = ref.watch(licensingProvider);
+    final isTrial = license.tier == 'TRIAL';
+    final isPro = license.isUnlimitedReports;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const PendingRequestBanner(isDark: false),
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isPro ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isPro ? const Color(0xFFBBF7D0) : AppTheme.borderSubtle,
+              width: 1.2,
+            ),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isSmall = constraints.maxWidth < 360;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isPro ? const Color(0xFFDCFCE7) : AppTheme.primaryNavy.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          isPro ? Icons.verified_rounded : Icons.workspace_premium_rounded,
+                          color: isPro ? const Color(0xFF16A34A) : AppTheme.primaryNavy,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'حالة الترخيص: ${isPro ? "نسخة احترافية (PRO)" : isTrial ? "نسخة تجريبية (TRIAL)" : "غير مفعل"}',
+                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isPro
+                                  ? 'تقارير غير محدودة (∞) • صالح حتى ${_formatEndDate(license.endDate)}'
+                                  : isTrial
+                                      ? 'متبقي ${license.daysLeft} يوماً • مستهلك ${license.reportsUsed}/${license.maxReports} تقريراً'
+                                      : 'التطبيق يطلب تفعيل ترخيص صالح',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isPro ? const Color(0xFF15803D) : AppTheme.textMuted,
+                                fontWeight: isPro ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  if (isSmall) ...[
+                    // الأزرار فوق بعض للشاشات الصغيرة
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => const LicenseActivationDialog(),
+                          );
+                        },
+                        icon: const Icon(Icons.vpn_key_rounded, size: 16),
+                        label: Text(isPro ? 'إدارة الترخيص' : 'تفعيل / ترقية'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryNavy,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                            ),
+                            builder: (ctx) => const LicenseRequestSheet(),
+                          );
+                        },
+                        icon: const Icon(Icons.send_rounded, size: 16),
+                        label: const Text('طلب رخصة جديدة أو نقل'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryNavy,
+                          side: const BorderSide(color: AppTheme.primaryNavy),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    // الأزرار جنباً إلى جنب للشاشات العريضة
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (ctx) => const LicenseActivationDialog(),
+                              );
+                            },
+                            icon: const Icon(Icons.vpn_key_rounded, size: 16),
+                            label: Text(isPro ? 'إدارة الترخيص' : 'تفعيل / ترقية'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryNavy,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                              ),
+                              builder: (ctx) => const LicenseRequestSheet(),
+                            );
+                          },
+                          icon: const Icon(Icons.send_rounded, size: 16),
+                          label: const Text('طلب رخصة'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryNavy,
+                            side: const BorderSide(color: AppTheme.primaryNavy),
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatEndDate(DateTime? dt) {
+    if (dt == null) return 'غير محدد';
+    return '${dt.year}/${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')}';
   }
 }

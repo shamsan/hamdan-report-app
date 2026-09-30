@@ -118,15 +118,20 @@ class _YemeniPhoneFieldState extends State<YemeniPhoneField> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              '${widget.label}${widget.isRequired ? ' *' : ''}',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textDark,
+            Expanded(
+              child: Text(
+                '${widget.label}${widget.isRequired ? ' *' : ''}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (_carrier != null)
+            if (_carrier != null) ...[
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
@@ -150,6 +155,7 @@ class _YemeniPhoneFieldState extends State<YemeniPhoneField> {
                   ],
                 ),
               ),
+            ],
           ],
         ),
         const SizedBox(height: 5),

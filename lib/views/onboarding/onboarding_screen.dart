@@ -56,7 +56,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final TextEditingController _clientContactController = TextEditingController();
 
   final TextEditingController _siteNameController = TextEditingController();
-  String? _selectedGov = 'صنعاء (أمانة العاصمة)';
+  String? _selectedGov = 'أمانة العاصمة';
   String? _selectedDir = 'السبعين';
   final TextEditingController _capacityController = TextEditingController();
   final TextEditingController _systemTypeController = TextEditingController(text: 'منفصلة عن الشبكة (Off-Grid)');
@@ -632,7 +632,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         Row(
                           children: [
                             const Text(
-                              'استكشاف تقرير تجريبي جاهز',
+                              'تقرير تجريبي',
                               style: TextStyle(
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w900,

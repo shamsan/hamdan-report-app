@@ -13,8 +13,11 @@ import '../../models/report.dart';
 import '../../models/organization.dart';
 import '../editor/report_editor_screen.dart';
 import '../session/dialogs/create_session_dialog.dart';
+import '../session/maintenance_session_screen.dart';
+import '../reports/reports_list_screen.dart';
 import '../editor/widgets/stats_summary_card.dart';
 import '../onboarding/onboarding_screen.dart';
+import '../licensing/license_status_badge.dart';
 
 class DashboardScreen extends ConsumerWidget {
   final ValueChanged<int>? onNavigateTab;
@@ -29,6 +32,13 @@ class DashboardScreen extends ConsumerWidget {
     final sites = ref.watch(sitesProvider);
     final branding = ref.watch(brandingProvider);
     final sitesByGov = ref.watch(sitesGroupedByGovernorateProvider);
+
+    Report? latestDraft;
+    if (drafts.isNotEmpty) {
+      final sortedDrafts = List<Report>.from(drafts)
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      latestDraft = sortedDrafts.first;
+    }
 
     if (clients.isEmpty) {
       return Scaffold(
@@ -54,15 +64,24 @@ class DashboardScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 16),
-                _buildQuickActions(context),
-                const SizedBox(height: 24),
-                if (drafts.isNotEmpty) _buildPendingDrafts(context, drafts, ref),
-                if (drafts.isNotEmpty) const SizedBox(height: 24),
-                _buildStatsSummary(context, clients.length, sites.length, reports),
-                const SizedBox(height: 24),
-                if (reports.isNotEmpty) _buildRecentReports(context, reports, ref),
-                if (reports.isNotEmpty) const SizedBox(height: 24),
+                _buildHeaderGreeting(context, reports, drafts),
+                const SizedBox(height: 14),
+                if (latestDraft != null) ...[
+                  _buildHeroResumeCard(context, latestDraft),
+                  const SizedBox(height: 16),
+                ],
+                _buildActionHub(context),
+                const SizedBox(height: 22),
+                _buildStatsSummary(context, clients.length, sites.length, reports, ref),
+                const SizedBox(height: 22),
+                if (drafts.isNotEmpty) ...[
+                  _buildPendingDrafts(context, drafts, ref),
+                  const SizedBox(height: 22),
+                ],
+                if (reports.isNotEmpty) ...[
+                  _buildRecentReports(context, reports, ref),
+                  const SizedBox(height: 22),
+                ],
                 _buildSitesByGovernorate(context, sitesByGov),
                 const SizedBox(height: 32),
               ],
@@ -78,12 +97,12 @@ class DashboardScreen extends ConsumerWidget {
       title: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.solar_power, color: AppTheme.solarGold, size: 20),
+            child: const Icon(Icons.solar_power_rounded, color: AppTheme.solarGold, size: 20),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -109,6 +128,7 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
       actions: [
+        const LicenseStatusBadge(),
         IconButton(
           icon: const Icon(Icons.palette_outlined),
           tooltip: 'الهوية البصرية',
@@ -119,19 +139,121 @@ class DashboardScreen extends ConsumerWidget {
           tooltip: 'الإعدادات',
           onPressed: () => onNavigateTab?.call(4),
         ),
+        const SizedBox(width: 4),
       ],
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
+  Widget _buildHeaderGreeting(BuildContext context, List<Report> reports, List<Report> drafts) {
+    final now = DateTime.now();
+    final dateStr = intl.DateFormat('EEEE، d MMMM yyyy', 'ar').format(now);
+    final hasDrafts = drafts.isNotEmpty;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppTheme.borderSubtle),
         boxShadow: AppTheme.cardShadow,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'لوحة العمليات الميدانية',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.textDark,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: hasDrafts 
+                            ? AppTheme.statusFollowupBg 
+                            : AppTheme.statusGoodBg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: hasDrafts
+                              ? AppTheme.statusFollowup.withValues(alpha: 0.3)
+                              : AppTheme.statusGood.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            hasDrafts ? Icons.pending_actions_rounded : Icons.check_circle_rounded,
+                            size: 13,
+                            color: hasDrafts ? AppTheme.statusFollowup : AppTheme.statusGood,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            hasDrafts ? '${drafts.length} مسودة جارية' : 'جاهز للمهام',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: hasDrafts ? const Color(0xFFB45309) : const Color(0xFF15803D),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today_rounded, size: 12.5, color: AppTheme.textMuted),
+                    const SizedBox(width: 5),
+                    Text(
+                      dateStr,
+                      style: const TextStyle(fontSize: 11.5, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroResumeCard(BuildContext context, Report draft) {
+    final progress = draft.completionRatio;
+    final progressPercent = (progress * 100).toInt();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFF0FDF4),
+            Color(0xFFE8F9EE),
+          ],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF16A34A).withValues(alpha: 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,49 +263,144 @@ class DashboardScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.solarGold.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  color: const Color(0xFF16A34A),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF16A34A).withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.flash_on_rounded, color: AppTheme.solarGold, size: 20),
+                child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
               ),
-              const SizedBox(width: 12),
-              const Text(
-                'إجراءات سريعة',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.textDark,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'استئناف الفحص الميداني النشط',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF15803D),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF16A34A).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'زيارة #${draft.visitNumber}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF15803D),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      draft.facilityInfo.facilityName.isNotEmpty
+                          ? draft.facilityInfo.facilityName
+                          : draft.title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.textDark,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF86EFAC)),
+                ),
+                child: Text(
+                  '$progressPercent% منجز',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF15803D),
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 7,
+              backgroundColor: Colors.white,
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF16A34A)),
+            ),
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
                 flex: 3,
-                child: FilledButton.icon(
-                  onPressed: () => CreateSessionDialog.show(context),
-                  icon: const Icon(Icons.add_task),
-                  label: const Text('بدء زيارة جديدة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.solarGold,
-                    foregroundColor: AppTheme.textDark,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MaintenanceSessionScreen(reportId: draft.id),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.play_circle_fill_rounded, size: 18),
+                  label: const Text(
+                    'متابعة الفحص الميداني ⚡',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 flex: 2,
                 child: OutlinedButton.icon(
-                  onPressed: () => CreateSessionDialog.show(context, openSessionDirectly: false),
-                  icon: const Icon(Icons.note_add_outlined),
-                  label: const Text('إنشاء تقرير', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ReportEditorScreen(reportId: draft.id),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.edit_note_rounded, size: 18),
+                  label: const Text(
+                    'المحرر',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                  ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.primaryNavy,
-                    side: const BorderSide(color: AppTheme.primaryNavy),
+                    foregroundColor: const Color(0xFF15803D),
+                    side: const BorderSide(color: Color(0xFF86EFAC), width: 1.2),
+                    backgroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -196,6 +413,141 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildActionHub(BuildContext context) {
+    return Row(
+      children: [
+        // كارت بدء زيارة ميدانية جديدة
+        Expanded(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => CreateSessionDialog.show(context),
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF0B3A60),
+                      Color(0xFF114C7C),
+                    ],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0B3A60).withValues(alpha: 0.22),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: AppTheme.solarGold,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.add_task_rounded,
+                        color: AppTheme.textDark,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'بدء زيارة ميدانية',
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    const Text(
+                      'فحص وتوثيق مباشر بالموقع',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // كارت إنشاء تقرير فحص
+        Expanded(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => CreateSessionDialog.show(context, openSessionDirectly: false),
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: AppTheme.brandCyan.withValues(alpha: 0.35),
+                    width: 1.2,
+                  ),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: AppTheme.brandCyan.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.post_add_rounded,
+                        color: AppTheme.brandCyan,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'إنشاء تقرير فحص',
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.primaryNavy,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    const Text(
+                      'من القوالب الفنية الجاهزة',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.textMuted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPendingDrafts(BuildContext context, List<Report> drafts, WidgetRef ref) {
     final sortedDrafts = List<Report>.from(drafts)
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -205,6 +557,15 @@ class DashboardScreen extends ConsumerWidget {
       children: [
         Row(
           children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.statusFollowup.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.pending_actions_rounded, size: 18, color: AppTheme.statusFollowup),
+            ),
+            const SizedBox(width: 8),
             const Text(
               'مسودات تحتاج إكمال',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textDark),
@@ -213,12 +574,12 @@ class DashboardScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: AppTheme.statusRejected.withValues(alpha: 0.1),
+                color: AppTheme.statusFollowup.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '${drafts.length}',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.statusRejected),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.statusFollowup),
               ),
             ),
           ],
@@ -243,7 +604,7 @@ class DashboardScreen extends ConsumerWidget {
               margin: EdgeInsets.zero,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 side: const BorderSide(color: AppTheme.borderSubtle),
               ),
               child: InkWell(
@@ -253,7 +614,7 @@ class DashboardScreen extends ConsumerWidget {
                     MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: draft.id)),
                   );
                 },
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -263,11 +624,19 @@ class DashboardScreen extends ConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: Text(
-                              '${client?.displayName ?? "عميل غير محدد"} > ${site?.displayName ?? "موقع غير محدد"}',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.domain_rounded, size: 14, color: AppTheme.textMuted),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    '${client?.displayName ?? "عميل غير محدد"} > ${site?.displayName ?? "موقع غير محدد"}',
+                                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           Text(
@@ -276,7 +645,7 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Text(
                         draft.facilityInfo.facilityName.isNotEmpty ? draft.facilityInfo.facilityName : draft.title,
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textDark),
@@ -302,6 +671,55 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryNavy.withValues(alpha: 0.07),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'زيارة #${draft.visitNumber}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                            ),
+                          ),
+                          const Spacer(),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              side: BorderSide(color: AppTheme.primaryNavy.withValues(alpha: 0.25)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.flash_on_rounded, size: 15, color: AppTheme.solarGold),
+                            label: const Text('متابعة الفحص', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => MaintenanceSessionScreen(reportId: draft.id)),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryNavy,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.edit_note_rounded, size: 16),
+                            label: const Text('المحرر', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: draft.id)),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -313,9 +731,9 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsSummary(BuildContext context, int totalClients, int totalSites, List<Report> reports) {
-    final completedCount = reports.where((r) => r.status == ReportStatus.completed).length;
-    final draftCount = reports.where((r) => r.status == ReportStatus.draft).length;
+  Widget _buildStatsSummary(BuildContext context, int totalClients, int totalSites, List<Report> reports, WidgetRef ref) {
+    final completedCount = reports.where((r) => r.isCompleted).length;
+    final draftCount = reports.where((r) => !r.isCompleted).length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -326,7 +744,7 @@ class DashboardScreen extends ConsumerWidget {
               Expanded(child: StatsSummaryCard(
                 title: 'إجمالي العملاء',
                 value: '$totalClients',
-                icon: Icons.business,
+                icon: Icons.business_rounded,
                 color: AppTheme.primaryNavy,
                 onTap: () => onNavigateTab?.call(2),
               )),
@@ -334,7 +752,7 @@ class DashboardScreen extends ConsumerWidget {
               Expanded(child: StatsSummaryCard(
                 title: 'إجمالي المواقع',
                 value: '$totalSites',
-                icon: Icons.location_on,
+                icon: Icons.location_on_rounded,
                 color: AppTheme.brandCyan,
                 onTap: () => onNavigateTab?.call(2),
               )),
@@ -342,17 +760,23 @@ class DashboardScreen extends ConsumerWidget {
               Expanded(child: StatsSummaryCard(
                 title: 'التقارير المكتملة',
                 value: '$completedCount',
-                icon: Icons.check_circle,
+                icon: Icons.verified_rounded,
                 color: AppTheme.statusGood,
-                onTap: () => onNavigateTab?.call(1),
+                onTap: () {
+                  ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.completed;
+                  onNavigateTab?.call(1);
+                },
               )),
               const SizedBox(width: 12),
               Expanded(child: StatsSummaryCard(
-                title: 'المسودات',
+                title: 'مسودات قيد العمل',
                 value: '$draftCount',
-                icon: Icons.edit_note,
+                icon: Icons.pending_actions_rounded,
                 color: AppTheme.statusFollowup,
-                onTap: () => onNavigateTab?.call(1),
+                onTap: () {
+                  ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.drafts;
+                  onNavigateTab?.call(1);
+                },
               )),
             ],
           );
@@ -364,7 +788,7 @@ class DashboardScreen extends ConsumerWidget {
                   Expanded(child: StatsSummaryCard(
                     title: 'العملاء',
                     value: '$totalClients',
-                    icon: Icons.business,
+                    icon: Icons.business_rounded,
                     color: AppTheme.primaryNavy,
                     onTap: () => onNavigateTab?.call(2),
                   )),
@@ -372,7 +796,7 @@ class DashboardScreen extends ConsumerWidget {
                   Expanded(child: StatsSummaryCard(
                     title: 'المواقع',
                     value: '$totalSites',
-                    icon: Icons.location_on,
+                    icon: Icons.location_on_rounded,
                     color: AppTheme.brandCyan,
                     onTap: () => onNavigateTab?.call(2),
                   )),
@@ -384,17 +808,23 @@ class DashboardScreen extends ConsumerWidget {
                   Expanded(child: StatsSummaryCard(
                     title: 'مكتملة',
                     value: '$completedCount',
-                    icon: Icons.check_circle,
+                    icon: Icons.verified_rounded,
                     color: AppTheme.statusGood,
-                    onTap: () => onNavigateTab?.call(1),
+                    onTap: () {
+                      ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.completed;
+                      onNavigateTab?.call(1);
+                    },
                   )),
                   const SizedBox(width: 12),
                   Expanded(child: StatsSummaryCard(
                     title: 'مسودات',
                     value: '$draftCount',
-                    icon: Icons.edit_note,
+                    icon: Icons.pending_actions_rounded,
                     color: AppTheme.statusFollowup,
-                    onTap: () => onNavigateTab?.call(1),
+                    onTap: () {
+                      ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.drafts;
+                      onNavigateTab?.call(1);
+                    },
                   )),
                 ],
               ),
@@ -415,12 +845,28 @@ class DashboardScreen extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'آخر التقارير',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textDark),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.history_rounded, size: 18, color: AppTheme.primaryNavy),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'آخر التقارير',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textDark),
+                ),
+              ],
             ),
             TextButton(
-              onPressed: () => onNavigateTab?.call(1),
+              onPressed: () {
+                ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.all;
+                onNavigateTab?.call(1);
+              },
               child: const Text('عرض الكل'),
             ),
           ],
@@ -436,14 +882,14 @@ class DashboardScreen extends ConsumerWidget {
             final client = ref.watch(clientByIdProvider(report.clientId));
             final site = ref.watch(siteByIdProvider(report.siteId));
             
-            final isCompleted = report.status == ReportStatus.completed;
+            final isCompleted = report.isCompleted;
             final progress = report.completionRatio;
             
             return Card(
               margin: EdgeInsets.zero,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 side: const BorderSide(color: AppTheme.borderSubtle),
               ),
               child: InkWell(
@@ -453,15 +899,15 @@ class DashboardScreen extends ConsumerWidget {
                     MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: report.id)),
                   );
                 },
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         '${client?.displayName ?? "عميل غير محدد"} > ${site?.displayName ?? "موقع غير محدد"}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -504,11 +950,11 @@ class DashboardScreen extends ConsumerWidget {
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: AppTheme.bgSurface,
-                                        borderRadius: BorderRadius.circular(4),
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
                                         'زيارة #${report.facilityInfo.visitNumber.isNotEmpty ? report.facilityInfo.visitNumber : "1"}',
-                                        style: const TextStyle(fontSize: 10, color: AppTheme.textMuted),
+                                        style: const TextStyle(fontSize: 10, color: AppTheme.textMuted, fontWeight: FontWeight.bold),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -522,20 +968,22 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
                               color: isCompleted ? AppTheme.statusGoodBg : AppTheme.statusFollowupBg,
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                             child: Text(
                               isCompleted ? 'مكتمل' : '${(progress * 100).toInt()}%',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.bold,
                                 color: isCompleted ? AppTheme.statusGood : AppTheme.statusFollowup,
                               ),
                             ),
                           ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.arrow_back_ios_new_rounded, size: 12, color: AppTheme.textMuted),
                         ],
                       ),
                     ],
@@ -555,17 +1003,30 @@ class DashboardScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'نظرة على المواقع',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textDark),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.brandCyan.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.map_rounded, size: 18, color: AppTheme.brandCyan),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'التغطية الجغرافية للمواقع',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textDark),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         Card(
           margin: EdgeInsets.zero,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: AppTheme.borderSubtle),
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppTheme.borderSubtle),
           ),
           child: Column(
             children: sitesByGov.entries.map((entry) {
@@ -573,12 +1034,9 @@ class DashboardScreen extends ConsumerWidget {
               final sitesInGov = entry.value;
               final siteCount = sitesInGov.length;
               
-              // We could theoretically calculate total visits if we had site visits count, 
-              // but we'll just show the site count for simplicity or map over reports.
-              // For now just show site count as requested.
-              
               return InkWell(
                 onTap: () => onNavigateTab?.call(2),
+                borderRadius: BorderRadius.circular(16),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Row(
@@ -587,9 +1045,9 @@ class DashboardScreen extends ConsumerWidget {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: AppTheme.brandCyan.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.map_outlined, color: AppTheme.brandCyan, size: 20),
+                        child: const Icon(Icons.location_city_rounded, color: AppTheme.brandCyan, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -603,10 +1061,11 @@ class DashboardScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: AppTheme.bgSurface,
                           borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.borderSubtle),
                         ),
                         child: Text(
                           '$siteCount موقع',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryNavy),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.primaryNavy),
                         ),
                       ),
                     ],
@@ -780,7 +1239,7 @@ class _EmptyDashboardExperienceState extends ConsumerState<_EmptyDashboardExperi
                       Row(
                         children: [
                           const Text(
-                            'استكشاف تقرير تجريبي جاهز',
+                            'تقرير تجريبي',
                             style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
                           const SizedBox(width: 6),

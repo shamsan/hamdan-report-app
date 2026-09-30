@@ -8,7 +8,8 @@ void main() {
       expect(YemenLocations.governorates.length, 22);
       expect(YemenLocations.governorates.contains('حجة'), isTrue);
       expect(YemenLocations.governorates.contains('الحديدة'), isTrue);
-      expect(YemenLocations.governorates.contains('صنعاء (أمانة العاصمة)'), isTrue);
+      expect(YemenLocations.governorates.contains('أمانة العاصمة'), isTrue);
+      expect(YemenLocations.governorates.contains('محافظة صنعاء'), isTrue);
       expect(YemenLocations.governorates.contains('تعز'), isTrue);
       expect(YemenLocations.governorates.contains('عدن'), isTrue);
     });

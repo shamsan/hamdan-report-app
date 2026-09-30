@@ -148,12 +148,16 @@ class ClientDetailsScreen extends ConsumerWidget {
                         children: [
                           const Icon(Icons.person, color: AppTheme.solarGold, size: 16),
                           const SizedBox(width: 6),
-                          Text(
-                            currentClient.contactPerson,
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
+                          Expanded(
+                            child: Text(
+                              currentClient.contactPerson,
+                              style: const TextStyle(fontSize: 12, color: Colors.white),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           if (currentClient.phone.isNotEmpty) ...[
-                            const Spacer(),
+                            const SizedBox(width: 10),
                             const Icon(Icons.phone, color: Colors.white70, size: 14),
                             const SizedBox(width: 4),
                             Text(
@@ -320,7 +324,7 @@ class ClientDetailsScreen extends ConsumerWidget {
                               ),
                             );
 
-                            final isCompleted = report.status == ReportStatus.completed;
+                            final isCompleted = report.isCompleted;
                             final progress = report.completionRatio;
 
                             return Card(
@@ -346,16 +350,23 @@ class ClientDetailsScreen extends ConsumerWidget {
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.location_on_rounded, size: 14, color: AppTheme.solarGold),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                site.displayName,
-                                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
-                                              ),
-                                            ],
+                                          Expanded(
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.location_on_rounded, size: 14, color: AppTheme.solarGold),
+                                                const SizedBox(width: 4),
+                                                Expanded(
+                                                  child: Text(
+                                                    site.displayName,
+                                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
+                                          const SizedBox(width: 8),
                                           Row(
                                             children: [
                                               Container(
@@ -598,22 +609,58 @@ class ClientDetailsScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppTheme.borderSubtle),
                 ),
-                child: Row(
+                child: Column(
                   children: [
-                    const Icon(Icons.verified, size: 16, color: AppTheme.brandCyan),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'الممول: ${site.funderNameAr}',
-                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Row(
+                      children: [
+                        const Icon(Icons.verified, size: 16, color: AppTheme.brandCyan),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'الممول: ${site.funderNameAr}',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (site.systemSpecs.capacityKw.isNotEmpty) ...[
+                          Text(
+                            site.systemSpecs.capacityKw,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.solarGold),
+                          ),
+                        ],
+                      ],
                     ),
-                    if (site.systemSpecs.capacityKw.isNotEmpty) ...[
-                      Text(
-                        site.systemSpecs.capacityKw,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.solarGold),
+                    if (site.systemSpecs.panelsCountAndWatt.isNotEmpty || site.systemSpecs.invertersCapacity.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          if (site.systemSpecs.panelsCountAndWatt.isNotEmpty) ...[
+                            const Icon(Icons.solar_power_outlined, size: 13, color: AppTheme.textMuted),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                site.systemSpecs.panelsCountAndWatt,
+                                style: const TextStyle(fontSize: 10.5, color: AppTheme.textMuted),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                          if (site.systemSpecs.invertersCapacity.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            const Icon(Icons.bolt, size: 13, color: AppTheme.solarGold),
+                            const SizedBox(width: 2),
+                            Flexible(
+                              child: Text(
+                                site.systemSpecs.invertersCapacity,
+                                style: const TextStyle(fontSize: 10.5, color: AppTheme.textMuted),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ],
@@ -628,9 +675,12 @@ class ClientDetailsScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'الزيارات المنفذة: ${siteReports.length}',
-                    style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                  Flexible(
+                    child: Text(
+                      'الزيارات المنفذة: ${siteReports.length}',
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   Row(
                     children: [

@@ -154,15 +154,19 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
                 // Client & Location Row
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.brandCyan.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        client.nameAr,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.brandCyan),
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.brandCyan.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          client.nameAr,
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.brandCyan),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -221,27 +225,6 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
-
-                // ─── CTA: One-Tap Start Visit ────────────────────────────────
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.solarGold,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 2,
-                    ),
-                    icon: const Icon(Icons.rocket_launch, size: 18),
-                    label: Text(
-                      '🚀 بدء زيارة صيانة جديدة للموقع (الزيارة رقم $nextVisitNum)',
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () => _startNewVisitForSite(context, site, client, nextVisitNum),
-                  ),
-                ),
               ],
             ),
           ),
@@ -258,8 +241,8 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
               labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               tabs: [
                 Tab(
-                  icon: const Icon(Icons.assignment_outlined, size: 18),
-                  text: 'الزيارات والتقارير (${siteReports.length})',
+                  icon: const Icon(Icons.timeline_rounded, size: 18),
+                  text: 'سجل الزيارات (${siteReports.length})',
                 ),
                 Tab(
                   icon: const Icon(Icons.inventory_2_outlined, size: 18),
@@ -286,10 +269,40 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
           ),
         ],
       ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 10,
+                offset: const Offset(0, -3),
+              ),
+            ],
+          ),
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.solarGold,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 2,
+            ),
+            icon: const Icon(Icons.rocket_launch, size: 19),
+            label: Text(
+              '🚀 بدء زيارة صيانة جديدة للموقع (الزيارة رقم $nextVisitNum)',
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+            ),
+            onPressed: () => _startNewVisitForSite(context, site, client, nextVisitNum),
+          ),
+        ),
+      ),
     );
   }
 
-  // ─── Tab 1: Visits & Reports Log ─────────────────────────────────────────────
+  // ─── Tab 1: Visits Timeline Log ─────────────────────────────────────────────
   Widget _buildVisitsTab(
     BuildContext context,
     Site site,
@@ -302,7 +315,7 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: EmptyStateGuide(
-            icon: Icons.assignment_outlined,
+            icon: Icons.timeline_rounded,
             title: 'لم يتم تنفيذ أي زيارة صيانة لهذا الموقع بعد',
             description: 'ابدأ أول زيارة صيانة ميدانية للموقع لاختبار مكونات المنظومة وإصدار تقرير الفحص.',
             actionLabel: 'بدء الزيارة الأولى الآن',
@@ -312,161 +325,365 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(14),
-      itemCount: siteReports.length,
-      itemBuilder: (context, index) {
-        final report = siteReports[index];
-        final visitNum = report.visitNumber.isNotEmpty ? report.visitNumber : '${siteReports.length - index}';
+    final completedCount = siteReports.where((r) => r.isCompleted).length;
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          elevation: 1,
-          shape: RoundedRectangleBorder(
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+      children: [
+        // ─── Timeline Overview Bar ───
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: AppTheme.borderSubtle),
+            border: Border.all(color: AppTheme.borderSubtle),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              const Icon(Icons.history_toggle_off_rounded, color: AppTheme.primaryNavy, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'المخطط الزمني: إجمالي ${siteReports.length} زيارات ($completedCount معتمدة)',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.brandCyan.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'التالية #$nextVisitNum',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.brandCyan),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ─── Interactive Vertical Timeline Nodes ───
+        ...List.generate(siteReports.length, (index) {
+          final report = siteReports[index];
+          final isFirst = index == 0;
+          final isLast = index == siteReports.length - 1;
+          final visitNum = report.visitNumber.isNotEmpty ? report.visitNumber : '${siteReports.length - index}';
+
+          return _buildTimelineItem(
+            context: context,
+            report: report,
+            visitNum: visitNum,
+            isFirst: isFirst,
+            isLast: isLast,
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildTimelineItem({
+    required BuildContext context,
+    required Report report,
+    required String visitNum,
+    required bool isFirst,
+    required bool isLast,
+  }) {
+    final isCompleted = report.isCompleted;
+    final nodeColor = isCompleted ? AppTheme.statusGood : AppTheme.solarGold;
+    final needsCount = report.requestedNeeds.length;
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ─── Timeline Axis & Node Indicator ───
+          SizedBox(
+            width: 36,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Row: Visit Badge, Status, Date
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryNavy,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'الزيارة رقم ($visitNum)',
-                        style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: report.status == ReportStatus.completed
-                            ? Colors.green.withValues(alpha: 0.1)
-                            : Colors.orange.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        report.status == ReportStatus.completed ? 'مكتمل ومعتمد' : 'مسودة قيد المراجعة',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: report.status == ReportStatus.completed ? Colors.green[700] : Colors.orange[800],
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    const Icon(Icons.calendar_today, size: 13, color: AppTheme.textMuted),
-                    const SizedBox(width: 4),
-                    Text(
-                      report.visitDate,
-                      style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                    ),
-                  ],
+                // Top Connector line
+                Container(
+                  width: 2.5,
+                  height: 16,
+                  color: isFirst ? Colors.transparent : AppTheme.borderSubtle,
                 ),
-                const SizedBox(height: 8),
-
-                // Report Title & Completion Progress
-                Text(
-                  report.title,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                // Timeline Node Circle
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: nodeColor, width: 2.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: nodeColor.withValues(alpha: 0.25),
+                        blurRadius: 6,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: isCompleted
+                        ? Icon(Icons.check, size: 16, color: nodeColor)
+                        : Text(
+                            visitNum,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w900,
+                              color: nodeColor,
+                            ),
+                          ),
+                  ),
                 ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: report.completionRatio,
-                          backgroundColor: Colors.grey[200],
-                          color: report.completionRatio > 0.8 ? Colors.green : AppTheme.solarGold,
-                          minHeight: 6,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${(report.completionRatio * 100).toInt()}% مكتمل',
-                      style: const TextStyle(fontSize: 10.5, color: AppTheme.textMuted),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Divider(height: 1, color: AppTheme.borderSubtle),
-                const SizedBox(height: 8),
-
-                // Action Buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton.icon(
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppTheme.primaryNavy,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      ),
-                      icon: const Icon(Icons.checklist_rtl, size: 16),
-                      label: const Text('جلسة الفحص', style: TextStyle(fontSize: 11.5)),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => MaintenanceSessionScreen(reportId: report.id),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 4),
-                    TextButton.icon(
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppTheme.brandCyan,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      ),
-                      icon: const Icon(Icons.edit_note, size: 16),
-                      label: const Text('محرر التقرير', style: TextStyle(fontSize: 11.5)),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ReportEditorScreen(reportId: report.id),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 4),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.solarGold,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      icon: const Icon(Icons.picture_as_pdf, size: 15),
-                      label: const Text('معاينة PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PdfPreviewScreen(report: report),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                // Bottom Connector line
+                Expanded(
+                  child: Container(
+                    width: 2.5,
+                    color: isLast ? Colors.transparent : AppTheme.borderSubtle,
+                  ),
                 ),
               ],
             ),
           ),
-        );
-      },
+          const SizedBox(width: 12),
+
+          // ─── Timeline Card Content ───
+          Expanded(
+            child: Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              elevation: 1.5,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: isFirst ? AppTheme.solarGold.withValues(alpha: 0.4) : AppTheme.borderSubtle,
+                  width: isFirst ? 1.5 : 1.0,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(13),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Top Row: Visit Badge, Status, Date
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryNavy,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'الزيارة رقم ($visitNum)',
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: isCompleted
+                                ? AppTheme.statusGoodBg
+                                : AppTheme.statusFollowupBg,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            isCompleted ? 'معتمد' : 'مسودة قيد الإعداد',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isCompleted ? AppTheme.statusGood : AppTheme.statusFollowup,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        const Icon(Icons.calendar_today, size: 12, color: AppTheme.textMuted),
+                        const SizedBox(width: 4),
+                        Text(
+                          report.visitDate,
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Report Title
+                    Text(
+                      report.title,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Progress bar & completion ratio
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: report.completionRatio,
+                              backgroundColor: Colors.grey[200],
+                              color: report.completionRatio > 0.8 ? AppTheme.statusGood : AppTheme.solarGold,
+                              minHeight: 5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${(report.completionRatio * 100).toInt()}%',
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.textMuted),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Chips summary row: Inspection items and requested needs
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                          decoration: BoxDecoration(
+                            color: AppTheme.bgSurface,
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(color: AppTheme.borderSubtle),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.fact_check_outlined, size: 12, color: AppTheme.primaryNavy),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${report.inspectionGroups.fold(0, (sum, g) => sum + g.items.length)} بنود فحص',
+                                style: const TextStyle(fontSize: 10, color: AppTheme.textDark),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (needsCount > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(color: Colors.amber.shade400),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.warning_amber_rounded, size: 12, color: Colors.orange),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$needsCount قطع مطلوبة',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.deepOrange),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (report.photos.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: AppTheme.brandCyan.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(color: AppTheme.brandCyan.withValues(alpha: 0.2)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.photo_camera_back_outlined, size: 12, color: AppTheme.brandCyan),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${report.photos.length} صور',
+                                  style: const TextStyle(fontSize: 10, color: AppTheme.brandCyan, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+                    const Divider(height: 1, color: AppTheme.borderSubtle),
+                    const SizedBox(height: 6),
+
+                    // Action buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.primaryNavy,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          icon: const Icon(Icons.checklist_rtl, size: 15),
+                          label: const Text('جلسة الفحص', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MaintenanceSessionScreen(reportId: report.id),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.brandCyan,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          icon: const Icon(Icons.edit_note, size: 15),
+                          label: const Text('المحرر', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ReportEditorScreen(reportId: report.id),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.solarGold,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          icon: const Icon(Icons.picture_as_pdf, size: 14),
+                          label: const Text('PDF', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PdfPreviewScreen(report: report),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -520,9 +737,13 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
                     children: [
                       Row(
                         children: [
-                          Text(
-                            need.name,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textDark),
+                          Expanded(
+                            child: Text(
+                              need.name,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textDark),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Container(

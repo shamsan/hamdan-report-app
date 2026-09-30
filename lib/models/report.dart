@@ -559,6 +559,9 @@ class Report {
     return '';
   }
 
+  /// هل التقرير مكتمل رسمياً (معتمد أو مصدر كملف نهائي)
+  bool get isCompleted => status == ReportStatus.completed || status == ReportStatus.exported;
+
   Report copyWith({
     String? id,
     String? templateId,

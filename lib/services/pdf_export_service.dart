@@ -14,6 +14,7 @@ import '../models/report.dart';
 import '../core/utils/arabic_reshaper.dart';
 import 'default_templates.dart';
 import 'package:image/image.dart' as image_pkg;
+import '../core/licensing/security/secure_quota_store.dart';
 
 class PdfExportService {
   /// Safely sanitizes and decodes a base64 image string (strips data URIs, whitespace, handles padding)
@@ -125,6 +126,13 @@ class PdfExportService {
     required OrganizationProfile branding,
     List<int>? pagesToExport,
   }) async {
+    // 🛡️ فحص ومنع إعادة التدوير للتقارير (Anti-Recycling Check)
+    await SecureQuotaStore.trackPdfExportEvent(
+      reportId: report.id,
+      facilityName: report.facilityInfo.facilityName,
+      visitDate: report.visitDate,
+    );
+
     final pdf = pw.Document();
 
     // 1. Load Arabic TrueType fonts from assets (Official Pure Arabic Naskh - Noto Naskh Arabic)
@@ -314,7 +322,7 @@ class PdfExportService {
       if (lockedPortraitPages.contains(pageNumber)) {
         return 'portrait';
       }
-      // الصفحة 9: مصفوفة سلاسل التوليد وصناديق التجميع الـ 16 (أفقي أو دفتري فقط لضمان سلامة كامل البيانات)
+      // الصفحة 9: مصفوفة سلاسل التوليد وصناديق التجميع (أفقي، دفتري، أو عمودي عند قلة الصناديق)
       if (pageNumber == 9) {
         String? rawPref = report.pageOrientations[9];
         if (rawPref == null) {
@@ -325,6 +333,13 @@ class PdfExportService {
         }
         final pref = (rawPref ?? '').toLowerCase().trim();
         if (pref.contains('book') || pref.contains('rotated')) return 'book';
+        if (pref.contains('portrait') || pref.contains('vertical')) {
+          final activeCount = report.activeCombinerBoxes.isNotEmpty
+              ? report.activeCombinerBoxes.length
+              : 4;
+          if (activeCount <= 8) return 'portrait';
+        }
+        if (pref.contains('landscape') || pref.contains('horizontal')) return 'landscape';
         return 'landscape';
       }
       String? rawPref = report.pageOrientations[pageNumber];
@@ -2507,14 +2522,17 @@ class PdfExportService {
       );
     }
 
-    // ================= PAGE 9: PV Strings Performance matching ref_page_9.png =================
+    // ================= PAGE 9: PV Strings Performance (Active Combiner Boxes Only) =================
     if (pagesToExport == null || pagesToExport.contains(9)) {
       final pNum = currentPageNumber++;
       final pFormat = resolvePageFormat(9);
       final pMode = getPageMode(9);
+      final isLandscape = pFormat.width > pFormat.height;
       final isBookMode = pMode == 'book';
       final rotW = pFormat.height;
       final rotH = pFormat.width;
+      final isWide = isLandscape || isBookMode;
+      final isPortrait = !isWide;
 
       pdf.addPage(
         pw.Page(
@@ -2523,32 +2541,60 @@ class PdfExportService {
               ? pw.EdgeInsets.zero
               : const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 8),
           build: (pw.Context context) {
-            // Determine maximum combiner box number to display
-            // Standard official form always displays 4 blocks (Boxes 1..16, 64 strings total)
-            final maxBox = report.activeCombinerBoxes.isNotEmpty
-                ? report.activeCombinerBoxes.reduce((a, b) => a > b ? a : b)
-                : 16;
-            final totalBlocksCount = (maxBox > 16) ? ((maxBox + 3) ~/ 4) : 4;
-            final List<List<int>> allBlocks = List.generate(totalBlocksCount, (bIdx) {
-              final startBox = bIdx * 4 + 1;
-              return [startBox, startBox + 1, startBox + 2, startBox + 3];
-            });
+            // Only active and selected combiner boxes are displayed in the report
+            final activeBoxes = List<int>.from(report.activeCombinerBoxes)..sort();
+            if (activeBoxes.isEmpty) {
+              activeBoxes.add(1);
+            }
+
+            // Organize active boxes into blocks/rows according to orientation & count
+            List<List<int>> allBlocks = [];
+            if (isPortrait) {
+              if (activeBoxes.length <= 3) {
+                allBlocks = [activeBoxes];
+              } else {
+                for (int i = 0; i < activeBoxes.length; i += 2) {
+                  allBlocks.add(activeBoxes.sublist(i, math.min(i + 2, activeBoxes.length)));
+                }
+              }
+            } else {
+              // Landscape / Book Mode
+              if (activeBoxes.length <= 4) {
+                allBlocks = [activeBoxes];
+              } else if (activeBoxes.length == 6) {
+                allBlocks = [
+                  activeBoxes.sublist(0, 3),
+                  activeBoxes.sublist(3, 6),
+                ];
+              } else {
+                for (int i = 0; i < activeBoxes.length; i += 4) {
+                  allBlocks.add(activeBoxes.sublist(i, math.min(i + 4, activeBoxes.length)));
+                }
+              }
+            }
+
+            final totalBlocksCount = allBlocks.length;
+            final maxBoxesInAnyBlock = allBlocks.map((b) => b.length).reduce(math.max);
 
             final effectivePageW = isBookMode ? rotW : pFormat.width;
             final effectivePageH = isBookMode ? rotH : pFormat.height;
             final availableTableWidth = effectivePageW - 28.0 - 19.0;
-            final notesWidth = (availableTableWidth > 950) ? 75.0 : 54.0;
-            final metricWidth = (availableTableWidth > 950) ? 140.0 : 100.0;
-            final boxWidth = (availableTableWidth - notesWidth - metricWidth) / 4;
+            final notesWidth = (availableTableWidth > 950)
+                ? 75.0
+                : (isPortrait ? 46.0 : 54.0);
+            final metricWidth = (availableTableWidth > 950)
+                ? 140.0
+                : (isPortrait ? (maxBoxesInAnyBlock >= 3 ? 82.0 : 92.0) : 100.0);
+            final availableBoxesWidth = availableTableWidth - notesWidth - metricWidth;
+            final boxWidth = availableBoxesWidth / maxBoxesInAnyBlock;
             final stringSubColWidth = boxWidth / 4;
 
-            // Accurate non-table overhead deduction (Header ~88-100pt, Banner ~22pt, Footer ~52pt, Margins/Padding ~18pt, Spacing ~10pt = ~215pt):
-            // This guarantees the Running Footer (signatures and facility name) is 100% visible and never pushed off page!
+            // Accurate non-table overhead deduction:
             final nonTableOverhead = (effectivePageH > 750) ? 235.0 : 216.0;
             final availableTableHeight = (effectivePageH - nonTableOverhead).clamp(250.0, 700.0);
             final blockSpacing = (availableTableHeight > 500) ? 6.0 : 3.5;
             final totalBlockSpacing = (totalBlocksCount - 1) * blockSpacing;
-            final blockHeight = ((availableTableHeight - totalBlockSpacing) / totalBlocksCount).clamp(68.0, 135.0);
+            final blockHeight = ((availableTableHeight - totalBlockSpacing) / totalBlocksCount).clamp(68.0, isPortrait ? (totalBlocksCount <= 2 ? 145.0 : 120.0) : 135.0);
 
             final r1H = (blockHeight * 0.17).clamp(12.0, 24.0);
             final r2H = (blockHeight * 0.17).clamp(12.0, 24.0);
@@ -2556,6 +2602,14 @@ class PdfExportService {
             final r4H = (blockHeight - (r1H + r2H + r3H)) / 2;
             final r5H = r4H;
             final headerBlankH = r1H + r2H + r3H;
+
+            // Responsive typography based on column widths
+            final strFontSize = stringSubColWidth > 45 ? 8.0 : (stringSubColWidth > 32 ? 7.0 : 6.2);
+            final valFontSize = stringSubColWidth > 45 ? 9.5 : (stringSubColWidth > 32 ? 8.5 : 7.2);
+            final boxTitleFontSize = boxWidth > 180 ? 9.5 : (boxWidth > 120 ? 8.5 : 7.5);
+            final panelFontSize = boxWidth > 180 ? 8.5 : (boxWidth > 120 ? 7.5 : 6.8);
+            final metricFontSize = metricWidth > 100 ? 8.5 : 7.2;
+            final notesFontSize = notesWidth > 60 ? 8.0 : 7.0;
 
             pw.Widget buildBlock(List<int> boxes, int blockIndex) {
               final rowNotes = report.stringMeasurements
@@ -2566,6 +2620,8 @@ class PdfExportService {
               final notesText = rowNotes.isNotEmpty
                   ? rowNotes
                   : (blockIndex < 2 ? 'الملاحظات' : '');
+
+              final emptySlots = maxBoxesInAnyBlock - boxes.length;
 
               return pw.Container(
                 height: blockHeight,
@@ -2589,20 +2645,32 @@ class PdfExportService {
                       padding: const pw.EdgeInsets.all(2),
                       child: notesText.isNotEmpty
                           ? pw.Text(
-                              _ar(notesText),
-                              style: textStyle(size: rowNotes.isNotEmpty ? (availableTableWidth > 950 ? 8.5 : 7.0) : (availableTableWidth > 950 ? 9.0 : 7.8), isBold: rowNotes.isEmpty),
+                              _arNotes(notesText, notesWidth > 60 ? 20 : 14),
+                              style: textStyle(size: rowNotes.isNotEmpty ? notesFontSize : (notesFontSize + 0.8), isBold: rowNotes.isEmpty),
                               textAlign: pw.TextAlign.center,
                             )
                           : pw.SizedBox(),
                     ),
 
-                    // 2. The 4 Combiner Boxes from Left to Right:
-                    // In RTL, Box 1 is on the right, Box 4 on the left.
-                    // So in LTR Row: Box 4, Box 3, Box 2, Box 1!
+                    // Empty slots spacer for grid alignment if a row has fewer boxes
+                    if (emptySlots > 0)
+                      pw.Container(
+                        width: boxWidth * emptySlots,
+                        height: blockHeight,
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border(
+                            right: pw.BorderSide(color: borderGrey, width: 0.5),
+                          ),
+                          color: PdfColors.grey50,
+                        ),
+                      ),
+
+                    // 2. Active Combiner Boxes from Left to Right:
+                    // In RTL, Box 1 is on the right, Box N on the left.
+                    // So in LTR Row: Box N ... Box 1!
                     ...boxes.reversed.map((bNum) {
-                      final isBoxActive = report.activeCombinerBoxes.contains(bNum);
                       final boxPanels = report.getBoxPanelCount(bNum);
-                      final panelText = (isBoxActive && boxPanels > 0) ? '$boxPanels' : '';
+                      final panelText = boxPanels > 0 ? '$boxPanels' : '';
 
                       return pw.Container(
                         width: boxWidth,
@@ -2628,7 +2696,7 @@ class PdfExportService {
                                 panelText.isNotEmpty
                                     ? _ar('عدد الالواح في المصفوفة : ( $panelText )')
                                     : _ar('عدد الالواح في المصفوفة : (         )'),
-                                style: textStyle(size: availableTableWidth > 950 ? 8.5 : 7.0, isBold: true, color: darkNavyColor),
+                                style: textStyle(size: panelFontSize, isBold: true, color: darkNavyColor),
                               ),
                             ),
 
@@ -2644,7 +2712,7 @@ class PdfExportService {
                               alignment: pw.Alignment.center,
                               child: pw.Text(
                                 _ar('صندوق تجميع $bNum'),
-                                style: textStyle(size: availableTableWidth > 950 ? 9.5 : 8.0, isBold: true, color: darkNavyColor),
+                                style: textStyle(size: boxTitleFontSize, isBold: true, color: darkNavyColor),
                               ),
                             ),
 
@@ -2672,7 +2740,7 @@ class PdfExportService {
                                     alignment: pw.Alignment.center,
                                     child: pw.Text(
                                       _ar('السلسلة$sNum'),
-                                      style: textStyle(size: availableTableWidth > 950 ? 8.5 : 7.0, isBold: true),
+                                      style: textStyle(size: strFontSize, isBold: true),
                                     ),
                                   );
                                 }).toList(),
@@ -2716,7 +2784,7 @@ class PdfExportService {
                                     alignment: pw.Alignment.center,
                                     child: pw.Text(
                                       valText,
-                                      style: textStyle(size: availableTableWidth > 950 ? 9.5 : 8.0),
+                                      style: textStyle(size: valFontSize),
                                     ),
                                   );
                                 }).toList(),
@@ -2755,7 +2823,7 @@ class PdfExportService {
                                     alignment: pw.Alignment.center,
                                     child: pw.Text(
                                       valText,
-                                      style: textStyle(size: availableTableWidth > 950 ? 9.5 : 8.0),
+                                      style: textStyle(size: valFontSize),
                                     ),
                                   );
                                 }).toList(),
@@ -2796,7 +2864,7 @@ class PdfExportService {
                             padding: const pw.EdgeInsets.symmetric(horizontal: 2),
                             child: pw.Text(
                               _ar('جهد سلسلة الالواح(فولت)'),
-                              style: textStyle(size: availableTableWidth > 950 ? 9.0 : 7.6, isBold: true),
+                              style: textStyle(size: metricFontSize, isBold: true),
                               textAlign: pw.TextAlign.center,
                             ),
                           ),
@@ -2809,7 +2877,7 @@ class PdfExportService {
                             padding: const pw.EdgeInsets.symmetric(horizontal: 2),
                             child: pw.Text(
                               _ar('تيار سلسلة الالواح (أمبير)'),
-                              style: textStyle(size: availableTableWidth > 950 ? 9.0 : 7.6, isBold: true),
+                              style: textStyle(size: metricFontSize, isBold: true),
                               textAlign: pw.TextAlign.center,
                             ),
                           ),
@@ -2826,7 +2894,7 @@ class PdfExportService {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  buildRunningHeader(isLandscape: true),
+                  buildRunningHeader(isLandscape: isWide),
                   pw.SizedBox(height: 2),
                   pw.Container(
                     padding: const pw.EdgeInsets.symmetric(vertical: 3.5, horizontal: 10),

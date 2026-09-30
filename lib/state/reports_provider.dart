@@ -10,6 +10,9 @@ import '../services/storage_service.dart';
 import '../services/default_templates.dart';
 import 'clients_provider.dart';
 import 'sites_provider.dart';
+import '../core/licensing/engine/license_guard.dart';
+import '../core/licensing/security/secure_quota_store.dart';
+import 'licensing_provider.dart';
 
 class ReportsNotifier extends StateNotifier<List<Report>> {
   final StorageService _storage;
@@ -34,7 +37,8 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
           r.facilityInfo.facilityName.toLowerCase().contains(q) ||
           r.reportNumber.toLowerCase().contains(q) ||
           r.contractNumber.toLowerCase().contains(q);
-      final matchesStatus = status == null || r.status == status;
+      final matchesStatus = status == null ||
+          (status == ReportStatus.completed ? r.isCompleted : (status == ReportStatus.draft ? !r.isCompleted : r.status == status));
       return matchesSearch && matchesStatus;
     }).toList();
 
@@ -50,6 +54,14 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
 
   // ─── إنشاء التقارير ──────────────────────────────────────────────────────────
   Future<Report> createReportFromTemplate(ReportTemplate template) async {
+    // 🛡️ فحص صلاحية الترخيص (القيد المزدوج: 60 يوماً أو 15 تقريراً)
+    final license = await LicenseGuard.evaluateLicense(state.length);
+    if (!license.canCreateReport) {
+      throw LicenseException(
+        license.message ?? 'لا يمكن إنشاء تقارير جديدة. يرجى تفعيل أو تجديد الترخيص.',
+      );
+    }
+
     const uuid = Uuid();
     final now = DateTime.now();
     final dateStr = _formatDate(now);
@@ -97,6 +109,7 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
     );
 
     await _storage.saveSingleReport(newReport);
+    await SecureQuotaStore.recordNewReportCreation(state.length);
     await load();
     return newReport;
   }
@@ -111,6 +124,8 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
     String? description,
     String? clientId,
     String? siteId,
+    Site? site,
+    Client? client,
     required ProjectInfo projectInfo,
     required FacilityInfo facilityInfo,
     required SystemSpecs systemSpecs,
@@ -118,37 +133,124 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
     List<int>? activeCombinerBoxes,
     Report? cloneSourceReport,
   }) async {
+    // 🛡️ فحص صلاحية الترخيص (القيد المزدوج: 60 يوماً أو 15 تقريراً)
+    final license = await LicenseGuard.evaluateLicense(state.length);
+    if (!license.canCreateReport) {
+      throw LicenseException(
+        license.message ?? 'لا يمكن إنشاء تقارير جديدة. يرجى تفعيل أو تجديد الترخيص.',
+      );
+    }
+
     const uuid = Uuid();
     final now = DateTime.now();
     final dateStr = (visitDate != null && visitDate.isNotEmpty)
         ? visitDate
         : _formatDate(now);
 
+    final effectiveClientId = clientId ?? site?.clientId ?? client?.id ?? cloneSourceReport?.clientId ?? '';
+    final effectiveSiteId = siteId ?? site?.id ?? cloneSourceReport?.siteId ?? '';
+
+    // حساب رقم الزيارة التالي تلقائياً إذا لم يُحدد أو كان الافتراضي
+    String effectiveVisitNumber = visitNumber ?? (facilityInfo.visitNumber.isNotEmpty ? facilityInfo.visitNumber : '1');
+    if (visitNumber == null || visitNumber.isEmpty || visitNumber == '1') {
+      final relevantReports = state.where((r) => 
+        (effectiveSiteId.isNotEmpty && r.siteId == effectiveSiteId) ||
+        (facilityInfo.facilityName.isNotEmpty && r.facilityInfo.facilityName == facilityInfo.facilityName)
+      ).toList();
+      if (relevantReports.isNotEmpty) {
+        final nums = relevantReports.map((r) => int.tryParse(r.visitNumber) ?? 1).toList()..sort();
+        effectiveVisitNumber = (nums.last + 1).toString();
+      }
+    }
+
     final effectiveTitle = (title != null && title.isNotEmpty)
         ? title
         : (facilityInfo.facilityName.isNotEmpty
-            ? 'تقرير صيانة - ${facilityInfo.facilityName}'
+            ? 'تقرير زيارة ($effectiveVisitNumber) - ${facilityInfo.facilityName}'
             : 'تقرير صيانة دورية لمنظومة الطاقة الشمسية');
+
+    // استخراج المواد والاحتياجات المعلقة من الزيارة السابقة إن وجدت
+    List<MaintenanceNeedItem> pendingNeeds = [];
+    final siteReports = state.where((r) => 
+      (effectiveSiteId.isNotEmpty && r.siteId == effectiveSiteId) ||
+      (facilityInfo.facilityName.isNotEmpty && r.facilityInfo.facilityName == facilityInfo.facilityName)
+    ).toList();
+    if (siteReports.isNotEmpty) {
+      siteReports.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      final lastReport = siteReports.first;
+      pendingNeeds = lastReport.requestedNeeds
+          .where((n) => n.status == NeedStatus.requested || n.status == NeedStatus.supplied)
+          .toList();
+    } else if (cloneSourceReport != null) {
+      pendingNeeds = cloneSourceReport.requestedNeeds
+          .where((n) => n.status == NeedStatus.requested || n.status == NeedStatus.supplied)
+          .toList();
+    }
+
+    final effectiveShowRightLogo = site?.showFunderLogo ?? cloneSourceReport?.showRightLogo ?? (site?.funderLogoBase64 != null);
+    final effectiveFunderLogo = site?.funderLogoBase64 ?? cloneSourceReport?.funderLogoBase64;
+    final effectiveFunderNameAr = (site != null && site.funderNameAr.isNotEmpty) ? site.funderNameAr : cloneSourceReport?.funderNameAr;
+    final effectiveFunderNameEn = (site != null && site.funderNameEn.isNotEmpty) ? site.funderNameEn : cloneSourceReport?.funderNameEn;
+
+    final effectiveContractorLogo = site?.contractorLogoBase64 ?? cloneSourceReport?.contractorLogoBase64;
+    final effectiveContractorNameAr = (site != null && site.implementingContractor.isNotEmpty)
+        ? site.implementingContractor
+        : (cloneSourceReport?.contractorNameAr ?? projectInfo.implementingContractor);
+    final effectiveContractorNameEn = cloneSourceReport?.contractorNameEn;
+    final effectiveContractorSubtitleAr = cloneSourceReport?.contractorSubtitleAr;
+
+    final effectiveMinistryLogo = client?.logoBase64 ?? cloneSourceReport?.ministryLogoBase64;
+    final effectiveMinistryNameAr = client?.nameAr ?? cloneSourceReport?.ministryNameAr;
+    final effectiveMinistryNameEn = client?.nameEn ?? cloneSourceReport?.ministryNameEn;
+
+    final effectiveArrayPanelCounts = (site != null && site.arrayPanelCounts.isNotEmpty)
+        ? Map<int, int>.from(site.arrayPanelCounts)
+        : (cloneSourceReport != null ? Map<int, int>.from(cloneSourceReport.arrayPanelCounts) : const <int, int>{});
+
+    final effectiveFacilityInfo = facilityInfo.copyWith(
+      visitDate: dateStr,
+      visitNumber: effectiveVisitNumber,
+      installationDate: (site != null && site.installationDate.isNotEmpty)
+          ? site.installationDate
+          : facilityInfo.installationDate,
+      email: (site != null && site.email.isNotEmpty) ? site.email : facilityInfo.email,
+    );
 
     final newReport = Report(
       id: 'rep_${uuid.v4().substring(0, 8)}',
       templateId: templateId ?? 'tmpl_solar_11p',
       title: effectiveTitle,
       reportNumber: _generateReportNumber(now),
-      contractNumber: contractNumber ?? '',
+      contractNumber: (contractNumber != null && contractNumber.isNotEmpty)
+          ? contractNumber
+          : (site?.contractNumber ?? cloneSourceReport?.contractNumber ?? ''),
       visitDate: dateStr,
-      visitTime: visitTime ?? '09:00 ص',
-      visitNumber: visitNumber ?? (facilityInfo.visitNumber.isNotEmpty ? facilityInfo.visitNumber : '1'),
-      description: description ?? 'تقرير صيانة دورية لمنظومة الطاقة الشمسية',
-      projectInfo:  projectInfo,
-      facilityInfo: facilityInfo.copyWith(visitDate: dateStr, visitNumber: visitNumber ?? facilityInfo.visitNumber),
-      systemSpecs:  systemSpecs,
+      visitTime: visitTime ?? '09:30 ص',
+      visitNumber: effectiveVisitNumber,
+      showRightLogo: effectiveShowRightLogo,
+      funderLogoBase64: effectiveFunderLogo,
+      funderNameAr: effectiveFunderNameAr,
+      funderNameEn: effectiveFunderNameEn,
+      contractorLogoBase64: effectiveContractorLogo,
+      contractorNameAr: effectiveContractorNameAr,
+      contractorNameEn: effectiveContractorNameEn,
+      contractorSubtitleAr: effectiveContractorSubtitleAr,
+      ministryLogoBase64: effectiveMinistryLogo,
+      ministryNameAr: effectiveMinistryNameAr,
+      ministryNameEn: effectiveMinistryNameEn,
+      description: description ?? 'تقرير صيانة دورية شاملة لمنظومة الطاقة الشمسية',
+      projectInfo: projectInfo,
+      facilityInfo: effectiveFacilityInfo,
+      systemSpecs: systemSpecs,
+      arrayPanelCounts: effectiveArrayPanelCounts,
       inspectionGroups:    cloneSourceReport?.inspectionGroups    ?? DefaultTemplates.blankInspectionGroups,
       batteryMeasurements: cloneSourceReport?.batteryMeasurements ?? DefaultTemplates.blankBatteryMeasurements,
       operationalData:     cloneSourceReport?.operationalData     ?? DefaultTemplates.blankOperationalData,
       stringMeasurements:  cloneSourceReport?.stringMeasurements  ?? DefaultTemplates.blankStringMeasurements,
       correctiveActions:   cloneSourceReport?.correctiveActions   ?? const [],
       photos: const [],
+      requestedNeeds: pendingNeeds,
+      showNeedsInReport: true,
       signatures: cloneSourceReport?.signatures ?? [
         const ReportSignature(
           id: 'sig_eng',
@@ -169,17 +271,18 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
         beneficiaryRepName:    facilityInfo.contactPerson,
         approvalDate:          dateStr,
       ),
-      attendanceList: cloneSourceReport?.attendanceList ?? DefaultTemplates.blankAttendanceList,
+      attendanceList: cloneSourceReport?.attendanceList ?? const [],
       activeBatteryGroups: activeBatteryGroups ?? cloneSourceReport?.activeBatteryGroups ?? const [1, 2, 3, 4],
       activeCombinerBoxes: activeCombinerBoxes ?? cloneSourceReport?.activeCombinerBoxes ?? const [1, 2, 3, 4],
-      clientId: clientId ?? '',
-      siteId: siteId ?? '',
+      clientId: effectiveClientId,
+      siteId: effectiveSiteId,
       status:    ReportStatus.draft,
       createdAt: now,
       updatedAt: now,
     );
 
     await _storage.saveSingleReport(newReport);
+    await SecureQuotaStore.recordNewReportCreation(state.length);
     await load();
     return newReport;
   }
@@ -192,6 +295,14 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
     String? visitTime,
     String? customVisitNumber,
   }) async {
+    // 🛡️ فحص صلاحية الترخيص (القيد المزدوج: 60 يوماً أو 15 تقريراً)
+    final license = await LicenseGuard.evaluateLicense(state.length);
+    if (!license.canCreateReport) {
+      throw LicenseException(
+        license.message ?? 'لا يمكن إنشاء تقارير جديدة. يرجى تفعيل أو تجديد الترخيص.',
+      );
+    }
+
     const uuid = Uuid();
     final now = DateTime.now();
     final dateStr = visitDate ?? _formatDate(now);
@@ -299,6 +410,7 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
     );
 
     await _storage.saveSingleReport(newReport);
+    await SecureQuotaStore.recordNewReportCreation(state.length);
     await load();
     return newReport;
   }
@@ -333,14 +445,32 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
     bool clearSignatures = true,
     bool clearPhotos = true,
   }) async {
+    // 🛡️ فحص صلاحية الترخيص (القيد المزدوج: 60 يوماً أو 15 تقريراً)
+    final license = await LicenseGuard.evaluateLicense(state.length);
+    if (!license.canCreateReport) {
+      throw LicenseException(
+        license.message ?? 'لا يمكن إنشاء تقارير جديدة. يرجى تفعيل أو تجديد الترخيص.',
+      );
+    }
+
     const uuid = Uuid();
     final now = DateTime.now();
     final dateStr = (newVisitDate != null && newVisitDate.isNotEmpty)
         ? newVisitDate
         : _formatDate(now);
+
+    // حساب رقم الزيارة التالي للموقع إن وُجد
+    int nextNum = (int.tryParse(report.visitNumber) ?? 1) + 1;
+    if (report.siteId.isNotEmpty) {
+      final siteReports = state.where((r) => r.siteId == report.siteId).toList();
+      if (siteReports.isNotEmpty) {
+        final nums = siteReports.map((r) => int.tryParse(r.visitNumber) ?? 1).toList()..sort();
+        nextNum = nums.last + 1;
+      }
+    }
     final visitNumStr = (newVisitNumber != null && newVisitNumber.isNotEmpty)
         ? newVisitNumber
-        : report.visitNumber;
+        : nextNum.toString();
 
     final effectiveFacility = newFacilityName != null && newFacilityName.isNotEmpty
         ? report.facilityInfo.copyWith(facilityName: newFacilityName, visitDate: dateStr, visitNumber: visitNumStr)
@@ -348,7 +478,7 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
 
     final effectiveTitle = newFacilityName != null && newFacilityName.isNotEmpty
         ? 'تقرير صيانة - $newFacilityName'
-        : '${report.title} (نسخة جديدة)';
+        : 'تقرير زيارة ($visitNumStr) - ${effectiveFacility.facilityName.isNotEmpty ? effectiveFacility.facilityName : report.title}';
 
     final clonedGroups     = report.inspectionGroups.map((g) => g.copyWith(items: g.items.map((i) => i.copyWith()).toList())).toList();
     final clonedBattery    = report.batteryMeasurements.map((b) => b.copyWith()).toList();
@@ -363,6 +493,11 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
       signatureBase64: clearSignatures ? null : s.signatureBase64,
       signedDate: clearSignatures ? '' : s.signedDate,
     )).toList();
+
+    // استخراج واستمرار الاحتياجات المعلقة
+    final pendingNeeds = report.requestedNeeds
+        .where((n) => n.status == NeedStatus.requested || n.status == NeedStatus.supplied)
+        .toList();
 
     final newReport = Report(
       id: 'rep_${uuid.v4().substring(0, 8)}',
@@ -403,15 +538,21 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
         stampBase64: clearSignatures ? null : report.approvalStatement.stampBase64,
       ),
       attendanceList:      report.attendanceList.map((a) => a.copyWith()).toList(),
+      requestedNeeds:      pendingNeeds,
+      showNeedsInReport:   report.showNeedsInReport,
       activeBatteryGroups: List<int>.from(report.activeBatteryGroups),
       activeCombinerBoxes: List<int>.from(report.activeCombinerBoxes),
       arrayPanelCounts:    Map<int, int>.from(report.arrayPanelCounts),
+      pageOrientations:    Map<int, String>.from(report.pageOrientations),
+      clientId:            report.clientId,
+      siteId:              report.siteId,
       status:    ReportStatus.draft,
       createdAt: now,
       updatedAt: now,
     );
 
     await _storage.saveSingleReport(newReport);
+    await SecureQuotaStore.recordNewReportCreation(state.length);
     await load();
     return newReport;
   }
@@ -517,7 +658,7 @@ final clientStatsProvider = Provider.family<ClientStats, String>((ref, clientId)
   if (clientId.isEmpty) return const ClientStats();
   final sites = ref.watch(sitesForClientProvider(clientId));
   final reports = ref.watch(reportsForClientProvider(clientId));
-  final completed = reports.where((r) => r.status == ReportStatus.completed).length;
+  final completed = reports.where((r) => r.isCompleted).length;
   return ClientStats(
     sitesCount: sites.length,
     reportsCount: reports.length,
@@ -542,7 +683,7 @@ final sitesGroupedByGovernorateProvider = Provider<Map<String, List<Site>>>((ref
 final draftReportsProvider = Provider<List<Report>>((ref) {
   final reports = ref.watch(reportsProvider);
   return reports
-      .where((r) => r.status == ReportStatus.draft)
+      .where((r) => !r.isCompleted)
       .toList()
     ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 });

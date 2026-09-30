@@ -18,6 +18,7 @@ class PageLayoutSettingsSheet extends StatefulWidget {
   final Set<int>? initialSelectedPages;
   final bool allowPageSelection;
   final Map<int, String>? customPageLabels;
+  final int? activeCombinerBoxesCount;
   final ValueChanged<PageLayoutResult>? onApplied;
 
   const PageLayoutSettingsSheet({
@@ -26,6 +27,7 @@ class PageLayoutSettingsSheet extends StatefulWidget {
     this.initialSelectedPages,
     this.allowPageSelection = false,
     this.customPageLabels,
+    this.activeCombinerBoxesCount,
     this.onApplied,
   });
 
@@ -36,6 +38,7 @@ class PageLayoutSettingsSheet extends StatefulWidget {
     Set<int>? initialSelectedPages,
     bool allowPageSelection = false,
     Map<int, String>? customPageLabels,
+    int? activeCombinerBoxesCount,
     ValueChanged<PageLayoutResult>? onApplied,
   }) {
     return showModalBottomSheet<PageLayoutResult>(
@@ -52,6 +55,7 @@ class PageLayoutSettingsSheet extends StatefulWidget {
         initialSelectedPages: initialSelectedPages,
         allowPageSelection: allowPageSelection,
         customPageLabels: customPageLabels,
+        activeCombinerBoxesCount: activeCombinerBoxesCount,
         onApplied: onApplied,
       ),
     );
@@ -125,16 +129,24 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
 
   Map<int, String> get _pageLabels => widget.customPageLabels ?? _defaultPageLabels;
 
+  int get _activeCombinerBoxesCount => widget.activeCombinerBoxesCount ?? 4;
+  bool get _canPage9BePortrait => _activeCombinerBoxesCount <= 8;
+
   bool _isLockedPortrait(int pageNum) => _lockedPortraitPages.contains(pageNum);
   bool _isWidePage(int pageNum) => _widePages.contains(pageNum);
 
   String _getPageMode(int pageNum) {
     if (_isLockedPortrait(pageNum)) return 'portrait';
-    // الصفحة 9: مصفوفة سلاسل التوليد وصناديق التجميع الـ 16 (أفقي أو دفتري فقط لضمان سلامة كامل البيانات)
+    // الصفحة 9: مصفوفة سلاسل التوليد وصناديق التجميع (أفقي، دفتري، أو عمودي عند قلة الصناديق)
     if (pageNum == 9) {
       final raw = _orientations[9];
-      if (raw != null && (raw.toLowerCase().contains('book') || raw.toLowerCase().contains('rotated'))) {
-        return 'book';
+      if (raw != null) {
+        final val = raw.toLowerCase();
+        if (val.contains('book') || val.contains('rotated')) return 'book';
+        if ((val.contains('portrait') || val.contains('vertical')) && _canPage9BePortrait) {
+          return 'portrait';
+        }
+        if (val.contains('landscape') || val.contains('horizontal')) return 'landscape';
       }
       return 'landscape';
     }
@@ -162,7 +174,7 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
 
   void _updatePageMode(int pageNum, String mode) {
     if (_isLockedPortrait(pageNum)) return; // محمي هندسياً لمنع انهيار التقرير
-    if (pageNum == 9 && mode == 'portrait') return; // ممنوع عمودي للصفحة 9 لمنع فقدان بيانات سلاسل الألواح
+    if (pageNum == 9 && mode == 'portrait' && !_canPage9BePortrait) return; // ممنوع عمودي للصفحة 9 إذا زادت الصناديق عن 8
     setState(() {
       _orientations[pageNum] = '${_documentPaperSize}_$mode';
     });
@@ -201,7 +213,7 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
         case 'all_a4_portrait':
           _documentPaperSize = 'a4';
           for (final p in _pageLabels.keys) {
-            _orientations[p] = (p == 9) ? 'a4_landscape' : 'a4_portrait';
+            _orientations[p] = (p == 9 && !_canPage9BePortrait) ? 'a4_landscape' : 'a4_portrait';
           }
           break;
 
@@ -299,9 +311,12 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
                   children: const [
                     Icon(Icons.print_outlined, size: 16, color: AppTheme.primaryNavy),
                     SizedBox(width: 6),
-                    Text(
-                      'مقاس ورق التقرير الموحد (يمنع أخطاء توقف الطابعات):',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                    Expanded(
+                      child: Text(
+                        'مقاس ورق التقرير الموحد (يمنع أخطاء توقف الطابعات):',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -467,6 +482,7 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
                     children: [
                       // 1. عنوان الصفحة ورقمها والبادج
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (widget.allowPageSelection) ...[
                             Checkbox(
@@ -509,38 +525,41 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text(
-                              pageTitle,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w700,
-                                color: isSelected ? AppTheme.textDark : AppTheme.textMuted,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: badgeBg,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: badgeFg.withValues(alpha: 0.3)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (isLocked) ...[
-                                  Icon(Icons.lock_outline_rounded, size: 11, color: badgeFg),
-                                  const SizedBox(width: 3),
-                                ],
                                 Text(
-                                  badgeText,
+                                  pageTitle,
                                   style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: badgeFg,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected ? AppTheme.textDark : AppTheme.textMuted,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                  decoration: BoxDecoration(
+                                    color: badgeBg,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: badgeFg.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (isLocked) ...[
+                                        Icon(Icons.lock_outline_rounded, size: 11, color: badgeFg),
+                                        const SizedBox(width: 3),
+                                      ],
+                                      Text(
+                                        badgeText,
+                                        style: TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: badgeFg,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -577,54 +596,113 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
                       ] else if (isWide) ...[
                         // صفحات عريضة (8 و 9)
                         if (pageNum == 9) ...[
-                          Container(
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppTheme.borderSubtle),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: _buildToggleButton(
-                                    label: 'أفقي للشاشات (16 صندوقاً)',
-                                    icon: Icons.stay_current_landscape_rounded,
-                                    isSelected: mode == 'landscape',
-                                    onTap: () => _updatePageMode(pageNum, 'landscape'),
+                          if (_canPage9BePortrait) ...[
+                            Container(
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.borderSubtle),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildToggleButton(
+                                      label: 'عمودي A4 ($_activeCombinerBoxesCount صناديق)',
+                                      icon: Icons.stay_current_portrait_rounded,
+                                      isSelected: mode == 'portrait',
+                                      onTap: () => _updatePageMode(pageNum, 'portrait'),
+                                    ),
                                   ),
-                                ),
-                                Expanded(
-                                  child: _buildToggleButton(
-                                    label: 'دفتري مدار ↺ (للطباعة)',
-                                    icon: Icons.auto_stories_rounded,
-                                    isSelected: mode == 'book',
-                                    onTap: () => _updatePageMode(pageNum, 'book'),
+                                  Expanded(
+                                    child: _buildToggleButton(
+                                      label: 'أفقي للشاشات',
+                                      icon: Icons.stay_current_landscape_rounded,
+                                      isSelected: mode == 'landscape',
+                                      onTap: () => _updatePageMode(pageNum, 'landscape'),
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F8E9),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              children: const [
-                                Icon(Icons.info_outline, size: 12, color: Color(0xFF2E7D32)),
-                                SizedBox(width: 5),
-                                Expanded(
-                                  child: Text(
-                                    'تم تثبيت العرض الكامل الإلزامي للصفحة 9 (16 صندوق تجميع / 64 سلسلة) لمنع فقدان أي بيانات.',
-                                    style: TextStyle(fontSize: 10, color: Color(0xFF2E7D32), fontWeight: FontWeight.w600),
+                                  Expanded(
+                                    child: _buildToggleButton(
+                                      label: 'دفتري مدار ↺',
+                                      icon: Icons.auto_stories_rounded,
+                                      isSelected: mode == 'book',
+                                      onTap: () => _updatePageMode(pageNum, 'book'),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 5),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8F5E9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_circle_outline, size: 12, color: Color(0xFF2E7D32)),
+                                  const SizedBox(width: 5),
+                                  Expanded(
+                                    child: Text(
+                                      'متاح العرض العمودي لأن عدد الصناديق المفعلة ($_activeCombinerBoxesCount) مناسب للمقاس الرأسي دون تزاحم.',
+                                      style: const TextStyle(fontSize: 10, color: Color(0xFF2E7D32), fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else ...[
+                            Container(
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.borderSubtle),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildToggleButton(
+                                      label: 'أفقي للشاشات ($_activeCombinerBoxesCount صندوقاً)',
+                                      icon: Icons.stay_current_landscape_rounded,
+                                      isSelected: mode == 'landscape',
+                                      onTap: () => _updatePageMode(pageNum, 'landscape'),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _buildToggleButton(
+                                      label: 'دفتري مدار ↺ (للطباعة)',
+                                      icon: Icons.auto_stories_rounded,
+                                      isSelected: mode == 'book',
+                                      onTap: () => _updatePageMode(pageNum, 'book'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF3E0),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.info_outline, size: 12, color: Color(0xFFE65100)),
+                                  const SizedBox(width: 5),
+                                  Expanded(
+                                    child: Text(
+                                      'الوضع الأفقي إلزامي لوجود $_activeCombinerBoxesCount صندوق تجميع لضمان وضوح كامل القراءات والسلاسل.',
+                                      style: const TextStyle(fontSize: 10, color: Color(0xFFE65100), fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ] else ...[
                           // صفحة 8: تتيح العمودي A4 عند قلة البيانات بالإضافة للأفقي والدفتري
                           Container(

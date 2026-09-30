@@ -71,6 +71,8 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
                 child: Text(
                   widget.group.title,
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppTheme.textDark),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               // Fast Bulk Action Menu
@@ -128,6 +130,7 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
         ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
+          primary: false,
           itemCount: displayedItems.length,
           separatorBuilder: (_, _) => const SizedBox(height: 10),
           itemBuilder: (context, idx) {
@@ -175,9 +178,12 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
                                     children: [
                                       const Icon(Icons.inventory_2_outlined, size: 10, color: Color(0xFF1D4ED8)),
                                       const SizedBox(width: 4),
-                                      Text(
-                                        item.subcategory!,
-                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8)),
+                                      Flexible(
+                                        child: Text(
+                                          item.subcategory!,
+                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8)),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -193,36 +199,19 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  // Status Chips
+                  // Status Chips (Ultra-Fast & Stable Custom Chips)
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
+                    primary: false,
                     child: Row(
                       children: InspectionStatus.values
                           .where((s) => s != InspectionStatus.uninspected)
                           .map((st) {
                         final isSelected = item.status == st;
-                        return Padding(
-                          padding: const EdgeInsets.only(left: 6),
-                          child: ChoiceChip(
-                            label: Text(st.labelAr),
-                            selected: isSelected,
-                            selectedColor: st.color.withValues(alpha: 0.15),
-                            avatar: isSelected ? Icon(st.icon, size: 15, color: st.color) : null,
-                            labelStyle: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 11,
-                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                              color: isSelected ? st.color : AppTheme.textMuted,
-                            ),
-                            side: BorderSide(
-                              color: isSelected ? st.color : AppTheme.borderSubtle,
-                              width: isSelected ? 1.5 : 1.0,
-                            ),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            onSelected: (_) {
-                              _updateItem(realIndex, item.copyWith(status: st));
-                            },
-                          ),
+                        return _buildStatusChip(
+                          status: st,
+                          isSelected: isSelected,
+                          onTap: () => _updateItem(realIndex, item.copyWith(status: st)),
                         );
                       }).toList(),
                     ),
@@ -233,11 +222,11 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
                     key: ValueKey('${item.id}_r$_notesRevision'),
                     initialValue: item.notes,
                     style: const TextStyle(fontSize: 12),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'ملاحظات الفحص على هذا البند...',
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      prefixIcon: const Icon(Icons.edit_note, size: 18, color: AppTheme.textMuted),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      prefixIcon: Icon(Icons.edit_note, size: 18, color: AppTheme.textMuted),
                     ),
                     onChanged: (val) {
                       _updateItem(realIndex, item.copyWith(notes: val));
@@ -262,44 +251,21 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
 
                       return SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
+                        primary: false,
                         child: Row(
                           children: displayChips.map((phrase) {
                             final isSelected = item.notes.contains(phrase);
-                            return Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: ActionChip(
-                                avatar: Icon(
-                                  isSelected ? Icons.check : Icons.add,
-                                  size: 11,
-                                  color: isSelected ? AppTheme.statusGood : AppTheme.brandCyan,
-                                ),
-                                label: Text(
-                                  phrase,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                    color: isSelected ? AppTheme.primaryNavy : AppTheme.textDark,
-                                  ),
-                                ),
-                                backgroundColor: isSelected
-                                    ? AppTheme.statusGood.withValues(alpha: 0.12)
-                                    : const Color(0xFFF8FAFC),
-                                side: BorderSide(
-                                  color: isSelected
-                                      ? AppTheme.statusGood.withValues(alpha: 0.4)
-                                      : AppTheme.borderSubtle,
-                                ),
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                onPressed: () {
-                                  setState(() => _notesRevision++);
-                                  final current = item.notes.trim();
-                                  final newNotes = current.isEmpty
-                                      ? phrase
-                                      : (current.contains(phrase) ? current : '$current - $phrase');
-                                  _updateItem(realIndex, item.copyWith(notes: newNotes));
-                                },
-                              ),
+                            return _buildQuickPhraseChip(
+                              phrase: phrase,
+                              isSelected: isSelected,
+                              onTap: () {
+                                setState(() => _notesRevision++);
+                                final current = item.notes.trim();
+                                final newNotes = current.isEmpty
+                                    ? phrase
+                                    : (current.contains(phrase) ? current : '$current - $phrase');
+                                _updateItem(realIndex, item.copyWith(notes: newNotes));
+                              },
                             );
                           }).toList(),
                         ),
@@ -327,15 +293,19 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
                 children: [
                   Icon(Icons.bolt_rounded, size: 14, color: Color(0xFFD97706)),
                   SizedBox(width: 4),
-                  Text(
-                    'صف شرائح الجمل السريعة للجدول:',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                  Expanded(
+                    child: Text(
+                      'صف شرائح الجمل السريعة للجدول:',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
+                primary: false,
                 child: Row(
                   children: [
                     'سليم 100% وخالٍ من أي عيوب',
@@ -344,34 +314,31 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
                     'يحتاج متابعة وصيانة في الزيارة القادمة',
                     'غير متوفر بالموقع (غير منطبق)',
                   ].map((phrase) {
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: ActionChip(
-                        avatar: const Icon(Icons.add_circle_outline, size: 12, color: AppTheme.brandCyan),
-                        label: Text(phrase, style: const TextStyle(fontSize: 10.5, color: AppTheme.primaryNavy)),
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: AppTheme.borderSubtle),
-                        onPressed: () {
-                          // Apply to the first unannotated item or notify
-                          final unannotatedIdx = items.indexWhere((it) => it.notes.trim().isEmpty);
-                          if (unannotatedIdx != -1) {
-                            _updateItem(unannotatedIdx, items[unannotatedIdx].copyWith(notes: phrase));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('تمت إضافة "$phrase" للبند رقم ${items[unannotatedIdx].serialNo}'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('جميع البنود تحتوي على ملاحظات بالفعل: "$phrase"'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        },
-                      ),
+                    return _buildQuickPhraseChip(
+                      phrase: phrase,
+                      isSelected: false,
+                      customIcon: Icons.add_circle_outline,
+                      customIconColor: AppTheme.brandCyan,
+                      onTap: () {
+                        // Apply to the first unannotated item or notify
+                        final unannotatedIdx = items.indexWhere((it) => it.notes.trim().isEmpty);
+                        if (unannotatedIdx != -1) {
+                          _updateItem(unannotatedIdx, items[unannotatedIdx].copyWith(notes: phrase));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('تمت إضافة "$phrase" للبند رقم ${items[unannotatedIdx].serialNo}'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('جميع البنود تحتوي على ملاحظات بالفعل: "$phrase"'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
                     );
                   }).toList(),
                 ),
@@ -380,6 +347,95 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildStatusChip({
+    required InspectionStatus status,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? status.color.withValues(alpha: 0.15) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? status.color : AppTheme.borderSubtle,
+              width: isSelected ? 1.5 : 1.0,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isSelected) ...[
+                Icon(status.icon, size: 14, color: status.color),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                status.labelAr,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: isSelected ? status.color : AppTheme.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickPhraseChip({
+    required String phrase,
+    required bool isSelected,
+    required VoidCallback onTap,
+    IconData? customIcon,
+    Color? customIconColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.statusGood.withValues(alpha: 0.12) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isSelected ? AppTheme.statusGood.withValues(alpha: 0.4) : AppTheme.borderSubtle,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                customIcon ?? (isSelected ? Icons.check : Icons.add),
+                size: 11,
+                color: customIconColor ?? (isSelected ? AppTheme.statusGood : AppTheme.brandCyan),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                phrase,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? AppTheme.primaryNavy : AppTheme.textDark,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

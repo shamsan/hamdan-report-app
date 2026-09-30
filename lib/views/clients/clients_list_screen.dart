@@ -304,12 +304,16 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                     children: [
                       const Icon(Icons.person_outline, size: 15, color: AppTheme.textMuted),
                       const SizedBox(width: 6),
-                      Text(
-                        client.contactPerson,
-                        style: const TextStyle(fontSize: 11.5, color: AppTheme.textDark),
+                      Expanded(
+                        child: Text(
+                          client.contactPerson,
+                          style: const TextStyle(fontSize: 11.5, color: AppTheme.textDark),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       if (client.phone.isNotEmpty) ...[
-                        const Spacer(),
+                        const SizedBox(width: 8),
                         const Icon(Icons.phone_outlined, size: 14, color: AppTheme.textMuted),
                         const SizedBox(width: 4),
                         Text(

@@ -14,6 +14,10 @@ import '../preview/pdf_preview_screen.dart';
 import '../session/maintenance_session_screen.dart';
 import '../session/dialogs/create_session_dialog.dart';
 
+enum ReportFilterTab { all, drafts, completed, withNeeds }
+
+final activeReportsTabFilterProvider = StateProvider<ReportFilterTab>((ref) => ReportFilterTab.all);
+
 class ReportsListScreen extends ConsumerStatefulWidget {
   const ReportsListScreen({super.key});
 
@@ -23,11 +27,17 @@ class ReportsListScreen extends ConsumerStatefulWidget {
 
 class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
   final TextEditingController _searchController = TextEditingController();
-  ReportStatus? _filterStatus;
+  ReportFilterTab _activeFilterTab = ReportFilterTab.all;
   ReportSortOrder _sortOrder = ReportSortOrder.updatedAtDesc;
   String? _filterClientId;
   String? _filterSiteId;
   Timer? _searchDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeFilterTab = ref.read(activeReportsTabFilterProvider);
+  }
 
   @override
   void dispose() {
@@ -38,13 +48,25 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<ReportFilterTab>(activeReportsTabFilterProvider, (prev, next) {
+      if (next != _activeFilterTab) {
+        setState(() => _activeFilterTab = next);
+      }
+    });
+
     final reports = ref.watch(reportsProvider);
 
     var filtered = ref.watch(reportsProvider.notifier).getFiltered(
       query: _searchController.text.trim(),
-      status: _filterStatus,
+      status: _activeFilterTab == ReportFilterTab.drafts
+          ? ReportStatus.draft
+          : (_activeFilterTab == ReportFilterTab.completed ? ReportStatus.completed : null),
       sortOrder: _sortOrder,
     );
+
+    if (_activeFilterTab == ReportFilterTab.withNeeds) {
+      filtered = filtered.where((r) => r.requestedNeeds.isNotEmpty).toList();
+    }
 
     if (_filterClientId != null && _filterClientId!.isNotEmpty) {
       filtered = filtered.where((r) => r.clientId == _filterClientId).toList();
@@ -98,20 +120,36 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _buildFilterChip('الكل (${reports.length})', _filterStatus == null, () {
-                          setState(() => _filterStatus = null);
+                        _buildFilterChip('الكل (${reports.length})', _activeFilterTab == ReportFilterTab.all, () {
+                          setState(() => _activeFilterTab = ReportFilterTab.all);
+                          ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.all;
                         }),
                         const SizedBox(width: 8),
                         _buildFilterChip(
-                          'قيد التحرير (${reports.where((r) => r.status == ReportStatus.draft).length})',
-                          _filterStatus == ReportStatus.draft,
-                          () => setState(() => _filterStatus = ReportStatus.draft),
+                          'قيد الفحص (${reports.where((r) => !r.isCompleted).length})',
+                          _activeFilterTab == ReportFilterTab.drafts,
+                          () {
+                            setState(() => _activeFilterTab = ReportFilterTab.drafts);
+                            ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.drafts;
+                          },
                         ),
                         const SizedBox(width: 8),
                         _buildFilterChip(
-                          'المكتملة (${reports.where((r) => r.status == ReportStatus.completed).length})',
-                          _filterStatus == ReportStatus.completed,
-                          () => setState(() => _filterStatus = ReportStatus.completed),
+                          'المكتملة (${reports.where((r) => r.isCompleted).length})',
+                          _activeFilterTab == ReportFilterTab.completed,
+                          () {
+                            setState(() => _activeFilterTab = ReportFilterTab.completed);
+                            ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.completed;
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(
+                          'طلبات مواد (${reports.where((r) => r.requestedNeeds.isNotEmpty).length})',
+                          _activeFilterTab == ReportFilterTab.withNeeds,
+                          () {
+                            setState(() => _activeFilterTab = ReportFilterTab.withNeeds);
+                            ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.withNeeds;
+                          },
                         ),
                         const SizedBox(width: 12),
                         Container(
@@ -298,7 +336,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                               onPressed: () {
                                 setState(() {
                                   _searchController.clear();
-                                  _filterStatus = null;
+                                  _activeFilterTab = ReportFilterTab.all;
                                   _filterClientId = null;
                                   _filterSiteId = null;
                                 });
@@ -324,7 +362,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                                     crossAxisCount: 2,
                                     crossAxisSpacing: 14,
                                     mainAxisSpacing: 14,
-                                    mainAxisExtent: 180,
+                                    mainAxisExtent: 245,
                                   ),
                                   itemCount: filtered.length,
                                   itemBuilder: (context, index) {
@@ -383,13 +421,19 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
 
   Widget _buildReportItem(BuildContext context, Report report) {
     final progress = report.completionRatio;
-    final isCompleted = report.status == ReportStatus.completed;
+    final isCompleted = report.isCompleted;
+    final hasNeeds = report.requestedNeeds.isNotEmpty;
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.borderSubtle, width: 1),
+        border: Border.all(
+          color: isCompleted
+              ? AppTheme.statusGood.withValues(alpha: 0.3)
+              : AppTheme.borderSubtle,
+          width: isCompleted ? 1.2 : 1.0,
+        ),
         boxShadow: AppTheme.cardShadow,
       ),
       child: Material(
@@ -403,108 +447,105 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
             );
           },
           child: Padding(
-            padding: const EdgeInsets.all(15),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Client > Site > Visit Breadcrumb Pill
-                Consumer(
-                  builder: (context, ref, _) {
-                    final client = ref.watch(clientByIdProvider(report.clientId));
-                    final site = ref.watch(siteByIdProvider(report.siteId));
-                    final clientName = client?.displayName ?? 'عميل غير محدد';
-                    final siteName = site?.displayName ?? (report.facilityInfo.facilityName.isNotEmpty ? report.facilityInfo.facilityName : 'موقع غير محدد');
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                // Top Row: Status Pill, Visit Pill, Category, and Overflow Menu
+                Row(
+                  children: [
+                    // Status Pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryNavy.withValues(alpha: 0.05),
+                        color: isCompleted
+                            ? const Color(0xFFECFDF5)
+                            : (progress > 0
+                                ? const Color(0xFFFFFBEB)
+                                : const Color(0xFFF1F5F9)),
                         borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isCompleted
+                              ? const Color(0xFFA7F3D0)
+                              : (progress > 0
+                                  ? const Color(0xFFFDE68A)
+                                  : const Color(0xFFCBD5E1)),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.business_rounded, size: 12, color: AppTheme.primaryNavy),
+                          Icon(
+                            isCompleted
+                                ? Icons.check_circle_rounded
+                                : (progress > 0
+                                    ? Icons.timelapse_rounded
+                                    : Icons.edit_note_rounded),
+                            size: 13,
+                            color: isCompleted
+                                ? const Color(0xFF059669)
+                                : (progress > 0
+                                    ? const Color(0xFFD97706)
+                                    : AppTheme.textSecondary),
+                          ),
                           const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              clientName,
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 4),
-                            child: Icon(Icons.chevron_left_rounded, size: 12, color: AppTheme.textMuted),
-                          ),
-                          const Icon(Icons.location_on_rounded, size: 12, color: AppTheme.solarGold),
-                          const SizedBox(width: 2),
-                          Flexible(
-                            child: Text(
-                              siteName,
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: AppTheme.brandCyan.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'زيارة #${report.visitNumber}',
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.brandCyan),
+                          Text(
+                            isCompleted
+                                ? 'مكتمل (100%)'
+                                : (progress > 0
+                                    ? 'قيد الفحص (${(progress * 100).toInt()}%)'
+                                    : 'مسودة جديدة'),
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: isCompleted
+                                  ? const Color(0xFF065F46)
+                                  : (progress > 0
+                                      ? const Color(0xFF92400E)
+                                      : AppTheme.textDark),
                             ),
                           ),
                         ],
                       ),
-                    );
-                  },
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                    ),
+                    const SizedBox(width: 6),
+                    // Visit Sequence Pill
                     Container(
-                      padding: const EdgeInsets.all(9),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
                       decoration: BoxDecoration(
-                        color: isCompleted ? AppTheme.statusGoodBg : AppTheme.statusFollowupBg,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isCompleted
-                              ? AppTheme.statusGood.withValues(alpha: 0.3)
-                              : AppTheme.statusFollowup.withValues(alpha: 0.3),
+                        color: AppTheme.primaryNavy.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'زيارة #${report.visitNumber}',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryNavy,
                         ),
                       ),
-                      child: Icon(
-                        isCompleted ? Icons.check_circle_rounded : Icons.pending_actions_rounded,
-                        color: isCompleted ? AppTheme.statusGood : AppTheme.statusFollowup,
-                        size: 20,
-                      ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            report.facilityInfo.facilityName.isNotEmpty
-                                ? report.facilityInfo.facilityName
-                                : report.title,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textDark),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                    if (report.facilityInfo.category.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Text(
+                          report.facilityInfo.category,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textSecondary,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'عقد: ${report.contractNumber} • الزيارة: ${report.facilityInfo.visitDate}',
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
+                    const Spacer(),
+                    // Overflow Actions Menu
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert, size: 20, color: AppTheme.textMuted),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -513,6 +554,11 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => MaintenanceSessionScreen(reportId: report.id)),
+                          );
+                        } else if (val == 'editor') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: report.id)),
                           );
                         } else if (val == 'duplicate') {
                           _showDuplicateReportDialog(context, report);
@@ -533,6 +579,16 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                               Icon(Icons.flash_on_rounded, size: 18, color: AppTheme.solarGold),
                               SizedBox(width: 8),
                               Text('جلسة الفحص التفاعلية', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'editor',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_note_rounded, size: 18, color: AppTheme.primaryNavy),
+                              SizedBox(width: 8),
+                              Text('محرر التقرير الشامل', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
@@ -570,25 +626,122 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
+
+                // Facility Name (Headline)
+                Text(
+                  report.facilityInfo.facilityName.isNotEmpty
+                      ? report.facilityInfo.facilityName
+                      : report.title,
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textDark,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+
+                // Client & Location Line
+                Consumer(
+                  builder: (context, ref, _) {
+                    final client = ref.watch(clientByIdProvider(report.clientId));
+                    final clientName = client?.displayName ?? (report.projectInfo.ownerEntity.isNotEmpty ? report.projectInfo.ownerEntity : 'الجهة المستفيدة');
+                    final location = '${report.effectiveGovernorate} - ${report.effectiveDistrict}';
+
+                    return Row(
+                      children: [
+                        const Icon(Icons.business_rounded, size: 13, color: AppTheme.primaryNavy),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            clientName,
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.primaryNavy),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 5),
+                          child: Text('•', style: TextStyle(color: AppTheme.textMuted)),
+                        ),
+                        const Icon(Icons.location_on_outlined, size: 13, color: AppTheme.solarGold),
+                        const SizedBox(width: 2),
+                        Flexible(
+                          child: Text(
+                            location,
+                            style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 4),
+
+                // Contract & Date
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'الإنجاز: ${(progress * 100).toInt()}% (${isCompleted ? "مكتمل" : "مسودة"})',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: isCompleted ? AppTheme.statusGood : const Color(0xFFD97706),
+                    const Icon(Icons.tag_rounded, size: 13, color: AppTheme.textMuted),
+                    const SizedBox(width: 2),
+                    Flexible(
+                      child: Text(
+                        'عقد: ${report.contractNumber.isNotEmpty ? report.contractNumber : "1010720"}',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 5),
+                      child: Text('•', style: TextStyle(color: AppTheme.textMuted)),
+                    ),
+                    const Icon(Icons.calendar_today_outlined, size: 12, color: AppTheme.textMuted),
+                    const SizedBox(width: 3),
+                    Text(
+                      report.facilityInfo.visitDate.isNotEmpty ? report.facilityInfo.visitDate : 'اليوم',
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                    ),
+                    const Spacer(),
                     Text(
                       report.systemSpecs.capacityKw.isNotEmpty ? report.systemSpecs.capacityKw : '57.6 kW',
-                      style: const TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+
+                // Pending Material Needs Badge (if any)
+                if (hasNeeds) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.inventory_2_rounded, size: 13, color: Color(0xFFD97706)),
+                        const SizedBox(width: 5),
+                        Text(
+                          'يحتوي على ${report.requestedNeeds.length} طلبات مواد واحتياجات صيانة',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFB45309),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 10),
+
+                // Progress Indicator
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
@@ -596,56 +749,71 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                     minHeight: 5,
                     backgroundColor: const Color(0xFFE2E8F0),
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      isCompleted ? AppTheme.statusGood : AppTheme.brandCyan,
+                      isCompleted ? AppTheme.statusGood : AppTheme.solarGold,
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
+
+                const SizedBox(height: 12),
+
+                // Action Dock Row (Thumb-Friendly Buttons)
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'الفئة: ${report.facilityInfo.category.isNotEmpty ? report.facilityInfo.category : "CAT 8"}',
-                        style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
+                    // Primary Action Button (Field Session or Editor)
+                    Expanded(
+                      flex: 3,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryNavy,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        icon: Icon(
+                          isCompleted ? Icons.edit_note_rounded : Icons.flash_on_rounded,
+                          size: 16,
+                          color: isCompleted ? Colors.white : AppTheme.solarGold,
+                        ),
+                        label: Text(
+                          isCompleted ? 'مراجعة التقرير' : 'متابعة الفحص',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: () {
+                          if (isCompleted) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: report.id)),
+                            );
+                          } else {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => MaintenanceSessionScreen(reportId: report.id)),
+                            );
+                          }
+                        },
                       ),
                     ),
-                    const Spacer(),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        side: BorderSide(color: AppTheme.primaryNavy.withValues(alpha: 0.2)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    const SizedBox(width: 8),
+                    // PDF Preview Button
+                    Expanded(
+                      flex: 2,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryNavy,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          side: BorderSide(color: AppTheme.primaryNavy.withValues(alpha: 0.25)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 15),
+                        label: const Text('PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => PdfPreviewScreen(report: report)),
+                          );
+                        },
                       ),
-                      icon: const Icon(Icons.flash_on_rounded, size: 15, color: AppTheme.solarGold),
-                      label: const Text('الفحص', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => MaintenanceSessionScreen(reportId: report.id)),
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 6),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryNavy,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 15),
-                      label: const Text('PDF', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => PdfPreviewScreen(report: report)),
-                        );
-                      },
                     ),
                   ],
                 ),

@@ -14,6 +14,8 @@ class SessionCompletionDialog {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actionsOverflowButtonSpacing: 8,
+        actionsOverflowDirection: VerticalDirection.up,
         title: const Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 26),
@@ -113,6 +115,7 @@ class SessionCompletionDialog {
   static void showCompletedSuccess({
     required BuildContext context,
     required List<SessionQuestion> questions,
+    required VoidCallback onOpenEditor,
     required VoidCallback onSaveAndFinish,
     required VoidCallback onPreviewPdf,
   }) {
@@ -149,7 +152,7 @@ class SessionCompletionDialog {
               ),
               const SizedBox(height: 6),
               const Text(
-                'تم التشييك والتحقق من كافة بنود المنظومة الشمسية بنسبة 100%. التقرير جاهز الآن للحفظ والاعتماد والتصدير.',
+                'تم التشييك والتحقق من كافة بنود المنظومة بنسبة 100%. يمكنك المتابعة لإدخال القياسات والتواقيع أو تصدير التقرير.',
                 style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4),
                 textAlign: TextAlign.center,
               ),
@@ -168,8 +171,18 @@ class SessionCompletionDialog {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('إجمالي البنود المفحوصة:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        Text('${questions.length} / ${questions.length} بند (100%)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.statusGood)),
+                        const Flexible(
+                          child: Text(
+                            'إجمالي البنود المفحوصة:',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${questions.length} / ${questions.length} بند (100%)',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.statusGood),
+                        ),
                       ],
                     ),
                     const Divider(height: 16),
@@ -185,42 +198,59 @@ class SessionCompletionDialog {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
               // Actions
+              // 1. الخيار الأساسي: الانتقال للمحرر لإكمال القياسات والتواقيع
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.statusGood,
+                    backgroundColor: AppTheme.primaryNavy,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 2,
                   ),
-                  icon: const Icon(Icons.save_rounded, size: 18, color: Colors.white),
-                  label: const Text('حفظ التقرير واعتماده رسمياً', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                  icon: const Icon(Icons.edit_note_rounded, size: 20, color: AppTheme.solarGold),
+                  label: const Text(
+                    'متابعة القياسات والتواقيع (المحرر) 📝',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                  ),
                   onPressed: () {
                     Navigator.pop(ctx);
-                    onSaveAndFinish();
+                    onOpenEditor();
                   },
                 ),
               ),
               const SizedBox(height: 8),
 
+              // 2. خيار معاينة وتصدير PDF
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    side: const BorderSide(color: AppTheme.primaryNavy),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    side: const BorderSide(color: AppTheme.borderSubtle),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  icon: const Icon(Icons.picture_as_pdf, size: 18, color: AppTheme.primaryNavy),
-                  label: const Text('معاينة وتصدير PDF الآن', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
+                  icon: const Icon(Icons.picture_as_pdf, size: 17, color: AppTheme.primaryNavy),
+                  label: const Text('معاينة وتصدير PDF', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
                   onPressed: () {
                     Navigator.pop(ctx);
                     onPreviewPdf();
                   },
                 ),
+              ),
+              const SizedBox(height: 6),
+
+              // 3. حفظ وخروج
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  onSaveAndFinish();
+                },
+                child: const Text('حفظ والخروج للرئيسية', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
               ),
             ],
           ),

@@ -109,10 +109,11 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
     for (int i = 0; i < 24; i++) {
       final realIndex = startIndex + i;
       if (realIndex < list.length) {
+        final offset = v >= 10.0
+            ? varianceOffsets[i % varianceOffsets.length] * 4.0
+            : varianceOffsets[i % varianceOffsets.length];
         final cellV = withVariance
-            ? double.parse(
-                (v + varianceOffsets[i % varianceOffsets.length])
-                    .toStringAsFixed(2))
+            ? double.parse((v + offset).toStringAsFixed(2))
             : v;
         list[realIndex] = list[realIndex].copyWith(voltage: cellV);
       }
@@ -121,7 +122,7 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
     widget.onChanged(list);
     _showFeedback(
       withVariance
-          ? 'تم تطبيق جهد واقعي (${v.toStringAsFixed(2)}V ±0.01)'
+          ? 'تم تطبيق جهد واقعي (${v.toStringAsFixed(2)}V)'
           : 'تم تعيين ${v.toStringAsFixed(2)}V للمجموعة $_selectedGroup',
     );
   }
@@ -1014,12 +1015,21 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
             _buildQuickChip(label: '2.16V', onTap: () => _applyGroupVoltage(2.16), color: AppTheme.brandCyan),
             _buildQuickChip(label: '2.18V', onTap: () => _applyGroupVoltage(2.18), color: AppTheme.brandCyan),
             _buildQuickChip(label: '2.20V', onTap: () => _applyGroupVoltage(2.20), color: AppTheme.brandCyan),
+            _buildQuickChip(label: '12.6V', onTap: () => _applyGroupVoltage(12.6), color: Colors.indigo),
+            _buildQuickChip(label: '12.8V', onTap: () => _applyGroupVoltage(12.8), color: Colors.indigo),
             _buildQuickChip(
-              label: 'واقعي ±0.01',
+              label: 'واقعي (2V) ±0.01',
               icon: Icons.auto_awesome_rounded,
               onTap: () => _applyGroupVoltage(2.15, withVariance: true),
               color: Colors.teal.shade700,
               bgColor: Colors.teal.shade50,
+            ),
+            _buildQuickChip(
+              label: 'واقعي (12V) ±0.04',
+              icon: Icons.auto_awesome_rounded,
+              onTap: () => _applyGroupVoltage(12.6, withVariance: true),
+              color: Colors.indigo.shade700,
+              bgColor: Colors.indigo.shade50,
             ),
             _buildQuickChip(
               label: 'مخصص',

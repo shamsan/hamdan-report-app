@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import '../services/storage_service.dart';
 
 enum PhotoPlacement {
   grid,             // شبكة صور
@@ -73,6 +74,15 @@ class ReportPhoto {
           return await f.readAsBytes();
         } catch (_) {}
       }
+      try {
+        final resolved = await StorageService().resolvePhotoPath(filePath);
+        if (resolved != null) {
+          final f2 = File(resolved);
+          if (await f2.exists()) {
+            return await f2.readAsBytes();
+          }
+        }
+      } catch (_) {}
     }
     if (base64Data.isNotEmpty) {
       return _safeDecode(base64Data);
@@ -89,6 +99,16 @@ class ReportPhoto {
           return f.readAsBytesSync();
         } catch (_) {}
       }
+      try {
+        final filename = filePath!.split(RegExp(r'[/\\]')).last;
+        final dir = StorageService().photosDir;
+        if (dir != null) {
+          final f2 = File('${dir.path}/$filename');
+          if (f2.existsSync()) {
+            return f2.readAsBytesSync();
+          }
+        }
+      } catch (_) {}
     }
     if (base64Data.isNotEmpty) {
       return _safeDecode(base64Data);

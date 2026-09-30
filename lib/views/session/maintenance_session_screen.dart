@@ -7,6 +7,7 @@ import '../../models/maintenance_need.dart';
 import '../../models/report.dart';
 import '../../state/reports_provider.dart';
 import '../preview/pdf_preview_screen.dart';
+import '../editor/report_editor_screen.dart';
 import 'models/session_question.dart';
 import 'widgets/question_card_widget.dart';
 import 'widgets/questions_overview_sheet.dart';
@@ -33,6 +34,7 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
   bool _isLoaded = false;
   int _currentIndex = 0;
   bool _smartNavigation = true; // القفز التكيفي الذكي للبنود المعلقة
+  bool _autoAdvanceOnGood = true; // التقدم التلقائي عند تقييم البند بالسليم
   final Set<int> _skippedIndices = <int>{};
   List<SessionQuestion> _questions = [];
   late final AppLifecycleListener _lifecycleListener;
@@ -592,13 +594,16 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
                   ),
                 ),
                 const SizedBox(height: 12),
-                Row(
+                const Row(
                   children: [
-                    const Icon(Icons.bolt, color: Color(0xFFD97706), size: 22),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'خيارات التخطي والإجراءات السريعة',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                    Icon(Icons.bolt, color: Color(0xFFD97706), size: 22),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'خيارات التخطي والإجراءات السريعة',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -741,12 +746,18 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
       SessionCompletionDialog.showCompletedSuccess(
         context: context,
         questions: _questions,
+        onOpenEditor: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ReportEditorScreen(reportId: completedReport.id),
+            ),
+          );
+        },
         onSaveAndFinish: () {
-          Navigator.pop(context); // Close dialog
           Navigator.pop(context); // Return from session screen
         },
         onPreviewPdf: () {
-          Navigator.pop(context); // Close dialog
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -806,7 +817,13 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
             children: [
               Icon(Icons.pause_circle_outline_rounded, color: Color(0xFFD97706), size: 24),
               SizedBox(width: 8),
-              Text('مغادرة جلسة الفحص', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Expanded(
+                child: Text(
+                  'مغادرة جلسة الفحص',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
           content: Text(
@@ -868,6 +885,31 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
             ],
           ),
           actions: [
+            IconButton(
+              icon: Icon(
+                _autoAdvanceOnGood ? Icons.touch_app_rounded : Icons.touch_app_outlined,
+                color: _autoAdvanceOnGood ? const Color(0xFF34D399) : Colors.white60,
+              ),
+              tooltip: _autoAdvanceOnGood ? 'التقدم التلقائي عند التقييم السليم: مفعل' : 'التقدم التلقائي: معطل',
+              onPressed: () {
+                setState(() {
+                  _autoAdvanceOnGood = !_autoAdvanceOnGood;
+                });
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      _autoAdvanceOnGood
+                          ? 'تم تفعيل التقدم التلقائي عند تقييم البند كـ "سليم"'
+                          : 'تم تعطيل التقدم التلقائي',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    duration: const Duration(seconds: 1),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
             IconButton(
               icon: Icon(
                 _smartNavigation ? Icons.bolt_rounded : Icons.format_list_numbered_rounded,
@@ -938,23 +980,21 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
                   final linkedNeeds = _report.requestedNeeds
                       .where((n) => n.relatedInspectionItemId == q.item.id)
                       .toList();
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-                    child: QuestionCardWidget(
-                      key: ValueKey('question_${q.globalIndex}_${q.item.id}'),
-                      question: q,
-                      report: _report,
-                      linkedNeeds: linkedNeeds,
-                      onUpdated: _onItemUpdated,
-                      onAddNeed: _onNeedAdded,
-                      onDeleteNeed: _onNeedDeleted,
-                      onSkipSubcategory: _skipRemainingInSubcategory,
-                      onMarkSubcategoryGood: () => _applyBulkStatusToSubcategory(InspectionStatus.good),
-                      onMarkSubcategoryNA: () => _applyBulkStatusToSubcategory(
-                        InspectionStatus.notApplicable,
-                        defaultNotes: 'غير متوفر في هذا المرفق',
-                      ),
+                  return QuestionCardWidget(
+                    key: ValueKey('question_${q.globalIndex}_${q.item.id}'),
+                    question: q,
+                    report: _report,
+                    linkedNeeds: linkedNeeds,
+                    onUpdated: _onItemUpdated,
+                    onAddNeed: _onNeedAdded,
+                    onDeleteNeed: _onNeedDeleted,
+                    onSkipSubcategory: _skipRemainingInSubcategory,
+                    onMarkSubcategoryGood: () => _applyBulkStatusToSubcategory(InspectionStatus.good),
+                    onMarkSubcategoryNA: () => _applyBulkStatusToSubcategory(
+                      InspectionStatus.notApplicable,
+                      defaultNotes: 'غير متوفر في هذا المرفق',
                     ),
+                    onAutoAdvance: _autoAdvanceOnGood ? _handleNext : null,
                   );
                 },
               ),
