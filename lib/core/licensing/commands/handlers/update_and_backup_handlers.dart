@@ -15,11 +15,11 @@ class ForceUpdateHandler implements BaseCommandHandler {
   @override
   Future<CommandExecutionResult> execute(String commandId, Map<String, dynamic> payload) async {
     final version = payload['version'] as String? ?? '';
-    final downloadUrl = payload['downloadUrl'] as String?;
+    final downloadUrl = (payload['downloadUrl'] ?? payload['url']) as String?;
     final isMandatory = (payload['isMandatory'] ?? payload['mandatory']) as bool? ?? false;
-    final releaseNotes = payload['releaseNotes'] as String?;
-    final checksum = payload['checksum'] as String?;
-    final dynamic rawSize = payload['fileSize'];
+    final releaseNotes = (payload['releaseNotes'] ?? payload['changelog'] ?? payload['notes']) as String?;
+    final checksum = (payload['checksum'] ?? payload['sha256'] ?? payload['hash']) as String?;
+    final dynamic rawSize = payload['fileSize'] ?? payload['size'];
     final int? fileSize = rawSize is int ? rawSize : (rawSize is String ? int.tryParse(rawSize) : null);
 
     CommandEventBus().emit(ForceUpdateUIEvent(

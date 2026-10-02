@@ -276,7 +276,7 @@ class DashboardScreen extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
-                            Icons.electric_bolt_rounded,
+                            Icons.directions_car_rounded,
                             color: Color(0xFF0F172A),
                             size: 22,
                           ),
