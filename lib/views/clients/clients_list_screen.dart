@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -448,6 +449,144 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
     );
   }
 
+  Widget _buildLogoSelectorCard({
+    required BuildContext context,
+    required String? logoBase64,
+    required VoidCallback onPick,
+    required VoidCallback onRemove,
+  }) {
+    final hasLogo = logoBase64 != null && logoBase64.isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.image_rounded, size: 16, color: AppTheme.primaryNavy),
+              const SizedBox(width: 6),
+              const Text(
+                'شعار العميل / المنشأة الرسمية',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+              ),
+              const Spacer(),
+              if (hasLogo)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.statusGood.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle_rounded, size: 12, color: AppTheme.statusGood),
+                      SizedBox(width: 4),
+                      Text('تم اعتماد الشعار', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.statusGood)),
+                    ],
+                  ),
+                )
+              else
+                const Text(
+                  'اختياري (لترويسة التقارير)',
+                  style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: hasLogo ? AppTheme.brandCyan.withValues(alpha: 0.5) : const Color(0xFFCBD5E1),
+                    width: hasLogo ? 1.5 : 1.0,
+                  ),
+                ),
+                child: hasLogo
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.memory(
+                          base64Decode(logoBase64),
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image_rounded, color: AppTheme.textMuted),
+                        ),
+                      )
+                    : const Icon(Icons.apartment_rounded, color: AppTheme.textMuted, size: 30),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hasLogo
+                          ? 'يظهر هذا الشعار تلقائياً في ترويسة جميع التقارير والمستندات الهندسية التابعة لهذا العميل.'
+                          : 'أرفق شعار الوزارة / المنظمة ليظهر رسمياً في ترويسة التقارير والشهادات الفنية.',
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary, height: 1.3),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 36),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            side: BorderSide(color: hasLogo ? AppTheme.primaryNavy : AppTheme.brandCyan),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: Icon(hasLogo ? Icons.change_circle_outlined : Icons.add_photo_alternate_rounded, size: 16, color: hasLogo ? AppTheme.primaryNavy : AppTheme.brandCyan),
+                          label: Text(
+                            hasLogo ? 'تغيير الشعار' : 'اختيار صورة الشعار',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: hasLogo ? AppTheme.primaryNavy : AppTheme.brandCyan,
+                            ),
+                          ),
+                          onPressed: onPick,
+                        ),
+                        if (hasLogo) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: 'حذف الشعار',
+                            style: IconButton.styleFrom(
+                              backgroundColor: AppTheme.statusRejected.withValues(alpha: 0.08),
+                              minimumSize: const Size(36, 36),
+                              padding: EdgeInsets.zero,
+                            ),
+                            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.statusRejected),
+                            onPressed: onRemove,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showAddClientDialog(BuildContext context) {
     final nameArCtrl = TextEditingController();
     final nameEnCtrl = TextEditingController();
@@ -455,6 +594,7 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
     final phoneCtrl = TextEditingController();
     final addressCtrl = TextEditingController();
     String clientType = 'جهة حكومية / وزارة';
+    String? selectedLogoBase64;
 
     showModalBottomSheet(
       context: context,
@@ -520,6 +660,35 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                   ],
                 ),
                 const SizedBox(height: 18),
+
+                // Card 0: Logo Picker
+                _buildLogoSelectorCard(
+                  context: ctx,
+                  logoBase64: selectedLogoBase64,
+                  onPick: () async {
+                    try {
+                      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+                      if (res != null && res.files.isNotEmpty && res.files.first.bytes != null) {
+                        final b64 = base64Encode(res.files.first.bytes!);
+                        setModalState(() {
+                          selectedLogoBase64 = b64;
+                        });
+                      }
+                    } catch (e) {
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('تعذر اختيار الشعار: $e')),
+                        );
+                      }
+                    }
+                  },
+                  onRemove: () {
+                    setModalState(() {
+                      selectedLogoBase64 = null;
+                    });
+                  },
+                ),
+                const SizedBox(height: 14),
 
                 // Card 1: Basic Info
                 _buildFormSectionCard(
@@ -693,6 +862,7 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                             contactPerson: contactCtrl.text.trim(),
                             phone: phoneCtrl.text.trim(),
                             address: addressCtrl.text.trim(),
+                            logoBase64: selectedLogoBase64,
                           );
                           if (ctx.mounted) Navigator.pop(ctx);
                         },
@@ -715,6 +885,7 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
     final phoneCtrl = TextEditingController(text: client.phone);
     final addressCtrl = TextEditingController(text: client.address);
     String clientType = client.clientType;
+    String? selectedLogoBase64 = client.logoBase64;
 
     showModalBottomSheet(
       context: context,
@@ -771,7 +942,7 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
                           ),
                           Text(
-                            'تحديث بيانات الاتصال والمسؤول والمقر الرئيسي للجهة',
+                            'تحديث بيانات الاتصال والمسؤول والمقر الرئيسي وشعار الجهة',
                             style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
                           ),
                         ],
@@ -780,6 +951,35 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                   ],
                 ),
                 const SizedBox(height: 18),
+
+                // Card 0: Logo Picker
+                _buildLogoSelectorCard(
+                  context: ctx,
+                  logoBase64: selectedLogoBase64,
+                  onPick: () async {
+                    try {
+                      final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+                      if (res != null && res.files.isNotEmpty && res.files.first.bytes != null) {
+                        final b64 = base64Encode(res.files.first.bytes!);
+                        setModalState(() {
+                          selectedLogoBase64 = b64;
+                        });
+                      }
+                    } catch (e) {
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('تعذر اختيار الشعار: $e')),
+                        );
+                      }
+                    }
+                  },
+                  onRemove: () {
+                    setModalState(() {
+                      selectedLogoBase64 = null;
+                    });
+                  },
+                ),
+                const SizedBox(height: 14),
 
                 // Card 1: Basic Info
                 _buildFormSectionCard(
@@ -942,16 +1142,21 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                             );
                             return;
                           }
-                          await ref.read(clientsProvider.notifier).updateClient(
-                            client.copyWith(
-                              nameAr: nameArCtrl.text.trim(),
-                              nameEn: nameEnCtrl.text.trim(),
-                              clientType: clientType,
-                              contactPerson: contactCtrl.text.trim(),
-                              phone: phoneCtrl.text.trim(),
-                              address: addressCtrl.text.trim(),
-                            ),
+                          final updatedClient = Client(
+                            id: client.id,
+                            nameAr: nameArCtrl.text.trim(),
+                            nameEn: nameEnCtrl.text.trim(),
+                            clientType: clientType,
+                            logoBase64: selectedLogoBase64,
+                            contactPerson: contactCtrl.text.trim(),
+                            phone: phoneCtrl.text.trim(),
+                            email: client.email,
+                            address: addressCtrl.text.trim(),
+                            notes: client.notes,
+                            createdAt: client.createdAt,
+                            updatedAt: DateTime.now(),
                           );
+                          await ref.read(clientsProvider.notifier).updateClient(updatedClient);
                           if (ctx.mounted) Navigator.pop(ctx);
                         },
                       ),
