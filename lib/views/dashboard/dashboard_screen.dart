@@ -34,13 +34,6 @@ class DashboardScreen extends ConsumerWidget {
     final branding = ref.watch(brandingProvider);
     final sitesByGov = ref.watch(sitesGroupedByGovernorateProvider);
 
-    Report? latestDraft;
-    if (drafts.isNotEmpty) {
-      final sortedDrafts = List<Report>.from(drafts)
-        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      latestDraft = sortedDrafts.first;
-    }
-
     if (clients.isEmpty) {
       return Scaffold(
         appBar: _buildAppBar(branding),
@@ -66,11 +59,7 @@ class DashboardScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeaderGreeting(context, reports, drafts),
-                const SizedBox(height: 14),
-                if (latestDraft != null) ...[
-                  _buildHeroResumeCard(context, latestDraft),
-                  const SizedBox(height: 16),
-                ],
+                const SizedBox(height: 16),
                 _buildActionHub(context),
                 const SizedBox(height: 22),
                 _buildStatsSummary(context, clients.length, sites.length, reports, ref),
@@ -240,99 +229,83 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeroResumeCard(BuildContext context, Report draft) {
-    final progress = draft.completionRatio;
-    final progressPercent = (progress * 100).toInt();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF86EFAC), width: 1.4),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF10B981).withValues(alpha: 0.08),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFF0FDF4),
-            Color(0xFFFFFFFF),
-          ],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
+  Widget _buildActionHub(BuildContext context) {
+    return Row(
+      children: [
+        // كارت بدء زيارة ميدانية جديدة
+        Expanded(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                CreateSessionDialog.show(context);
+              },
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF059669), Color(0xFF10B981)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF0B3A60),
+                      Color(0xFF072740),
+                    ],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
                   ),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFF0B3A60)),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF059669).withValues(alpha: 0.3),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
+                      color: const Color(0xFF0B3A60).withValues(alpha: 0.22),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'استئناف الفحص الميداني النشط',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF047857),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.solarGold,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.electric_bolt_rounded,
+                            color: Color(0xFF0F172A),
+                            size: 22,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'زيارة #${draft.visitNumber}',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF065F46),
-                            ),
-                          ),
+                        const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 13,
+                          color: Colors.white60,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      draft.facilityInfo.facilityName.isNotEmpty
-                          ? draft.facilityInfo.facilityName
-                          : draft.title,
-                      style: const TextStyle(
+                    const SizedBox(height: 14),
+                    const Text(
+                      'بدء زيارة ميدانية',
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
-                        color: AppTheme.textDark,
+                        color: Colors.white,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'فحص وتوثيق مباشر بالموقع',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -340,291 +313,85 @@ class DashboardScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF86EFAC)),
-                ),
-                child: Text(
-                  '$progressPercent% منجز',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF047857),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 7,
-              backgroundColor: const Color(0xFFE2E8F0),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF059669)),
             ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MaintenanceSessionScreen(reportId: draft.id),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.play_circle_fill_rounded, size: 20),
-                  label: const Text(
-                    'متابعة الفحص الميداني ⚡',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF059669),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(0, 48),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 2,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ReportEditorScreen(reportId: draft.id),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.edit_note_rounded, size: 20),
-                  label: const Text(
-                    'المحرر الفني',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.primaryNavy,
-                    side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
-                    backgroundColor: Colors.white,
-                    minimumSize: const Size(0, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionCard({
-    required BuildContext context,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color iconColor,
-    required Color iconBgColor,
-    required VoidCallback onTap,
-    LinearGradient? gradient,
-    Color? cardBg,
-    Color? borderColor,
-    Color? titleColor,
-    Color? subtitleColor,
-    bool isPrimary = false,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          onTap();
-        },
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            color: cardBg ?? Colors.white,
-            gradient: gradient,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: borderColor ?? const Color(0xFFE2E8F0),
-              width: 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: (gradient != null ? const Color(0xFF0B3A60) : Colors.black).withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: iconBgColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, color: iconColor, size: 22),
-                  ),
-                  Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 13,
-                    color: isPrimary ? Colors.white70 : const Color(0xFF94A3B8),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w900,
-                      color: titleColor ?? AppTheme.textDark,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      color: subtitleColor ?? AppTheme.textMuted,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildActionHub(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 600;
-
-        final card1 = _buildActionCard(
-          context: context,
-          title: 'بدء فحص ميداني',
-          subtitle: 'فحص وتوثيق مباشر بالموقع',
-          icon: Icons.electric_bolt_rounded,
-          iconColor: const Color(0xFF0F172A),
-          iconBgColor: AppTheme.solarGold,
-          gradient: const LinearGradient(
-            colors: [Color(0xFF0B3A60), Color(0xFF06223A)],
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
+        const SizedBox(width: 12),
+        // كارت إنشاء تقرير فحص
+        Expanded(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                CreateSessionDialog.show(context, openSessionDirectly: false);
+              },
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: const Color(0xFFBAE6FD),
+                    width: 1.3,
+                  ),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.post_add_rounded,
+                            color: Color(0xFF0284C7),
+                            size: 22,
+                          ),
+                        ),
+                        const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 13,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'إنشاء تقرير فحص',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.primaryNavy,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'من النماذج الفنية المعتمدة',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.textMuted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          borderColor: const Color(0xFF0B3A60),
-          titleColor: Colors.white,
-          subtitleColor: Colors.white70,
-          isPrimary: true,
-          onTap: () => CreateSessionDialog.show(context, openSessionDirectly: true),
-        );
-
-        final card2 = _buildActionCard(
-          context: context,
-          title: 'تقرير فحص جديد',
-          subtitle: 'من النماذج الفنية المعتمدة',
-          icon: Icons.post_add_rounded,
-          iconColor: const Color(0xFF0284C7),
-          iconBgColor: const Color(0xFFE0F2FE),
-          borderColor: const Color(0xFFBAE6FD),
-          titleColor: AppTheme.primaryNavy,
-          onTap: () => CreateSessionDialog.show(context, openSessionDirectly: false),
-        );
-
-        final card3 = _buildActionCard(
-          context: context,
-          title: 'العملاء والمنشآت',
-          subtitle: 'إدارة المواقع والبيانات',
-          icon: Icons.domain_rounded,
-          iconColor: const Color(0xFF4338CA),
-          iconBgColor: const Color(0xFFEEF2FF),
-          borderColor: const Color(0xFFC7D2FE),
-          titleColor: const Color(0xFF312E81),
-          onTap: () => onNavigateTab?.call(2),
-        );
-
-        final card4 = _buildActionCard(
-          context: context,
-          title: 'أرشيف التقارير',
-          subtitle: 'استعراض ومشاركة الـ PDF',
-          icon: Icons.folder_special_rounded,
-          iconColor: const Color(0xFF059669),
-          iconBgColor: const Color(0xFFECFDF5),
-          borderColor: const Color(0xFFA7F3D0),
-          titleColor: const Color(0xFF065F46),
-          onTap: () => onNavigateTab?.call(1),
-        );
-
-        if (isWide) {
-          return Row(
-            children: [
-              Expanded(child: card1),
-              const SizedBox(width: 12),
-              Expanded(child: card2),
-              const SizedBox(width: 12),
-              Expanded(child: card3),
-              const SizedBox(width: 12),
-              Expanded(child: card4),
-            ],
-          );
-        } else {
-          return Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(child: card1),
-                  const SizedBox(width: 12),
-                  Expanded(child: card2),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(child: card3),
-                  const SizedBox(width: 12),
-                  Expanded(child: card4),
-                ],
-              ),
-            ],
-          );
-        }
-      },
+        ),
+      ],
     );
   }
 
