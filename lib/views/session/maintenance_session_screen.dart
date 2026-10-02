@@ -1043,7 +1043,7 @@ class _MaintenanceSessionScreenState extends ConsumerState<MaintenanceSessionScr
       nextButtonIcon = Icons.replay_rounded;
       nextButtonColor = const Color(0xFFD97706);
     } else {
-      nextButtonLabel = isLastQuestion ? 'إنهاء واعتماد الجلسة' : 'السؤال التالي (${nextTarget + 1})';
+      nextButtonLabel = isLastQuestion ? 'إنهاء' : 'التالي (${nextTarget + 1})';
       nextButtonIcon = isLastQuestion ? Icons.verified_rounded : Icons.arrow_back_rounded;
       nextButtonColor = isInspected ? AppTheme.primaryNavy : const Color(0xFF2563EB);
     }

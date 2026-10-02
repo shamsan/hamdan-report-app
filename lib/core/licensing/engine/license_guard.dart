@@ -7,6 +7,7 @@
  *  وفتح التقارير غير المحدودة لنسخ PRO و ENTERPRISE
  */
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/licensing_constants.dart';
 import '../security/secure_quota_store.dart';
@@ -20,8 +21,15 @@ class LicenseGuard {
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
+  /// خطاف محاكاة الترخيص لأغراض الاختبارات الآلية فقط
+  @visibleForTesting
+  static LicenseInfo? mockLicenseForTesting;
+
   /// تقييم حالة الترخيص بدقة استناداً إلى القيد المزدوج
   static Future<LicenseInfo> evaluateLicense(int existingReportsCount) async {
+    if (mockLicenseForTesting != null) {
+      return mockLicenseForTesting!;
+    }
     // 1. حساب عدد التقارير الفعلي المحمي عتادياً
     final effectiveReportsUsed = await SecureQuotaStore.getEffectiveReportsCount(existingReportsCount);
 

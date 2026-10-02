@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/licensing/commands/command_event_bus.dart';
 import '../../core/licensing/network/license_sync_service.dart';
+import '../../core/services/app_update_service.dart';
 import '../../core/theme/app_theme.dart';
 
 /// ويدجت تغليف عامة على مستوى التطبيق بالكامل تستمع لأحداث الأوامر
@@ -91,9 +92,12 @@ class _LicensingCommandEventListenerState extends State<LicensingCommandEventLis
         if (_activeMaintenance != null && _activeMaintenance!.isEnabled)
           _buildMaintenanceModalOverlay(_activeMaintenance!),
 
-        // 4. نموذج طلب التحديث الإجباري
+        // 4. نموذج طلب التحديث المباشر
         if (_activeUpdate != null)
-          _buildUpdateModalOverlay(_activeUpdate!),
+          _ForceUpdateModalOverlay(
+            event: _activeUpdate!,
+            onDismiss: () => setState(() => _activeUpdate = null),
+          ),
       ],
     );
   }
@@ -361,12 +365,110 @@ class _LicensingCommandEventListenerState extends State<LicensingCommandEventLis
     );
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // نافذة التحديث الإجباري (FORCE_UPDATE Modal Overlay)
-  // ══════════════════════════════════════════════════════════════
-  Widget _buildUpdateModalOverlay(ForceUpdateUIEvent event) {
+}
+
+// ══════════════════════════════════════════════════════════════
+// نافذة التحديث المباشر التفاعلية (FORCE_UPDATE Modal Overlay)
+// ══════════════════════════════════════════════════════════════
+class _ForceUpdateModalOverlay extends StatefulWidget {
+  final ForceUpdateUIEvent event;
+  final VoidCallback onDismiss;
+
+  const _ForceUpdateModalOverlay({
+    required this.event,
+    required this.onDismiss,
+  });
+
+  @override
+  State<_ForceUpdateModalOverlay> createState() => _ForceUpdateModalOverlayState();
+}
+
+class _ForceUpdateModalOverlayState extends State<_ForceUpdateModalOverlay> {
+  bool _isDownloading = false;
+  double _progress = 0.0;
+  String _statusText = '';
+  String? _errorMessage;
+  bool _isCompleted = false;
+  String? _localApkPath;
+  StreamSubscription<AppUpdateProgress>? _sub;
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  void _startUpdate() {
+    final url = widget.event.downloadUrl;
+    if (url == null || url.trim().isEmpty) {
+      setState(() {
+        _errorMessage = 'رابط التحديث غير متوفر حالياً من الخادم.';
+      });
+      return;
+    }
+
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isDownloading = true;
+      _errorMessage = null;
+      _progress = 0.05;
+      _statusText = 'جاري التهيئة...';
+    });
+
+    _sub?.cancel();
+    _sub = AppUpdateService.startDownloadAndInstall(
+      downloadUrl: url.trim(),
+      version: widget.event.version,
+      expectedChecksum: widget.event.checksum,
+      expectedFileSize: widget.event.fileSize,
+    ).listen(
+      (updateProgress) {
+        if (!mounted) return;
+        setState(() {
+          _progress = updateProgress.progress;
+          _statusText = updateProgress.statusText;
+          if (updateProgress.isFailed) {
+            _isDownloading = false;
+            _errorMessage = updateProgress.errorMessage ?? 'تعذر استكمال التحديث.';
+          } else if (updateProgress.isCompleted) {
+            _isDownloading = false;
+            _isCompleted = true;
+            _localApkPath = updateProgress.localApkPath;
+          }
+        });
+      },
+      onError: (err) {
+        if (!mounted) return;
+        setState(() {
+          _isDownloading = false;
+          _errorMessage = err.toString();
+        });
+      },
+    );
+  }
+
+  void _reinstall() {
+    if (_localApkPath != null) {
+      HapticFeedback.lightImpact();
+      AppUpdateService.installApk(_localApkPath!);
+    }
+  }
+
+  void _openInBrowser() {
+    final url = widget.event.downloadUrl;
+    if (url != null && url.isNotEmpty) {
+      HapticFeedback.lightImpact();
+      AppUpdateService.openDownloadInBrowser(url);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMandatory = widget.event.isMandatory;
+    final canPop = !isMandatory && !_isDownloading;
+
     return PopScope(
-      canPop: !event.isMandatory,
+      canPop: canPop,
       child: Material(
         color: Colors.transparent,
         child: Stack(
@@ -379,79 +481,440 @@ class _LicensingCommandEventListenerState extends State<LicensingCommandEventLis
               ),
             ),
             Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: const BoxDecoration(
-                          color: AppTheme.statusAcceptableBg,
-                          shape: BoxShape.circle,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 28,
+                          offset: const Offset(0, 10),
                         ),
-                        child: const Icon(Icons.system_update_rounded, color: AppTheme.brandCyan, size: 40),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'تحديث هام متاح (${event.version})',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        event.releaseNotes ?? 'يتوفر إصدار جديد يتضمن ترقيات وإصلاحات أمنية معتمدة.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 13.5, color: AppTheme.textSecondary),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          if (!event.isMandatory) ...[
-                            Expanded(
-                              child: OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(0, 48),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // أيقونة الحالة العلوية
+                        Container(
+                          width: 68,
+                          height: 68,
+                          decoration: BoxDecoration(
+                            color: _errorMessage != null
+                                ? AppTheme.statusRejectedBg
+                                : (_isCompleted
+                                    ? AppTheme.statusGoodBg
+                                    : AppTheme.statusAcceptableBg),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _errorMessage != null
+                                  ? AppTheme.statusRejected.withValues(alpha: 0.3)
+                                  : (_isCompleted
+                                      ? AppTheme.statusGood.withValues(alpha: 0.3)
+                                      : AppTheme.brandCyan.withValues(alpha: 0.3)),
+                              width: 2.5,
+                            ),
+                          ),
+                          child: Icon(
+                            _errorMessage != null
+                                ? Icons.error_outline_rounded
+                                : (_isCompleted
+                                    ? Icons.check_circle_outline_rounded
+                                    : (_isDownloading
+                                        ? Icons.downloading_rounded
+                                        : Icons.system_update_rounded)),
+                            color: _errorMessage != null
+                                ? AppTheme.statusRejected
+                                : (_isCompleted ? AppTheme.statusGood : AppTheme.brandCyan),
+                            size: 36,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // شارات المعلومات (النسخة، إجباري، الحجم)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.surfaceLight,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: AppTheme.borderSubtle),
+                              ),
+                              child: Text(
+                                'الإصدار ${widget.event.version}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textDark,
+                                  fontFamily: 'Almarai',
                                 ),
-                                onPressed: () {
-                                  HapticFeedback.lightImpact();
-                                  setState(() => _activeUpdate = null);
-                                },
-                                child: const Text('لاحقاً'),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            if (widget.event.fileSize != null && widget.event.fileSize! > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceLight,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: AppTheme.borderSubtle),
+                                ),
+                                child: Text(
+                                  '${(widget.event.fileSize! / (1024 * 1024)).toStringAsFixed(1)} ميجابايت',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textSecondary,
+                                    fontFamily: 'Almarai',
+                                  ),
+                                ),
+                              ),
+                            if (isMandatory)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.statusFollowupBg,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: AppTheme.statusFollowup.withValues(alpha: 0.3)),
+                                ),
+                                child: const Text(
+                                  'تحديث إلزامي',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.statusFollowup,
+                                    fontFamily: 'Almarai',
+                                  ),
+                                ),
+                              ),
                           ],
-                          Expanded(
+                        ),
+                        const SizedBox(height: 14),
+
+                        // العنوان
+                        const Text(
+                          'تحديث جديد متاح للتطبيق',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textDark,
+                            fontFamily: 'Almarai',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // ملاحظات الإصدار
+                        if (widget.event.releaseNotes != null && widget.event.releaseNotes!.isNotEmpty)
+                          Container(
+                            width: double.infinity,
+                            constraints: const BoxConstraints(maxHeight: 130),
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceLight,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppTheme.borderSubtle),
+                            ),
+                            child: SingleChildScrollView(
+                              child: Text(
+                                widget.event.releaseNotes!,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary,
+                                  height: 1.5,
+                                  fontFamily: 'Almarai',
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        // شارة الأمان لحفظ البيانات بنسبة 100%
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.statusGoodBg,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.statusGood.withValues(alpha: 0.2)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.shield_outlined, size: 20, color: AppTheme.statusGood),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'أمان البيانات: يتم حفظ نسخة احتياطية لكافة تقاريرك تلقائياً قبل التثبيت.',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppTheme.statusGood,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Almarai',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // شريط التقدم أثناء التنزيل
+                        if (_isDownloading || _progress > 0) ...[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _statusText,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textDark,
+                                        fontFamily: 'Almarai',
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${(_progress * 100).toInt()}%',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primaryNavy,
+                                      fontFamily: 'Almarai',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: LinearProgressIndicator(
+                                  value: _progress.clamp(0.0, 1.0),
+                                  backgroundColor: AppTheme.borderSubtle,
+                                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryNavy),
+                                  minHeight: 8,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                          ),
+                        ],
+
+                        // رسالة الخطأ إن وجدت
+                        if (_errorMessage != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: AppTheme.statusRejectedBg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppTheme.statusRejected.withValues(alpha: 0.25)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline_rounded, color: AppTheme.statusRejected, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.statusRejected,
+                                      fontFamily: 'Almarai',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        // أزرار الإجراءات التفاعلية
+                        if (_isCompleted) ...[
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
                             child: FilledButton(
                               style: FilledButton.styleFrom(
-                                backgroundColor: AppTheme.primaryNavy,
+                                backgroundColor: AppTheme.statusGood,
                                 foregroundColor: Colors.white,
-                                minimumSize: const Size(0, 48),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              onPressed: () {
-                                HapticFeedback.mediumImpact();
-                                setState(() => _activeUpdate = null);
-                              },
-                              child: const Text('حسناً', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              onPressed: _reinstall,
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.open_in_new_rounded, size: 20),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'فتح معالج التثبيت مرة أخرى',
+                                    style: TextStyle(
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'Almarai',
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
+                        ] else if (_isDownloading) ...[
+                          Container(
+                            width: double.infinity,
+                            height: 48,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceLight,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryNavy),
+                                  ),
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'جاري التنزيل والتثبيت تلقائياً...',
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textSecondary,
+                                    fontFamily: 'Almarai',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else if (_errorMessage != null) ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(0, 48),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  onPressed: _openInBrowser,
+                                  child: const Text(
+                                    'تنزيل يدوي',
+                                    style: TextStyle(fontSize: 13.5, fontFamily: 'Almarai'),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 2,
+                                child: FilledButton(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryNavy,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(0, 48),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  onPressed: _startUpdate,
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.refresh_rounded, size: 20),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'إعادة المحاولة',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          fontFamily: 'Almarai',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else ...[
+                          Row(
+                            children: [
+                              if (!isMandatory) ...[
+                                Expanded(
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      minimumSize: const Size(0, 48),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      HapticFeedback.lightImpact();
+                                      widget.onDismiss();
+                                    },
+                                    child: const Text(
+                                      'لاحقاً',
+                                      style: TextStyle(fontSize: 14, fontFamily: 'Almarai'),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              Expanded(
+                                flex: isMandatory ? 1 : 2,
+                                child: FilledButton(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryNavy,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(0, 48),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  onPressed: _startUpdate,
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.download_rounded, size: 20),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'تحديث التطبيق الآن',
+                                        style: TextStyle(
+                                          fontSize: 14.5,
+                                          fontWeight: FontWeight.bold,
+                                          fontFamily: 'Almarai',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

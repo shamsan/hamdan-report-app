@@ -8,6 +8,9 @@ import 'package:report_craft/models/inspection_item.dart';
 import 'package:report_craft/models/report.dart';
 import 'package:report_craft/services/default_templates.dart';
 import 'package:report_craft/services/storage_service.dart';
+import 'package:report_craft/core/licensing/engine/license_guard.dart';
+import 'package:report_craft/core/licensing/engine/license_models.dart';
+import 'package:report_craft/state/licensing_provider.dart';
 import 'package:report_craft/state/reports_provider.dart';
 
 void main() {
@@ -107,7 +110,36 @@ void main() {
       expect(reshaped.isNotEmpty, true);
     });
 
+    test('Report duplication strictly enforces license check when unlicensed', () async {
+      LicenseGuard.mockLicenseForTesting = null;
+      final storage = _MockStorageService();
+      final originalReport = DefaultTemplates.sampleDialysisReport;
+      storage.inMemoryReports.add(originalReport);
+
+      final notifier = ReportsNotifier(storage);
+      await notifier.load();
+
+      expect(
+        () => notifier.duplicateReport(
+          originalReport,
+          newFacilityName: 'مستشفى السلام التخصصي',
+        ),
+        throwsA(isA<LicenseException>()),
+      );
+    });
+
     test('Report duplication accurately clones all fields and isolates copy', () async {
+      LicenseGuard.mockLicenseForTesting = const LicenseInfo(
+        status: LicenseStatus.activeUnlimited,
+        lockReason: LicenseLockReason.none,
+        tier: 'PRO',
+        daysLeft: 365,
+        reportsUsed: 0,
+        reportsLeft: 999999,
+        maxReports: 0,
+        isUnlimitedReports: true,
+      );
+
       final storage = _MockStorageService();
       final originalReport = DefaultTemplates.sampleDialysisReport;
       storage.inMemoryReports.add(originalReport);
@@ -122,6 +154,8 @@ void main() {
         clearSignatures: true,
         clearPhotos: true,
       );
+
+      LicenseGuard.mockLicenseForTesting = null;
 
       // Verify ID and metadata
       expect(duplicated.id, isNot(equals(originalReport.id)));

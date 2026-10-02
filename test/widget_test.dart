@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:report_craft/main.dart';
 import 'package:report_craft/views/onboarding/onboarding_screen.dart';
 import 'package:report_craft/views/main_navigation_shell.dart';
+import 'package:report_craft/state/licensing_provider.dart';
 
 void main() {
   testWidgets('App launches OnboardingScreen on first launch', (WidgetTester tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: ReportCraftApp(hasSeenOnboarding: false),
+      ProviderScope(
+        overrides: [
+          licenseReadyProvider.overrideWith((ref) => Future.value()),
+        ],
+        child: const ReportCraftApp(hasSeenOnboarding: false),
       ),
     );
     await tester.pumpAndSettle();
@@ -18,8 +22,11 @@ void main() {
 
   testWidgets('App launches MainNavigationShell when onboarding has been seen', (WidgetTester tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: ReportCraftApp(hasSeenOnboarding: true),
+      ProviderScope(
+        overrides: [
+          licenseReadyProvider.overrideWith((ref) => Future.value()),
+        ],
+        child: const ReportCraftApp(hasSeenOnboarding: true),
       ),
     );
     await tester.pumpAndSettle();

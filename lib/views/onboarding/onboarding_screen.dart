@@ -10,21 +10,20 @@ import '../../core/constants/yemen_locations.dart';
 import '../../models/client.dart';
 import '../../models/site.dart';
 import '../../models/report.dart';
-import '../../services/default_templates.dart';
 import '../../state/branding_provider.dart';
 import '../../state/clients_provider.dart';
 import '../../state/sites_provider.dart';
 import '../../state/reports_provider.dart';
+import '../../state/licensing_provider.dart';
+import '../../core/licensing/engine/license_models.dart';
 import '../main_navigation_shell.dart';
 import '../session/maintenance_session_screen.dart';
-import '../editor/report_editor_screen.dart';
 import '../../core/widgets/yemeni_phone_field.dart';
 
 /// شاشة تهيئة التجربة الأولى للمستخدم (FTUE / Onboarding)
-/// توفر تجربة سلسة متعددة المسارات:
-/// 1. مسار سريع: استكشاف تقرير تجريبي 11 صفحة بضغطة زر واحدة (Aha! Moment).
-/// 2. مسار مخصص: معالج ذكي من 3 خطوات متماسكة (الهوية والشعار، العميل والمنشأة معاً، وجاهزية الانطلاق).
-/// 3. مسار الدخول المباشر: تخطي إلى لوحة التحكم مع توجيه إرشادي.
+/// توفر تجربة هندسية متكاملة وسلسة:
+/// 1. مسار الإعداد الميداني الذكي: معالج من 3 خطوات متماسكة (الهوية والشعار، العميل والمنشأة، وجاهزية الانطلاق).
+/// 2. مسار الدخول المباشر: تخطي إلى لوحة التحكم فوراً مع تأكيد حالة الترخيص.
 class OnboardingScreen extends ConsumerStatefulWidget {
   final bool isFromSettings;
 
@@ -39,7 +38,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _currentStep = 0;
 
   // حالة التحميل
-  bool _isLoadingDemo = false;
   bool _isSubmitting = false;
 
   // بيانات الخطوة 1: الهوية والشعار
@@ -112,89 +110,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
-  // ─── المسار 1: تحميل التقرير التجريبي المتكامل فوراً ─────────────────────────────
-  Future<void> _loadDemoReport() async {
-    if (_isLoadingDemo) return;
-    HapticFeedback.mediumImpact();
-    setState(() => _isLoadingDemo = true);
-
-    try {
-      // 1. إنشاء العميل التجريبي إذا لم يكن موجوداً
-      final client = await ref.read(clientsProvider.notifier).addClient(
-        nameAr: 'وزارة الصحة العامة والسكان',
-        nameEn: 'Ministry of Public Health & Population',
-        clientType: 'جهة حكومية / وزارة',
-        contactPerson: 'د. عبد الله أحمد - ممثل المرفق',
-        phone: '777 123 456',
-        notes: 'عميل افتراضي للتقرير التجريبي النموذجي',
-      );
-
-      // 2. إنشاء المنشأة التجريبية
-      final site = await ref.read(sitesProvider.notifier).addSite(
-        clientId: client.id,
-        nameAr: 'مستشفى الثورة العام - مركز الغسيل الكلوي',
-        nameEn: 'Al-Thawra General Hospital - Dialysis Center',
-        governorate: 'صنعاء',
-        directorate: 'السبعين',
-        facilityType: 'مستشفى / مركز صحي',
-        category: 'CAT 8',
-        projectName: 'توريد وتركيب وصيانة 21 منظومة طاقة شمسية منفصلة عن الشبكة',
-        contactPerson: 'د. عبد الله أحمد',
-        phone: '777 123 456',
-        systemSpecs: const SystemSpecs(
-          systemType: 'منظومة طاقة شمسية منفصلة عن الشبكة Off-Grid',
-          capacityKw: '57.6 kW',
-          panelsCountAndWatt: '96 x 600Wp',
-          invertersCapacity: '10KVA',
-          invertersCount: '6',
-          chargeControllersCapacity: '100 A (150-250) Vdc',
-          chargeControllersCount: '13',
-          batteryUnitsCapacity: '2500Ah',
-          batteryUnitsCount: '96 x 2V',
-          otherAppliances: 'مكيف هواء 1 طن عدد 2',
-        ),
-      );
-
-      // 3. ربط التقرير النموذجي بالعميل والمنشأة
-      final sampleReport = DefaultTemplates.sampleDialysisReport.copyWith(
-        clientId: client.id,
-        siteId: site.id,
-        updatedAt: DateTime.now(),
-      );
-      await ref.read(reportsProvider.notifier).addReport(sampleReport);
-
-      // 4. وضع علامة إتمام البداية
-      await _markOnboardingComplete();
-
-      if (!mounted) return;
-
-      // 5. التوجيه المباشر لاستعراض التقرير
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainNavigationShell()),
-      );
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ReportEditorScreen(reportId: sampleReport.id),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('حدث خطأ أثناء تحميل التقرير التجريبي: $e'),
-            backgroundColor: AppTheme.statusRejected,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoadingDemo = false);
-    }
-  }
-
-  // ─── المسار 3: التخطي المباشر إلى لوحة التحكم ──────────────────────────────────
+  // ─── المسار المباشر: التخطي إلى لوحة التحكم ──────────────────────────────────
   Future<void> _skipToDashboard() async {
     HapticFeedback.lightImpact();
     await _markOnboardingComplete();
@@ -477,6 +393,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // الصفحة 0: الواجهة الترحيبية واختيار المسار (Hero & Pathways)
   // ══════════════════════════════════════════════════════════════════════════════
   Widget _buildStep0HeroAndPathways() {
+    final license = ref.watch(licensingProvider);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Column(
@@ -535,7 +453,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
+
+          // شريط حالة الترخيص الرقمي الفوري
+          _buildLicenseBadge(license),
+          const SizedBox(height: 16),
 
           // شبكة المزايا الـ 4 الأساسية
           Container(
@@ -577,137 +499,91 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 24),
 
-          // خيارات المسار (Action Pathways)
-          // 1. المسار السريع: استكشاف التقرير التجريبي (Hero Action)
-          InkWell(
-            onTap: _isLoadingDemo ? null : _loadDemoReport,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.primaryNavy, Color(0xFF1E3C72)],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryNavy.withValues(alpha: 0.3),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppTheme.solarGold,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: _isLoadingDemo
-                        ? const Center(
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: AppTheme.primaryNavy,
-                              ),
-                            ),
-                          )
-                        : const Icon(Icons.rocket_launch_rounded, color: AppTheme.primaryNavy, size: 26),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'تقرير تجريبي',
-                              style: TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppTheme.solarGold,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Text(
-                                'موصى به',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppTheme.primaryNavy,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 3),
-                        const Text(
-                          'نموذج مركز الغسيل الكلوي (11 صفحة مع الـ PDF)',
-                          style: TextStyle(fontSize: 11.5, color: Colors.white70),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Colors.white70),
-                ],
-              ),
+          // مسارات البدء (Action Pathways)
+          // 1. الإجراء الرئيسي الممتلئ: بدء معالج إعداد بيئة العمل
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.primaryNavy,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 52),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 2,
             ),
-          ),
-          const SizedBox(height: 12),
-
-          // 2. المسار المخصص: معالج الإعداد
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.primaryNavy,
-              side: const BorderSide(color: AppTheme.primaryNavy, width: 1.5),
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            icon: const Icon(Icons.tune_rounded, size: 20),
+            icon: const Icon(Icons.tune_rounded, size: 22, color: AppTheme.solarGold),
             label: const Text(
-              'معالج الإعداد المخصص (3 خطوات)',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+              'بدء إعداد بيئة العمل الميدانية (3 خطوات)',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
             ),
             onPressed: () {
               HapticFeedback.lightImpact();
               _goToStep(1);
             },
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
 
-          // 3. مسار التخطي المباشر
-          TextButton(
+          // 2. الإجراء الثانوي المؤطر: تخطي إلى لوحة التحكم
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.primaryNavy,
+              side: const BorderSide(color: AppTheme.borderMedium, width: 1.5),
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            icon: const Icon(Icons.dashboard_outlined, size: 20, color: AppTheme.primaryNavy),
+            label: const Text(
+              'تخطي والدخول المباشر إلى لوحة التحكم',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.primaryNavy,
+              ),
+            ),
             onPressed: () {
               HapticFeedback.lightImpact();
               _skipToDashboard();
             },
-            child: const Text(
-              'تخطي والدخول المباشر إلى لوحة التحكم',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textMuted,
-              ),
-            ),
           ),
           const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLicenseBadge(LicenseInfo license) {
+    final bool isTrial = license.status == LicenseStatus.activeTrial;
+    final String label = isTrial
+        ? 'الترخيص نشط: نسخة تجريبية (${license.daysLeft} يوماً | ${license.reportsLeft} تقارير أوفلاين)'
+        : 'الترخيص نشط: ${license.tier == 'ENTERPRISE' ? 'النسخة المؤسسية' : license.tier == 'PRO' ? 'نسخة المحترفين PRO' : 'رخصة معتمدة'} (أوفلاين 100%)';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFECFDF5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFA7F3D0)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.verified_rounded,
+            size: 18,
+            color: Color(0xFF065F46),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF065F46),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -1194,6 +1070,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // ══════════════════════════════════════════════════════════════════════════════
   Widget _buildStep3ReadyLaunch() {
     final hasEntity = _createdClient != null && _createdSite != null;
+    final license = ref.watch(licensingProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -1244,6 +1121,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             icon: Icons.location_on_rounded,
             badge: hasEntity ? '$_selectedGov - $_selectedDir' : null,
             isSkipped: !hasEntity,
+          ),
+          const SizedBox(height: 12),
+          _buildSummaryCard(
+            title: 'حالة الترخيص الرقمي',
+            value: license.status == LicenseStatus.activeTrial
+                ? 'نسخة تجريبية نشطة (${license.daysLeft} يوم متبقٍ / ${license.reportsLeft} تقارير)'
+                : (license.tier == 'ENTERPRISE'
+                    ? 'رخصة مؤسسية معتمدة'
+                    : license.tier == 'PRO'
+                        ? 'رخصة المحترفين PRO'
+                        : 'رخصة نشطة ومعتمدة'),
+            icon: Icons.verified_user_rounded,
+            badge: 'أوفلاين 100%',
           ),
           const SizedBox(height: 28),
 
@@ -1302,33 +1192,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
               icon: const Icon(Icons.dashboard_rounded, size: 20),
               label: const Text(
-                'الدخول إلى لوحة التحكم 🚀',
+                'الانتقال إلى لوحة التحكم 🚀',
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
               ),
               onPressed: () {
                 HapticFeedback.mediumImpact();
                 _skipToDashboard();
               },
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.primaryNavy,
-                side: const BorderSide(color: AppTheme.primaryNavy, width: 1.5),
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              icon: const Icon(Icons.rocket_launch_rounded, size: 18, color: AppTheme.solarGold),
-              label: const Text(
-                'أو استكشاف تقرير تجريبي جاهز (11 صفحة)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-              ),
-              onPressed: _isLoadingDemo
-                  ? null
-                  : () {
-                      HapticFeedback.lightImpact();
-                      _loadDemoReport();
-                    },
             ),
           ],
           const SizedBox(height: 16),

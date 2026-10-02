@@ -39,12 +39,16 @@ class ForceUpdateUIEvent extends LicensingUIEvent {
   final String? downloadUrl;
   final bool isMandatory;
   final String? releaseNotes;
+  final String? checksum;
+  final int? fileSize;
 
   ForceUpdateUIEvent({
     required this.version,
     this.downloadUrl,
     this.isMandatory = false,
     this.releaseNotes,
+    this.checksum,
+    this.fileSize,
   });
 }
 

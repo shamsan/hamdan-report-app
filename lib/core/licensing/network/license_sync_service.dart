@@ -94,7 +94,10 @@ class LicenseSyncService {
         return SyncServiceResponse(success: false, message: errorMsg);
       }
     } catch (e) {
-      return SyncServiceResponse(success: false, message: 'خطأ في الاتصال بالخادم: $e');
+      return const SyncServiceResponse(
+        success: false,
+        message: 'تعذر الاتصال بخادم التراخيص نظراً لعدم توفر اتصال بالإنترنت في الهاتف. يرجى التحقق من اتصالك بالإنترنت وإعادة المحاولة.',
+      );
     }
   }
 
@@ -160,7 +163,10 @@ class LicenseSyncService {
         return SyncServiceResponse(success: false, message: errorMsg);
       }
     } catch (e) {
-      return SyncServiceResponse(success: false, message: 'خطأ في الاتصال بالخادم: $e');
+      return const SyncServiceResponse(
+        success: false,
+        message: 'تعذر الاتصال بخادم التراخيص. يرجى التأكد من توفر اتصال بالإنترنت والمحاولة مجدداً.',
+      );
     }
   }
 
@@ -423,7 +429,10 @@ class LicenseSyncService {
         );
       }
     } catch (e) {
-      return SyncServiceResponse(success: false, message: 'خطأ في الاتصال بالخادم: $e');
+      return const SyncServiceResponse(
+        success: false,
+        message: 'تعذر الاتصال بخادم التراخيص. يرجى التأكد من توفر اتصال بالإنترنت والمحاولة مجدداً.',
+      );
     }
   }
 

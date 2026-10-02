@@ -24,6 +24,10 @@ class LicenseException implements Exception {
 class LicenseStateNotifier extends StateNotifier<LicenseInfo> {
   final StorageService _storageService = StorageService();
   bool _isInitialized = false;
+  final Completer<void> _initCompleter = Completer<void>();
+
+  /// مستقبل يكتمل فور انتهاء الفحص والتهيئة الأولية للترخيص
+  Future<void> get initialized => _initCompleter.future;
 
   LicenseStateNotifier()
       : super(const LicenseInfo(
@@ -46,46 +50,52 @@ class LicenseStateNotifier extends StateNotifier<LicenseInfo> {
     if (_isInitialized) return;
     _isInitialized = true;
 
-    // 1. تقييم الترخيص محلياً
-    await refresh();
+    try {
+      // 1. تقييم الترخيص محلياً
+      await refresh();
 
-    // 2. إذا كان التطبيق غير مسجل نهائياً، أو مقفلاً بسبب بصمة هاتف سابق
-    if (state.lockReason == LicenseLockReason.notRegistered ||
-        state.lockReason == LicenseLockReason.hwidMismatch) {
-      // أ) أولاً: فحص هل الخادم يمتلك ترخيصاً نشطاً لهذا الهاتف
-      bool restored = false;
-      try {
-        restored = await LicenseSyncService.checkLicenseRestore();
-      } catch (_) {}
+      // 2. إذا كان التطبيق غير مسجل نهائياً، أو مقفلاً بسبب بصمة هاتف سابق
+      if (state.lockReason == LicenseLockReason.notRegistered ||
+          state.lockReason == LicenseLockReason.hwidMismatch) {
+        // أ) أولاً: فحص هل الخادم يمتلك ترخيصاً نشطاً لهذا الهاتف
+        bool restored = false;
+        try {
+          restored = await LicenseSyncService.checkLicenseRestore();
+        } catch (_) {}
 
-      if (restored) {
-        await refresh();
-      } else {
-        // ب) ثانياً: طلب نسخة تجريبية جديدة لهذا الجهاز تلقائياً
-        final trialResult = await LicenseSyncService.requestTrial();
-        if (trialResult.success) {
+        if (restored) {
           await refresh();
+        } else {
+          // ب) ثانياً: طلب نسخة تجريبية جديدة لهذا الجهاز تلقائياً
+          final trialResult = await LicenseSyncService.requestTrial();
+          if (trialResult.success) {
+            await refresh();
+          }
         }
       }
-    }
 
-    // 3. مزامنة التوقيت مع الخادم المرجعي في الخلفية
-    LicenseSyncService.syncServerTime().catchError((_) {});
+      // 3. مزامنة التوقيت مع الخادم المرجعي في الخلفية
+      LicenseSyncService.syncServerTime().catchError((_) {});
 
-    // 4. تشغيل مؤقت النبض الخفيف (Ping Timer كل 5 دقائق)
-    LicenseSyncService.startPingTimer(
-      onKillSwitch: (reason) async {
-        await refresh();
-      },
-    );
-
-    // 5. إذا كان الترخيص مقفلاً، تشغيل Restore Poller بهدوء في الخلفية
-    if (state.isLocked) {
-      LicenseSyncService.startRestorePolling(
-        onRestored: () async {
+      // 4. تشغيل مؤقت النبض الخفيف (Ping Timer كل 5 دقائق)
+      LicenseSyncService.startPingTimer(
+        onKillSwitch: (reason) async {
           await refresh();
         },
       );
+
+      // 5. إذا كان الترخيص مقفلاً، تشغيل Restore Poller بهدوء في الخلفية
+      if (state.isLocked) {
+        LicenseSyncService.startRestorePolling(
+          onRestored: () async {
+            await refresh();
+          },
+        );
+      }
+    } finally {
+      if (!_initCompleter.isCompleted) {
+        _initCompleter.complete();
+      }
     }
   }
 
@@ -221,4 +231,9 @@ final licensingProvider = StateNotifierProvider<LicenseStateNotifier, LicenseInf
 /// Provider لاستقبال أحداث الأوامر الفورية (مثل عرض رسائل مركزية أو صيانة)
 final licensingUIEventsProvider = StreamProvider<LicensingUIEvent>((ref) {
   return CommandEventBus().stream;
+});
+
+/// Provider لمعرفة اكتمال الفحص الأولي للترخيص عند إقلاع التطبيق لمنع قفز الشاشات
+final licenseReadyProvider = FutureProvider<void>((ref) {
+  return ref.watch(licensingProvider.notifier).initialized;
 });

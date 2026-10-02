@@ -86,9 +86,14 @@ class ReportCraftApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final branding = ref.watch(brandingProvider);
     final license = ref.watch(licensingProvider);
+    final licenseReady = ref.watch(licenseReadyProvider);
 
     Widget homeWidget;
-    if (license.isLocked) {
+    // إذا كان التطبيق في مرحلة الفحص/التهيئة الأولية (1-2 ثانية عند أول تشغيل)
+    // نعرض شاشة تهيئة هادئة موحدة لمنع وميض أو قفز الشاشات
+    if (licenseReady.isLoading) {
+      homeWidget = const ReportCraftSplashScreen();
+    } else if (license.isLocked) {
       homeWidget = const LicenseLockScreen();
     } else {
       homeWidget = hasSeenOnboarding ? const MainNavigationShell() : const OnboardingScreen();
@@ -127,3 +132,80 @@ class ReportCraftApp extends ConsumerWidget {
     );
   }
 }
+
+/// شاشة بداية وتهيئة هادئة تمنع وميض أو تبديل الشاشات عند أول إقلاع
+class ReportCraftSplashScreen extends StatelessWidget {
+  const ReportCraftSplashScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // الشعار المؤسسي
+            Container(
+              width: 80,
+              height: 80,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFFFFBEB),
+                border: Border.fromBorderSide(
+                  BorderSide(color: Color(0xFFFDE68A), width: 2),
+                ),
+              ),
+              child: const Icon(
+                Icons.solar_power_rounded,
+                size: 42,
+                color: AppTheme.solarGold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'ReportCraft',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: AppTheme.primaryNavy,
+                letterSpacing: 0.5,
+                fontFamily: 'Almarai',
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'المنظومة الاحترافية لإدارة وتوثيق صيانة محطات الطاقة الشمسية',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary,
+                fontFamily: 'Almarai',
+              ),
+            ),
+            const SizedBox(height: 32),
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: AppTheme.primaryNavy,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'جاري تهيئة بيئة العمل الميدانية...',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textMuted,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Almarai',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
