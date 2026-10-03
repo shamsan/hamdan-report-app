@@ -58,13 +58,13 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
           'هل أنت متأكد من رغبتك في إغلاق التطبيق والخروج؟',
           style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondary),
         ),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd, vertical: AppTheme.spaceSm),
         actions: [
           OutlinedButton(
             style: OutlinedButton.styleFrom(
-              minimumSize: const Size(110, 44),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              minimumSize: const Size(110, AppTheme.minTouchTarget),
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd, vertical: AppTheme.spaceSm),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
             ),
             onPressed: () {
               HapticFeedback.lightImpact();
@@ -76,9 +76,9 @@ class _MainNavigationShellState extends ConsumerState<MainNavigationShell> {
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.statusRejected,
               foregroundColor: Colors.white,
-              minimumSize: const Size(110, 44),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              minimumSize: const Size(110, AppTheme.minTouchTarget),
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd, vertical: AppTheme.spaceSm),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
             ),
             icon: const Icon(Icons.power_settings_new_rounded, size: 16),
             label: const Text('خروج', style: TextStyle(fontWeight: FontWeight.bold)),

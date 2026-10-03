@@ -59,21 +59,21 @@ class DashboardScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeaderGreeting(context, reports, drafts),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppTheme.spaceMd),
                 _buildActionHub(context),
-                const SizedBox(height: 22),
+                const SizedBox(height: AppTheme.spaceLg),
                 _buildStatsSummary(context, clients.length, sites.length, reports, ref),
-                const SizedBox(height: 22),
+                const SizedBox(height: AppTheme.spaceLg),
                 if (drafts.isNotEmpty) ...[
                   _buildPendingDrafts(context, drafts, ref),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: AppTheme.spaceLg),
                 ],
                 if (reports.isNotEmpty) ...[
                   _buildRecentReports(context, reports, ref),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: AppTheme.spaceLg),
                 ],
                 _buildSitesByGovernorate(context, sitesByGov),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppTheme.spaceXl),
               ],
             ),
           ),
@@ -87,14 +87,14 @@ class DashboardScreen extends ConsumerWidget {
       title: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(7),
+            padding: const EdgeInsets.all(AppTheme.spaceSm),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
             ),
             child: const Icon(Icons.solar_power_rounded, color: AppTheme.solarGold, size: 20),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppTheme.spaceSm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,7 +129,7 @@ class DashboardScreen extends ConsumerWidget {
           tooltip: 'الإعدادات',
           onPressed: () => onNavigateTab?.call(4),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: AppTheme.spaceXs),
       ],
     );
   }
@@ -147,24 +147,24 @@ class DashboardScreen extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd, vertical: AppTheme.spaceMd),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
         boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(AppTheme.spaceSm),
             decoration: BoxDecoration(
               color: AppTheme.primaryNavy.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             ),
             child: const Icon(Icons.dashboard_customize_rounded, color: AppTheme.primaryNavy, size: 22),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppTheme.spaceMd),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,11 +179,11 @@ class DashboardScreen extends ConsumerWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: AppTheme.spaceXs),
                 Row(
                   children: [
                     const Icon(Icons.calendar_today_rounded, size: 12, color: AppTheme.textMuted),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: AppTheme.spaceXs),
                     Text(
                       dateStr,
                       style: const TextStyle(fontSize: 11.5, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
@@ -194,10 +194,10 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceXs),
             decoration: BoxDecoration(
               color: hasDrafts ? const Color(0xFFFFFBEB) : const Color(0xFFECFDF5),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
               border: Border.all(
                 color: hasDrafts
                     ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
@@ -241,9 +241,9 @@ class DashboardScreen extends ConsumerWidget {
                 HapticFeedback.lightImpact();
                 CreateSessionDialog.show(context);
               },
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.all(AppTheme.spaceMd),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [
@@ -253,7 +253,7 @@ class DashboardScreen extends ConsumerWidget {
                     begin: Alignment.topRight,
                     end: Alignment.bottomLeft,
                   ),
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
                   border: Border.all(color: const Color(0xFF0B3A60)),
                   boxShadow: [
                     BoxShadow(
@@ -270,10 +270,10 @@ class DashboardScreen extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.all(AppTheme.spaceSm),
                           decoration: BoxDecoration(
                             color: AppTheme.solarGold,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                           ),
                           child: const Icon(
                             Icons.directions_car_rounded,
@@ -283,12 +283,12 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                         const Icon(
                           Icons.arrow_back_ios_new_rounded,
-                          size: 13,
+                          size: 14,
                           color: Colors.white60,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: AppTheme.spaceMd),
                     const Text(
                       'بدء زيارة ميدانية',
                       style: TextStyle(
@@ -299,7 +299,7 @@ class DashboardScreen extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppTheme.spaceXs),
                     const Text(
                       'فحص وتوثيق مباشر بالموقع',
                       style: TextStyle(
@@ -316,7 +316,7 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppTheme.spaceMd),
         // كارت إنشاء تقرير فحص
         Expanded(
           child: Material(
@@ -326,12 +326,12 @@ class DashboardScreen extends ConsumerWidget {
                 HapticFeedback.lightImpact();
                 CreateSessionDialog.show(context, openSessionDirectly: false);
               },
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.all(AppTheme.spaceMd),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
                   border: Border.all(
                     color: const Color(0xFFBAE6FD),
                     width: 1.3,
@@ -345,10 +345,10 @@ class DashboardScreen extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.all(AppTheme.spaceSm),
                           decoration: BoxDecoration(
                             color: const Color(0xFFE0F2FE),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                           ),
                           child: const Icon(
                             Icons.post_add_rounded,
@@ -358,12 +358,12 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                         const Icon(
                           Icons.arrow_back_ios_new_rounded,
-                          size: 13,
+                          size: 14,
                           color: Color(0xFF94A3B8),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: AppTheme.spaceMd),
                     const Text(
                       'إنشاء تقرير فحص',
                       style: TextStyle(
@@ -374,7 +374,7 @@ class DashboardScreen extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppTheme.spaceXs),
                     const Text(
                       'من النماذج الفنية المعتمدة',
                       style: TextStyle(
@@ -445,11 +445,11 @@ class DashboardScreen extends ConsumerWidget {
           return Row(
             children: [
               Expanded(child: cardClients),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppTheme.spaceSm),
               Expanded(child: cardSites),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppTheme.spaceSm),
               Expanded(child: cardCompleted),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppTheme.spaceSm),
               Expanded(child: cardDrafts),
             ],
           );
@@ -459,15 +459,15 @@ class DashboardScreen extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(child: cardClients),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppTheme.spaceSm),
                   Expanded(child: cardSites),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppTheme.spaceSm),
               Row(
                 children: [
                   Expanded(child: cardCompleted),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppTheme.spaceSm),
                   Expanded(child: cardDrafts),
                 ],
               ),
@@ -488,25 +488,25 @@ class DashboardScreen extends ConsumerWidget {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(7),
+              padding: const EdgeInsets.all(AppTheme.spaceSm),
               decoration: BoxDecoration(
                 color: const Color(0xFFFFFBEB),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                 border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
               ),
               child: const Icon(Icons.pending_actions_rounded, size: 18, color: Color(0xFFD97706)),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: AppTheme.spaceSm),
             const Text(
               'مسودات فحص تحتاج إكمال',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppTheme.textDark),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppTheme.spaceSm),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: 2),
               decoration: BoxDecoration(
                 color: const Color(0xFFFFFBEB),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                 border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
               ),
               child: Text(
@@ -516,12 +516,12 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppTheme.spaceSm),
         ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: sortedDrafts.length,
-          separatorBuilder: (_, index) => const SizedBox(height: 10),
+          separatorBuilder: (_, index) => const SizedBox(height: AppTheme.spaceSm),
           itemBuilder: (context, index) {
             final draft = sortedDrafts[index];
             final client = ref.watch(clientByIdProvider(draft.clientId));
@@ -535,7 +535,7 @@ class DashboardScreen extends ConsumerWidget {
             return Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
                 border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
                 boxShadow: AppTheme.cardShadow,
               ),
@@ -547,9 +547,9 @@ class DashboardScreen extends ConsumerWidget {
                     MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: draft.id)),
                   );
                 },
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppTheme.spaceMd),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -560,7 +560,7 @@ class DashboardScreen extends ConsumerWidget {
                             child: Row(
                               children: [
                                 const Icon(Icons.domain_rounded, size: 14, color: AppTheme.primaryNavy),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: AppTheme.spaceXs),
                                 Expanded(
                                   child: Text(
                                     '${client?.displayName ?? "عميل غير محدد"} > ${site?.displayName ?? "موقع غير محدد"}',
@@ -573,10 +573,10 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: 2),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                             ),
                             child: Text(
                               intl.DateFormat('yyyy-MM-dd HH:mm').format(draft.updatedAt),
@@ -585,25 +585,25 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppTheme.spaceSm),
                       Text(
                         draft.facilityInfo.facilityName.isNotEmpty ? draft.facilityInfo.facilityName : draft.title,
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppTheme.textDark),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppTheme.spaceSm),
                       Row(
                         children: [
                           Text(
                             '${(progress * 100).toInt()}%',
                             style: TextStyle(fontWeight: FontWeight.w900, color: progressColor, fontSize: 13),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: AppTheme.spaceSm),
                           Expanded(
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(AppTheme.spaceXs),
                               child: LinearProgressIndicator(
                                 value: progress,
-                                minHeight: 6,
+                                minHeight: 8,
                                 backgroundColor: const Color(0xFFE2E8F0),
                                 valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                               ),
@@ -611,14 +611,14 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: AppTheme.spaceMd),
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceXs),
                             decoration: BoxDecoration(
                               color: AppTheme.primaryNavy.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                             ),
                             child: Text(
                               'زيارة #${draft.visitNumber}',
@@ -628,38 +628,38 @@ class DashboardScreen extends ConsumerWidget {
                           const Spacer(),
                           OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(0, 42),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              minimumSize: const Size(0, AppTheme.minTouchTarget),
+                              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceSm),
                               side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
                             ),
-                            icon: const Icon(Icons.flash_on_rounded, size: 16, color: Color(0xFFD97706)),
-                            label: const Text('متابعة الفحص', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
-                            onPressed: () {
-                              HapticFeedback.lightImpact();
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => MaintenanceSessionScreen(reportId: draft.id)),
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppTheme.primaryNavy,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(0, 42),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              elevation: 0,
-                            ),
-                            icon: const Icon(Icons.edit_note_rounded, size: 17),
-                            label: const Text('المحرر', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            icon: const Icon(Icons.edit_note_rounded, size: 17, color: AppTheme.textSecondary),
+                            label: const Text('المحرر', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
                             onPressed: () {
                               HapticFeedback.lightImpact();
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: draft.id)),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: AppTheme.spaceSm),
+                          FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppTheme.primaryNavy,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(0, AppTheme.minTouchTarget),
+                              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd, vertical: AppTheme.spaceSm),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+                              elevation: 0,
+                            ),
+                            icon: const Icon(Icons.flash_on_rounded, size: 16, color: AppTheme.solarGold),
+                            label: const Text('متابعة الفحص', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => MaintenanceSessionScreen(reportId: draft.id)),
                               );
                             },
                           ),
@@ -689,14 +689,14 @@ class DashboardScreen extends ConsumerWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(7),
+                  padding: const EdgeInsets.all(AppTheme.spaceSm),
                   decoration: BoxDecoration(
                     color: AppTheme.primaryNavy.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                   ),
                   child: const Icon(Icons.history_rounded, size: 18, color: AppTheme.primaryNavy),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: AppTheme.spaceSm),
                 const Text(
                   'آخر التقارير والزيارات',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppTheme.textDark),
@@ -713,12 +713,12 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppTheme.spaceSm),
         ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: recentReports.take(5).length,
-          separatorBuilder: (_, index) => const SizedBox(height: 10),
+          separatorBuilder: (_, index) => const SizedBox(height: AppTheme.spaceSm),
           itemBuilder: (context, index) {
             final report = recentReports[index];
             final client = ref.watch(clientByIdProvider(report.clientId));
@@ -730,7 +730,7 @@ class DashboardScreen extends ConsumerWidget {
             return Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
                 border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
                 boxShadow: AppTheme.cardShadow,
               ),
@@ -742,16 +742,16 @@ class DashboardScreen extends ConsumerWidget {
                     MaterialPageRoute(builder: (_) => ReportEditorScreen(reportId: report.id)),
                   );
                 },
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
                 child: Padding(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(AppTheme.spaceMd),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
                           const Icon(Icons.domain_rounded, size: 13, color: AppTheme.textMuted),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: AppTheme.spaceXs),
                           Expanded(
                             child: Text(
                               '${client?.displayName ?? "عميل غير محدد"} > ${site?.displayName ?? "موقع غير محدد"}',
@@ -762,15 +762,15 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppTheme.spaceSm),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(AppTheme.spaceSm),
                             decoration: BoxDecoration(
                               color: isCompleted ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                               border: Border.all(
                                 color: isCompleted 
                                     ? const Color(0xFF10B981).withValues(alpha: 0.3) 
@@ -783,7 +783,7 @@ class DashboardScreen extends ConsumerWidget {
                               size: 20,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: AppTheme.spaceMd),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -794,21 +794,21 @@ class DashboardScreen extends ConsumerWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: AppTheme.spaceXs),
                                 Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFF8FAFC),
-                                        borderRadius: BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                                       ),
                                       child: Text(
                                         'زيارة #${report.facilityInfo.visitNumber.isNotEmpty ? report.facilityInfo.visitNumber : "1"}',
                                         style: const TextStyle(fontSize: 10, color: AppTheme.textMuted, fontWeight: FontWeight.bold),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: AppTheme.spaceSm),
                                     Text(
                                       intl.DateFormat('yyyy-MM-dd').format(report.updatedAt),
                                       style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
@@ -819,10 +819,10 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceXs),
                             decoration: BoxDecoration(
                               color: isCompleted ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                               border: Border.all(
                                 color: isCompleted 
                                     ? const Color(0xFF10B981).withValues(alpha: 0.3) 
@@ -838,7 +838,7 @@ class DashboardScreen extends ConsumerWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: AppTheme.spaceXs),
                           const Icon(Icons.arrow_back_ios_new_rounded, size: 12, color: AppTheme.textMuted),
                         ],
                       ),
@@ -862,26 +862,26 @@ class DashboardScreen extends ConsumerWidget {
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(7),
+              padding: const EdgeInsets.all(AppTheme.spaceSm),
               decoration: BoxDecoration(
                 color: const Color(0xFFE0F2FE),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                 border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.3)),
               ),
               child: const Icon(Icons.map_rounded, size: 18, color: Color(0xFF0284C7)),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: AppTheme.spaceSm),
             const Text(
               'التغطية الجغرافية للمواقع',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppTheme.textDark),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppTheme.spaceMd),
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
             border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
             boxShadow: AppTheme.cardShadow,
           ),
@@ -896,20 +896,20 @@ class DashboardScreen extends ConsumerWidget {
                   HapticFeedback.lightImpact();
                   onNavigateTab?.call(2);
                 },
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd, vertical: AppTheme.spaceSm),
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(AppTheme.spaceSm),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE0F2FE),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                         ),
                         child: const Icon(Icons.location_city_rounded, color: Color(0xFF0284C7), size: 20),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppTheme.spaceMd),
                       Expanded(
                         child: Text(
                           govName,
@@ -917,10 +917,10 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceXs),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                           border: Border.all(color: const Color(0xFFCBD5E1)),
                         ),
                         child: Text(
@@ -1027,16 +1027,16 @@ class _EmptyDashboardExperienceState extends ConsumerState<_EmptyDashboardExperi
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 84,
-          height: 84,
+          width: 80,
+          height: 80,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: AppTheme.solarGold.withValues(alpha: 0.12),
             border: Border.all(color: AppTheme.solarGold.withValues(alpha: 0.35), width: 2),
           ),
-          child: const Icon(Icons.solar_power_rounded, size: 44, color: AppTheme.solarGold),
+          child: const Icon(Icons.solar_power_rounded, size: 40, color: AppTheme.solarGold),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: AppTheme.spaceMd),
         const Text(
           'أهلاً بك في ReportCraft! ⚡',
           textAlign: TextAlign.center,
@@ -1046,27 +1046,27 @@ class _EmptyDashboardExperienceState extends ConsumerState<_EmptyDashboardExperi
             color: AppTheme.primaryNavy,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: AppTheme.spaceSm),
         const Text(
           'منظومتك المتكاملة لتوثيق وإدارة تقارير صيانة الطاقة الشمسية.\nاختر كيف تود البدء اليوم:',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 13, color: AppTheme.textMuted, height: 1.5),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppTheme.spaceLg),
 
         // بطاقة المسار السريع: تقرير تجريبي
         InkWell(
           onTap: _isLoadingDemo ? null : _loadDemoReport,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppTheme.spaceMd),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [AppTheme.primaryNavy, Color(0xFF1E3C72)],
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
               ),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
               boxShadow: [
                 BoxShadow(
                   color: AppTheme.primaryNavy.withValues(alpha: 0.25),
@@ -1078,10 +1078,10 @@ class _EmptyDashboardExperienceState extends ConsumerState<_EmptyDashboardExperi
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(AppTheme.spaceSm),
                   decoration: BoxDecoration(
                     color: AppTheme.solarGold,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                   ),
                   child: _isLoadingDemo
                       ? const SizedBox(
@@ -1091,7 +1091,7 @@ class _EmptyDashboardExperienceState extends ConsumerState<_EmptyDashboardExperi
                         )
                       : const Icon(Icons.rocket_launch_rounded, color: AppTheme.primaryNavy, size: 22),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: AppTheme.spaceMd),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1102,12 +1102,12 @@ class _EmptyDashboardExperienceState extends ConsumerState<_EmptyDashboardExperi
                             'تقرير تجريبي',
                             style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: AppTheme.spaceXs),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: 2),
                             decoration: BoxDecoration(
                               color: AppTheme.solarGold,
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                             ),
                             child: const Text(
                               'موصى به',
@@ -1116,7 +1116,7 @@ class _EmptyDashboardExperienceState extends ConsumerState<_EmptyDashboardExperi
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: AppTheme.spaceXs),
                       const Text(
                         'استعرض نموذج مركز الغسيل الكلوي (11 صفحة مع الـ PDF)',
                         style: TextStyle(fontSize: 11.5, color: Colors.white70),
@@ -1129,31 +1129,31 @@ class _EmptyDashboardExperienceState extends ConsumerState<_EmptyDashboardExperi
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppTheme.spaceMd),
 
         // بطاقة إضافة أول عميل
         InkWell(
           onTap: () => widget.onNavigateTab?.call(2),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppTheme.spaceMd),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
               border: Border.all(color: AppTheme.borderSubtle),
               boxShadow: AppTheme.cardShadow,
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(AppTheme.spaceSm),
                   decoration: BoxDecoration(
                     color: AppTheme.brandCyan.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                   ),
                   child: const Icon(Icons.business_rounded, color: AppTheme.brandCyan, size: 22),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: AppTheme.spaceMd),
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1162,7 +1162,7 @@ class _EmptyDashboardExperienceState extends ConsumerState<_EmptyDashboardExperi
                         'إضافة عميل ومنشأة جديدة',
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
                       ),
-                      SizedBox(height: 2),
+                      SizedBox(height: AppTheme.spaceXs),
                       Text(
                         'سجّل بيانات الجهة ومواقع المنظومات لبدء عملك الميداني',
                         style: TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
@@ -1175,10 +1175,14 @@ class _EmptyDashboardExperienceState extends ConsumerState<_EmptyDashboardExperi
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppTheme.spaceMd),
 
         // زر تشغيل معالج الإعداد
         TextButton.icon(
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, AppTheme.minTouchTarget),
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd, vertical: AppTheme.spaceSm),
+          ),
           onPressed: () {
             Navigator.push(
               context,

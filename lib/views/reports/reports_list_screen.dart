@@ -84,7 +84,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
         children: [
           // Filter Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd, vertical: AppTheme.spaceSm),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border(bottom: BorderSide(color: AppTheme.borderSubtle)),
@@ -116,7 +116,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                       });
                     },
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppTheme.spaceSm),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -125,7 +125,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                           setState(() => _activeFilterTab = ReportFilterTab.all);
                           ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.all;
                         }),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppTheme.spaceSm),
                         _buildFilterChip(
                           'قيد الفحص (${reports.where((r) => !r.isCompleted).length})',
                           _activeFilterTab == ReportFilterTab.drafts,
@@ -134,7 +134,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                             ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.drafts;
                           },
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppTheme.spaceSm),
                         _buildFilterChip(
                           'المكتملة (${reports.where((r) => r.isCompleted).length})',
                           _activeFilterTab == ReportFilterTab.completed,
@@ -143,7 +143,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                             ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.completed;
                           },
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppTheme.spaceSm),
                         _buildFilterChip(
                           'طلبات مواد (${reports.where((r) => r.requestedNeeds.isNotEmpty).length})',
                           _activeFilterTab == ReportFilterTab.withNeeds,
@@ -152,20 +152,20 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                             ref.read(activeReportsTabFilterProvider.notifier).state = ReportFilterTab.withNeeds;
                           },
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: AppTheme.spaceSm),
                         Container(
                           height: 24,
                           width: 1,
                           color: AppTheme.borderSubtle,
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: AppTheme.spaceSm),
                         PopupMenuButton<ReportSortOrder>(
                           tooltip: 'ترتيب التقارير',
                           icon: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(Icons.sort_rounded, size: 18, color: AppTheme.primaryNavy),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: AppTheme.spaceXs),
                               Text(
                                 switch (_sortOrder) {
                                   ReportSortOrder.updatedAtDesc => 'الأحدث',
@@ -208,17 +208,17 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                           : sites;
 
                       return Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
+                        padding: const EdgeInsets.only(top: AppTheme.spaceSm),
                         child: Row(
                           children: [
                             // Client filter dropdown
                             Expanded(
                               child: Container(
-                                height: 38,
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                height: AppTheme.minTouchTarget,
+                                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm),
                                 decoration: BoxDecoration(
                                   color: AppTheme.surfaceLight,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                                   border: Border.all(color: AppTheme.borderSubtle),
                                 ),
                                 child: DropdownButtonHideUnderline(
@@ -246,15 +246,15 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppTheme.spaceSm),
                             // Site filter dropdown
                             Expanded(
                               child: Container(
-                                height: 38,
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                height: AppTheme.minTouchTarget,
+                                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm),
                                 decoration: BoxDecoration(
                                   color: AppTheme.surfaceLight,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                                   border: Border.all(color: AppTheme.borderSubtle),
                                 ),
                                 child: DropdownButtonHideUnderline(
@@ -306,7 +306,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
             child: reports.isEmpty
                 ? Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(24.0),
+                      padding: const EdgeInsets.all(AppTheme.spaceLg),
                       child: EmptyStateGuide(
                         icon: Icons.assignment_outlined,
                         title: 'لا توجد تقارير صيانة مسجلة بعد',
@@ -322,18 +322,22 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.search_off_outlined, size: 56, color: AppTheme.textMuted.withValues(alpha: 0.4)),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppTheme.spaceSm),
                             const Text(
                               'لم يتم العثور على تقارير مطابقة للفلاتر الحالية',
                               style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textDark),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: AppTheme.spaceXs),
                             const Text(
                               'جرّب إعادة تعيين فلاتر البحث أو العميل/الموقع.',
                               style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppTheme.spaceSm),
                             OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, AppTheme.minTouchTarget),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+                              ),
                               onPressed: () {
                                 setState(() {
                                   _searchController.clear();
@@ -352,18 +356,18 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                     builder: (context, constraints) {
                       final isWide = constraints.maxWidth > 750;
                       return SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceMd),
                         child: AdaptiveContentContainer(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd),
                           child: isWide
                               ? GridView.builder(
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
                                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                     crossAxisCount: 2,
-                                    crossAxisSpacing: 14,
-                                    mainAxisSpacing: 14,
-                                    mainAxisExtent: 245,
+                                    crossAxisSpacing: AppTheme.spaceMd,
+                                    mainAxisSpacing: AppTheme.spaceMd,
+                                    mainAxisExtent: 260,
                                   ),
                                   itemCount: filtered.length,
                                   itemBuilder: (context, index) {
@@ -374,7 +378,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
                                   itemCount: filtered.length,
-                                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                                  separatorBuilder: (_, _) => const SizedBox(height: AppTheme.spaceSm),
                                   itemBuilder: (context, index) {
                                     return _buildReportItem(context, filtered[index]);
                                   },
@@ -416,7 +420,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
       side: BorderSide(
         color: isSelected ? AppTheme.primaryNavy : AppTheme.borderSubtle,
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusSm)),
     );
   }
 
@@ -448,7 +452,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
             );
           },
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(AppTheme.spaceMd),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -457,14 +461,14 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                   children: [
                     // Status Pill
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceXs),
                       decoration: BoxDecoration(
                         color: isCompleted
                             ? const Color(0xFFECFDF5)
                             : (progress > 0
                                 ? const Color(0xFFFFFBEB)
                                 : const Color(0xFFF1F5F9)),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                         border: Border.all(
                           color: isCompleted
                               ? const Color(0xFFA7F3D0)
@@ -489,7 +493,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                                     ? const Color(0xFFD97706)
                                     : AppTheme.textSecondary),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: AppTheme.spaceXs),
                           Text(
                             isCompleted
                                 ? 'مكتمل (100%)'
@@ -509,13 +513,13 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppTheme.spaceSm),
                     // Visit Sequence Pill
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceXs),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryNavy.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                       ),
                       child: Text(
                         'زيارة #${report.visitNumber}',
@@ -527,12 +531,12 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                       ),
                     ),
                     if (report.facilityInfo.category.isNotEmpty) ...[
-                      const SizedBox(width: 6),
+                      const SizedBox(width: AppTheme.spaceSm),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3.5),
+                        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceXs),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                           border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
                         child: Text(
@@ -549,7 +553,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                     // Overflow Actions Menu
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert, size: 20, color: AppTheme.textMuted),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
                       onSelected: (val) {
                         if (val == 'session') {
                           Navigator.push(
@@ -578,7 +582,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                           child: Row(
                             children: [
                               Icon(Icons.flash_on_rounded, size: 18, color: AppTheme.solarGold),
-                              SizedBox(width: 8),
+                              SizedBox(width: AppTheme.spaceSm),
                               Text('جلسة الفحص التفاعلية', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
                             ],
                           ),
@@ -588,7 +592,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                           child: Row(
                             children: [
                               Icon(Icons.edit_note_rounded, size: 18, color: AppTheme.primaryNavy),
-                              SizedBox(width: 8),
+                              SizedBox(width: AppTheme.spaceSm),
                               Text('محرر التقرير الشامل', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
                             ],
                           ),
@@ -598,7 +602,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                           child: Row(
                             children: [
                               Icon(Icons.copy_rounded, size: 18, color: AppTheme.brandCyan),
-                              SizedBox(width: 8),
+                              SizedBox(width: AppTheme.spaceSm),
                               Text('نسخ وتعديل كتقرير جديد', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
                             ],
                           ),
@@ -608,7 +612,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                           child: Row(
                             children: [
                               Icon(Icons.picture_as_pdf, size: 18, color: AppTheme.primaryNavy),
-                              SizedBox(width: 8),
+                              SizedBox(width: AppTheme.spaceSm),
                               Text('معاينة وتصدير PDF', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
                             ],
                           ),
@@ -618,7 +622,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                           child: Row(
                             children: [
                               Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                              SizedBox(width: 8),
+                              SizedBox(width: AppTheme.spaceSm),
                               Text('حذف التقرير', style: TextStyle(fontSize: 12.5, color: Colors.red, fontWeight: FontWeight.w600)),
                             ],
                           ),
@@ -627,7 +631,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppTheme.spaceSm),
 
                 // Facility Name (Headline)
                 Text(
@@ -642,7 +646,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppTheme.spaceXs),
 
                 // Client & Location Line
                 Consumer(
@@ -654,7 +658,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                     return Row(
                       children: [
                         const Icon(Icons.business_rounded, size: 13, color: AppTheme.primaryNavy),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: AppTheme.spaceXs),
                         Flexible(
                           child: Text(
                             clientName,
@@ -679,7 +683,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppTheme.spaceXs),
 
                 // Contract & Date
                 Row(
@@ -714,19 +718,19 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
 
                 // Pending Material Needs Badge (if any)
                 if (hasNeeds) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppTheme.spaceSm),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
+                    padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceXs),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFFBEB),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                       border: Border.all(color: const Color(0xFFFDE68A)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.inventory_2_rounded, size: 13, color: Color(0xFFD97706)),
-                        const SizedBox(width: 5),
+                        const SizedBox(width: AppTheme.spaceXs),
                         Text(
                           'يحتوي على ${report.requestedNeeds.length} طلبات مواد واحتياجات صيانة',
                           style: const TextStyle(
@@ -740,14 +744,14 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                   ),
                 ],
 
-                const SizedBox(height: 10),
+                const SizedBox(height: AppTheme.spaceSm),
 
                 // Progress Indicator
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(AppTheme.spaceXs),
                   child: LinearProgressIndicator(
                     value: progress,
-                    minHeight: 5,
+                    minHeight: 6,
                     backgroundColor: const Color(0xFFE2E8F0),
                     valueColor: AlwaysStoppedAnimation<Color>(
                       isCompleted ? AppTheme.statusGood : AppTheme.solarGold,
@@ -755,7 +759,7 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: AppTheme.spaceMd),
 
                 // Action Dock Row (Thumb-Friendly Buttons)
                 Row(
@@ -767,9 +771,9 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
-                          minimumSize: const Size(0, 44),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          minimumSize: const Size(0, AppTheme.minTouchTarget),
+                          padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceSm),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
                           elevation: 0,
                         ),
                         icon: Icon(
@@ -797,17 +801,17 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
                         },
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppTheme.spaceSm),
                     // PDF Preview Button
                     Expanded(
                       flex: 2,
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.primaryNavy,
-                          minimumSize: const Size(0, 44),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          minimumSize: const Size(0, AppTheme.minTouchTarget),
+                          padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceSm),
                           side: const BorderSide(color: AppTheme.borderMedium, width: 1.2),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
                         ),
                         icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
                         label: const Text('PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -838,17 +842,21 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
         title: const Text('تأكيد حذف التقرير', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         content: Text('هل أنت متأكد من حذف التقرير الخاص بـ "${report.facilityInfo.facilityName.isNotEmpty ? report.facilityInfo.facilityName : report.title}"؟'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(
+            style: TextButton.styleFrom(minimumSize: const Size(0, AppTheme.minTouchTarget)),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.statusRejected,
               foregroundColor: Colors.white,
-              minimumSize: const Size(0, 44),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              minimumSize: const Size(0, AppTheme.minTouchTarget),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
             ),
             onPressed: () {
               Navigator.pop(ctx);
