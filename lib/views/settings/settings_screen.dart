@@ -83,7 +83,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.primaryNavy,
                 foregroundColor: Colors.white,
-                minimumSize: const Size(100, 44),
+                minimumSize: const Size(100, AppTheme.minTouchTarget),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () {
@@ -156,7 +156,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.primaryNavy,
                 foregroundColor: Colors.white,
-                minimumSize: const Size(100, 44),
+                minimumSize: const Size(100, AppTheme.minTouchTarget),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () {
@@ -292,7 +292,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Expanded(
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 48),
+                        minimumSize: const Size(0, AppTheme.minTouchTarget),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () {
@@ -302,14 +302,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       child: const Text('إلغاء'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppTheme.spaceSm),
                   Expanded(
                     flex: 2,
                     child: FilledButton.icon(
                       style: FilledButton.styleFrom(
                         backgroundColor: mergeMode ? AppTheme.primaryNavy : AppTheme.statusRejected,
                         foregroundColor: Colors.white,
-                        minimumSize: const Size(0, 48),
+                        minimumSize: const Size(0, AppTheme.minTouchTarget),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -433,7 +433,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.primaryNavy,
               foregroundColor: Colors.white,
-              minimumSize: const Size(110, 44),
+              minimumSize: const Size(110, AppTheme.minTouchTarget),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             child: const Text('تأكيد الاستعادة', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -838,13 +838,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
-                          minimumSize: const Size(0, 44),
+                          minimumSize: const Size(0, AppTheme.minTouchTarget),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppTheme.spaceSm),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
@@ -864,7 +864,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppTheme.primaryNavy,
                           side: const BorderSide(color: AppTheme.primaryNavy),
-                          minimumSize: const Size(0, 44),
+                          minimumSize: const Size(0, AppTheme.minTouchTarget),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
@@ -888,13 +888,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             style: FilledButton.styleFrom(
                               backgroundColor: AppTheme.primaryNavy,
                               foregroundColor: Colors.white,
-                              minimumSize: const Size(0, 44),
+                              minimumSize: const Size(0, AppTheme.minTouchTarget),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppTheme.spaceSm),
                         OutlinedButton.icon(
                           onPressed: () {
                             HapticFeedback.lightImpact();
@@ -912,7 +912,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.primaryNavy,
                             side: const BorderSide(color: AppTheme.primaryNavy),
-                            minimumSize: const Size(0, 44),
+                            minimumSize: const Size(0, AppTheme.minTouchTarget),
                             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),

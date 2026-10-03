@@ -361,13 +361,17 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
         ),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, AppTheme.minTouchTarget),
+            ),
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('البقاء والإكمال'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
+          FilledButton(
+            style: FilledButton.styleFrom(
               backgroundColor: AppTheme.statusRejected,
               foregroundColor: Colors.white,
+              minimumSize: const Size(0, AppTheme.minTouchTarget),
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('تجاهل وخروج'),
@@ -717,6 +721,7 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
                     Expanded(
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, AppTheme.minTouchTarget),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -724,13 +729,14 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
                         child: const Text('إلغاء', style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.bold)),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppTheme.spaceSm),
                     Expanded(
                       flex: 2,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
+                          minimumSize: const Size(0, AppTheme.minTouchTarget),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -1171,10 +1177,11 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
                         style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
                       ),
                     ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
+                    FilledButton(
+                      style: FilledButton.styleFrom(
                         backgroundColor: AppTheme.solarGold,
                         foregroundColor: Colors.white,
+                        minimumSize: const Size(0, AppTheme.minTouchTarget),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       onPressed: () => _showAddClientDialog(context),
@@ -2687,6 +2694,7 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.primaryNavy,
                   side: const BorderSide(color: AppTheme.primaryNavy),
+                  minimumSize: const Size(0, AppTheme.minTouchTarget),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -2697,15 +2705,16 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
                 ),
                 onPressed: _isSubmitting ? null : () => _submit(startInteractiveSession: true),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppTheme.spaceSm),
               Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.primaryNavy,
                     foregroundColor: Colors.white,
+                    minimumSize: const Size(0, AppTheme.minTouchTarget),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 2,
+                    elevation: 0,
                   ),
                   icon: _isSubmitting
                       ? const SizedBox(
@@ -2727,6 +2736,7 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.primaryNavy,
                   side: const BorderSide(color: AppTheme.primaryNavy),
+                  minimumSize: const Size(0, AppTheme.minTouchTarget),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -2737,15 +2747,16 @@ class _CreateSessionDialogState extends ConsumerState<CreateSessionDialog> {
                 ),
                 onPressed: _isSubmitting ? null : () => _submit(startInteractiveSession: false),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppTheme.spaceSm),
               Expanded(
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.primaryNavy,
                     foregroundColor: Colors.white,
+                    minimumSize: const Size(0, AppTheme.minTouchTarget),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 2,
+                    elevation: 0,
                   ),
                   icon: _isSubmitting
                       ? const SizedBox(

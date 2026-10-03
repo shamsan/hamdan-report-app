@@ -400,10 +400,10 @@ class _QuickNeedDialogState extends State<QuickNeedDialog> {
                       IconButton.filledTonal(
                         icon: const Icon(Icons.remove, size: 16),
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        constraints: const BoxConstraints(minWidth: AppTheme.minTouchTarget, minHeight: AppTheme.minTouchTarget),
                         onPressed: () => _stepQuantity(-1),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: AppTheme.spaceSm),
                       Expanded(
                         child: TextField(
                           controller: _quantityController,
@@ -417,17 +417,17 @@ class _QuickNeedDialogState extends State<QuickNeedDialog> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: AppTheme.spaceSm),
                       IconButton.filledTonal(
                         icon: const Icon(Icons.add, size: 16),
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        constraints: const BoxConstraints(minWidth: AppTheme.minTouchTarget, minHeight: AppTheme.minTouchTarget),
                         onPressed: () => _stepQuantity(1),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppTheme.spaceMd),
                 Expanded(
                   flex: 2,
                   child: DropdownButtonFormField<String>(
@@ -445,14 +445,14 @@ class _QuickNeedDialogState extends State<QuickNeedDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppTheme.spaceMd),
 
             // Priority Selection
             const Text(
               'درجة الأولوية والتأثير:',
               style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textDark),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppTheme.spaceSm),
             Row(
               children: NeedPriority.values.map((p) {
                 final isSel = _selectedPriority == p;
@@ -463,6 +463,7 @@ class _QuickNeedDialogState extends State<QuickNeedDialog> {
                       onTap: () => setState(() => _selectedPriority = p),
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
+                        constraints: const BoxConstraints(minHeight: AppTheme.minTouchTarget),
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
                           color: isSel ? p.color : p.backgroundColor,
@@ -503,7 +504,7 @@ class _QuickNeedDialogState extends State<QuickNeedDialog> {
                 isDense: true,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppTheme.spaceMd),
 
             // Photo Capture Row
             Row(
@@ -518,10 +519,11 @@ class _QuickNeedDialogState extends State<QuickNeedDialog> {
                       fit: BoxFit.cover,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppTheme.spaceSm),
                   IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
                     tooltip: 'حذف الصورة',
+                    constraints: const BoxConstraints(minWidth: AppTheme.minTouchTarget, minHeight: AppTheme.minTouchTarget),
                     onPressed: () => setState(() => _photoBase64 = null),
                   ),
                   const Spacer(),
@@ -531,17 +533,17 @@ class _QuickNeedDialogState extends State<QuickNeedDialog> {
                 ],
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
+                    minimumSize: const Size(0, AppTheme.minTouchTarget),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: const Icon(Icons.camera_alt, size: 16),
                   label: const Text('كاميرا', style: TextStyle(fontSize: 12)),
                   onPressed: _capturePhoto,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppTheme.spaceSm),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
+                    minimumSize: const Size(0, AppTheme.minTouchTarget),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: const Icon(Icons.photo_library, size: 16),
@@ -550,7 +552,7 @@ class _QuickNeedDialogState extends State<QuickNeedDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: AppTheme.spaceMd),
 
             // Submit Button (M3 FilledButton)
             FilledButton.icon(

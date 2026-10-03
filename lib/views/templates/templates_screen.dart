@@ -22,7 +22,7 @@ class TemplatesScreen extends ConsumerWidget {
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.solarGold,
               foregroundColor: AppTheme.textDark,
-              minimumSize: const Size(0, 40),
+              minimumSize: const Size(0, AppTheme.minTouchTarget),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
@@ -36,7 +36,7 @@ class TemplatesScreen extends ConsumerWidget {
               );
             },
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppTheme.spaceSm),
         ],
       ),
       body: SingleChildScrollView(
@@ -117,7 +117,7 @@ class TemplatesScreen extends ConsumerWidget {
                             children: [
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(0, 44),
+                                  minimumSize: const Size(0, AppTheme.minTouchTarget),
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   side: const BorderSide(color: AppTheme.borderSubtle),
@@ -138,7 +138,7 @@ class TemplatesScreen extends ConsumerWidget {
                                 style: FilledButton.styleFrom(
                                   backgroundColor: AppTheme.primaryNavy,
                                   foregroundColor: Colors.white,
-                                  minimumSize: const Size(0, 44),
+                                  minimumSize: const Size(0, AppTheme.minTouchTarget),
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),

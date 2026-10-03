@@ -189,7 +189,7 @@ class _TemplateEditorScreenState extends ConsumerState<TemplateEditorScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.primaryNavy,
                     foregroundColor: Colors.white,
-                    minimumSize: const Size(0, 40),
+                    minimumSize: const Size(0, AppTheme.minTouchTarget),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -313,6 +313,9 @@ class _TemplateEditorScreenState extends ConsumerState<TemplateEditorScreen> {
                       }),
                       const SizedBox(height: 6),
                       TextButton.icon(
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(0, AppTheme.minTouchTarget),
+                        ),
                         icon: const Icon(Icons.add_rounded, size: 16),
                         label: const Text('إضافة عنصر جديد لهذه الصفحة', style: TextStyle(fontSize: 11.5)),
                         onPressed: () => _addElement(pIdx),

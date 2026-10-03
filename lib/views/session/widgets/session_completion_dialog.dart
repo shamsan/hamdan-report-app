@@ -205,7 +205,7 @@ class SessionCompletionDialog {
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: AppTheme.spaceMd),
 
               // Actions
               // 1. الخيار الأساسي: الانتقال للمحرر لإكمال القياسات والتواقيع (Single FilledButton)
@@ -255,7 +255,7 @@ class SessionCompletionDialog {
               // 3. حفظ وخروج (TextButton)
               TextButton(
                 style: TextButton.styleFrom(
-                  minimumSize: const Size(0, 44),
+                  minimumSize: const Size(0, AppTheme.minTouchTarget),
                 ),
                 onPressed: () {
                   Navigator.pop(ctx);

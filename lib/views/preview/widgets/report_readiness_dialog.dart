@@ -728,7 +728,7 @@ class ReportReadinessDialog extends StatelessWidget {
                 },
               ),
             ),
-          if (onEditReport != null) const SizedBox(width: 12),
+          if (onEditReport != null) const SizedBox(width: AppTheme.spaceSm),
           Expanded(
             flex: onEditReport != null ? 2 : 1,
             child: FilledButton.icon(

@@ -1006,7 +1006,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                             style: FilledButton.styleFrom(
                               backgroundColor: AppTheme.brandCyan,
                               foregroundColor: Colors.white,
-                              minimumSize: const Size(0, 44),
+                              minimumSize: const Size(0, AppTheme.minTouchTarget),
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),

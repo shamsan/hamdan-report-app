@@ -146,7 +146,7 @@ class _PresetNotesManagerScreenState extends State<PresetNotesManagerScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.primaryNavy,
               foregroundColor: Colors.white,
-              minimumSize: const Size(110, 44),
+              minimumSize: const Size(110, AppTheme.minTouchTarget),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () {
@@ -383,7 +383,7 @@ class _PresetNotesManagerScreenState extends State<PresetNotesManagerScreen> {
                                         style: FilledButton.styleFrom(
                                           backgroundColor: AppTheme.brandCyan.withValues(alpha: 0.12),
                                           foregroundColor: AppTheme.brandCyan,
-                                          minimumSize: const Size(0, 40),
+                                          minimumSize: const Size(0, AppTheme.minTouchTarget),
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                         ),

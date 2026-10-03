@@ -627,7 +627,7 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
                           style: TextButton.styleFrom(
                             foregroundColor: AppTheme.primaryNavy,
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            minimumSize: const Size(0, 36),
+                            minimumSize: const Size(0, AppTheme.minTouchTarget),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           icon: const Icon(Icons.checklist_rtl, size: 16),
@@ -642,12 +642,12 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
                             );
                           },
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: AppTheme.spaceSm),
                         TextButton.icon(
                           style: TextButton.styleFrom(
                             foregroundColor: AppTheme.brandCyan,
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            minimumSize: const Size(0, 36),
+                            minimumSize: const Size(0, AppTheme.minTouchTarget),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           icon: const Icon(Icons.edit_note, size: 16),
@@ -662,13 +662,13 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
                             );
                           },
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppTheme.spaceSm),
                         FilledButton.icon(
                           style: FilledButton.styleFrom(
                             backgroundColor: AppTheme.solarGold,
                             foregroundColor: AppTheme.textDark,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            minimumSize: const Size(0, 36),
+                            minimumSize: const Size(0, AppTheme.minTouchTarget),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             elevation: 0,
                           ),
@@ -825,6 +825,7 @@ class _SiteDetailsScreenState extends ConsumerState<SiteDetailsScreen>
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.primaryNavy,
+                minimumSize: const Size(0, AppTheme.minTouchTarget),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
