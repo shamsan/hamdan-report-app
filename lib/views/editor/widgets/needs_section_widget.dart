@@ -290,9 +290,9 @@ class NeedsSectionWidget extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.primaryNavy,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd - 2, vertical: AppTheme.spaceSm),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+                minimumSize: const Size(0, AppTheme.minTouchTarget),
                 elevation: 0,
               ),
               icon: const Icon(Icons.add_circle_outline, size: 16, color: AppTheme.solarGold),
@@ -743,10 +743,10 @@ class NeedsSectionWidget extends StatelessWidget {
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.brandCyan),
+                  icon: const Icon(Icons.edit_outlined, size: 20, color: AppTheme.brandCyan),
                   tooltip: 'تعديل المادة',
-                  padding: const EdgeInsets.all(6),
-                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.all(AppTheme.spaceSm),
+                  constraints: const BoxConstraints(minWidth: AppTheme.minTouchTarget, minHeight: AppTheme.minTouchTarget),
                   onPressed: () {
                     QuickNeedDialog.show(
                       context,
@@ -756,12 +756,12 @@ class NeedsSectionWidget extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppTheme.spaceXs),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                  icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
                   tooltip: 'حذف',
-                  padding: const EdgeInsets.all(6),
-                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.all(AppTheme.spaceSm),
+                  constraints: const BoxConstraints(minWidth: AppTheme.minTouchTarget, minHeight: AppTheme.minTouchTarget),
                   onPressed: () => _deleteNeed(context, need.id),
                 ),
               ],

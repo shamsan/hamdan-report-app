@@ -1296,14 +1296,14 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
               PopupMenuButton<String>(
                 tooltip: 'خيارات وإعدادات إضافية',
                 icon: Container(
-                  width: 36,
-                  height: 36,
+                  width: AppTheme.minTouchTarget,
+                  height: AppTheme.minTouchTarget,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: AppTheme.primaryNavy.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                   ),
-                  child: const Icon(Icons.more_vert_rounded, size: 18, color: AppTheme.primaryNavy),
+                  child: const Icon(Icons.more_vert_rounded, size: 20, color: AppTheme.primaryNavy),
                 ),
                 padding: EdgeInsets.zero,
                 onSelected: (val) {
@@ -1449,7 +1449,7 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
 
   Widget _buildBoxTabsBar() {
     return SizedBox(
-      height: 44,
+      height: AppTheme.minTouchTarget,
       child: ListView.separated(
         controller: _chipsScrollController,
         scrollDirection: Axis.horizontal,
@@ -2305,25 +2305,23 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
       message: tooltip,
       child: Material(
         color: (color ?? AppTheme.primaryNavy).withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm + 1),
         child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();
             onTap();
           },
-          borderRadius: BorderRadius.circular(9),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm + 1),
           child: Container(
-            width: 38,
-            height: 38,
+            width: AppTheme.minTouchTarget,
+            height: AppTheme.minTouchTarget,
             alignment: Alignment.center,
-            child: Icon(icon, size: 18, color: color ?? AppTheme.primaryNavy),
+            child: Icon(icon, size: 20, color: color ?? AppTheme.primaryNavy),
           ),
         ),
       ),
     );
   }
-
-
 
   Widget _buildPresetButton({
     required String label,
@@ -2337,8 +2335,9 @@ class _PvCombinerBoxesWidgetState extends State<PvCombinerBoxesWidget> {
         side: BorderSide(
           color: isActive ? AppTheme.primaryNavy : const Color(0xFFCBD5E1),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusSm + 2)),
+        minimumSize: const Size(0, AppTheme.minTouchTarget),
+        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceSm),
       ),
       onPressed: () {
         HapticFeedback.lightImpact();

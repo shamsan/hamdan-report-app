@@ -696,9 +696,9 @@ class PhotoSectionWidget extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.primaryNavy,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  minimumSize: const Size(0, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd - 2, vertical: AppTheme.spaceSm),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+                  minimumSize: const Size(0, AppTheme.minTouchTarget),
                 ),
                 icon: const Icon(Icons.add_a_photo_rounded, size: 16),
                 label: const Text('إضافة صورة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -1274,18 +1274,20 @@ class PhotoSectionWidget extends StatelessWidget {
                             // Quick Action Buttons
                             OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm + 2, vertical: AppTheme.spaceSm),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusSm)),
+                                minimumSize: const Size(0, AppTheme.minTouchTarget),
                               ),
                               icon: const Icon(Icons.rotate_right_rounded, size: 16),
                               label: const Text('تدوير 90°', style: TextStyle(fontSize: 11)),
                               onPressed: () => _rotatePhoto(context, idx),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: AppTheme.spaceSm),
                             OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm + 2, vertical: AppTheme.spaceSm),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusSm)),
+                                minimumSize: const Size(0, AppTheme.minTouchTarget),
                               ),
                               icon: const Icon(Icons.edit_note_rounded, size: 16),
                               label: const Text('تعديل', style: TextStyle(fontSize: 11)),

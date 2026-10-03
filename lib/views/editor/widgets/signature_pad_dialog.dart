@@ -501,35 +501,44 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
 
   Widget _buildColorDot(Color color, String tooltip) {
     final isSelected = _penColor == color;
-    return GestureDetector(
-      onTap: () => setState(() => _penColor = color),
-      child: Tooltip(
-        message: tooltip,
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() => _penColor = color);
+        },
+        borderRadius: BorderRadius.circular(20),
         child: Container(
-          width: 22,
-          height: 22,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isSelected ? AppTheme.solarGold : Colors.white,
-              width: isSelected ? 2.5 : 1.5,
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? AppTheme.solarGold : Colors.white,
+                width: isSelected ? 2.5 : 1.5,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.4),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      )
+                    ]
+                  : null,
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.4),
-                      blurRadius: 4,
-                      spreadRadius: 1,
-                    )
-                  ]
+            child: isSelected
+                ? const Center(
+                    child: Icon(Icons.check, size: 13, color: Colors.white),
+                  )
                 : null,
           ),
-          child: isSelected
-              ? const Center(
-                  child: Icon(Icons.check, size: 12, color: Colors.white),
-                )
-              : null,
         ),
       ),
     );
@@ -537,13 +546,18 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
 
   Widget _buildWidthPill(double width, String label) {
     final isSelected = (_strokeWidth - width).abs() < 0.2;
-    return GestureDetector(
-      onTap: () => setState(() => _strokeWidth = width),
+    return InkWell(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        setState(() => _strokeWidth = width);
+      },
+      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        constraints: const BoxConstraints(minHeight: 36),
+        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm + 2, vertical: AppTheme.spaceXs + 2),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.primaryNavy : Colors.white,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
           border: Border.all(
             color: isSelected ? AppTheme.primaryNavy : AppTheme.borderSubtle,
           ),
@@ -551,7 +565,7 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: FontWeight.bold,
             color: isSelected ? Colors.white : AppTheme.textMuted,
           ),

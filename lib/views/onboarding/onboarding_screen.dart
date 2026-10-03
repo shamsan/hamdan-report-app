@@ -322,7 +322,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             label: const Text(
               'الدخول المباشر',
               style: TextStyle(
-                fontFamily: 'Cairo',
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.textMuted,
@@ -335,7 +334,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             child: const Text(
               'تخطي الإعداد',
               style: TextStyle(
-                fontFamily: 'Cairo',
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textMuted,

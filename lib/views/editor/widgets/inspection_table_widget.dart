@@ -384,22 +384,22 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
   }) {
     final (bg, fg) = _getStatusColors(status, isSelected);
     return Padding(
-      padding: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.only(left: AppTheme.spaceSm),
       child: Material(
         color: bg,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
         child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();
             onTap();
           },
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            constraints: const BoxConstraints(minHeight: 44, minWidth: 52),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            constraints: const BoxConstraints(minHeight: AppTheme.minTouchTarget, minWidth: 54),
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm + 2, vertical: AppTheme.spaceSm),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
               border: Border.all(
                 color: isSelected ? fg : const Color(0xFFE2E8F0),
                 width: isSelected ? 1.6 : 1.0,
@@ -408,13 +408,12 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(status.icon, size: 15, color: fg),
-                const SizedBox(width: 5),
+                Icon(status.icon, size: 16, color: fg),
+                const SizedBox(width: AppTheme.spaceXs + 1),
                 Text(
                   status.labelAr,
                   style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                     color: fg,
                   ),
@@ -435,21 +434,21 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
     Color? customIconColor,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.only(left: AppTheme.spaceSm),
       child: Material(
         color: isSelected ? AppTheme.statusGood.withValues(alpha: 0.12) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
         child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();
             onTap();
           },
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
           child: Container(
-            constraints: const BoxConstraints(minHeight: 36),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            constraints: const BoxConstraints(minHeight: 40),
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm + 2, vertical: AppTheme.spaceSm),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
               border: Border.all(
                 color: isSelected ? AppTheme.statusGood.withValues(alpha: 0.4) : AppTheme.borderSubtle,
               ),
@@ -459,10 +458,10 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
               children: [
                 Icon(
                   customIcon ?? (isSelected ? Icons.check : Icons.add),
-                  size: 13,
+                  size: 14,
                   color: customIconColor ?? (isSelected ? AppTheme.statusGood : AppTheme.brandCyan),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: AppTheme.spaceXs),
                 Text(
                   phrase,
                   style: TextStyle(

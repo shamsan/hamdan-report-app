@@ -709,10 +709,10 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
                       },
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
-                        constraints: const BoxConstraints(minHeight: 44),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        constraints: const BoxConstraints(minHeight: AppTheme.minTouchTarget),
+                        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd - 2, vertical: AppTheme.spaceSm),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusSm + 2),
                           border: Border.all(
                             color: isSel
                                 ? AppTheme.primaryNavy
@@ -1395,7 +1395,7 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
           const SizedBox(height: 3),
           Text(
             value,
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color, fontFamily: 'Cairo'),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
           ),
         ],
       ),
@@ -1431,8 +1431,8 @@ class _BatteryMatrixWidgetState extends State<BatteryMatrixWidget> {
         },
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 44),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          constraints: const BoxConstraints(minHeight: AppTheme.minTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd - 2, vertical: AppTheme.spaceSm),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: chipBorder, width: 1),

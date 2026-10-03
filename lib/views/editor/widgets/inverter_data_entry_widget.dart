@@ -652,12 +652,12 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
         },
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          width: 44,
-          height: 40,
+          width: AppTheme.minTouchTarget,
+          height: 42,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
             boxShadow: isSelected
                 ? [const BoxShadow(color: Colors.black12, blurRadius: 3, offset: Offset(0, 1))]
                 : null,
@@ -684,22 +684,22 @@ class _InverterDataEntryWidgetState extends State<InverterDataEntryWidget> {
       message: tooltip,
       child: Material(
         color: bgColor,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm + 2),
         child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();
             onTap();
           },
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm + 2),
           child: Container(
-            width: 44,
-            height: 44,
+            width: AppTheme.minTouchTarget,
+            height: AppTheme.minTouchTarget,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm + 2),
               border: Border.all(color: borderColor),
             ),
-            child: Icon(icon, size: 19, color: color),
+            child: Icon(icon, size: 20, color: color),
           ),
         ),
       ),

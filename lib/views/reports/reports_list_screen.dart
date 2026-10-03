@@ -412,7 +412,6 @@ class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
       selectedColor: AppTheme.primaryNavy.withValues(alpha: 0.12),
       checkmarkColor: AppTheme.primaryNavy,
       labelStyle: TextStyle(
-        fontFamily: 'Cairo',
         fontSize: 12,
         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
         color: isSelected ? AppTheme.primaryNavy : AppTheme.textSecondary,

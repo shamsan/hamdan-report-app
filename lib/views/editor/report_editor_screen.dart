@@ -884,6 +884,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
       borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
+        constraints: const BoxConstraints(minHeight: AppTheme.minTouchTarget),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.primaryNavy : Colors.white,
@@ -916,7 +917,6 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
             Text(
               title,
               style: TextStyle(
-                fontFamily: 'Cairo',
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                 color: isSelected ? Colors.white : AppTheme.textDark,
@@ -1278,6 +1278,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppTheme.statusFollowup),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: const Size(0, AppTheme.minTouchTarget),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
@@ -2835,7 +2836,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
     Key? tileKey,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: AppTheme.spaceMd),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -2866,7 +2867,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
             style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
           ),
           trailing: trailing,
-          childrenPadding: const EdgeInsets.all(16),
+          childrenPadding: const EdgeInsets.all(AppTheme.spaceMd),
           children: [child],
         ),
       ),
@@ -3914,6 +3915,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                         IconButton(
                           icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.statusRejected, size: 20),
                           tooltip: 'حذف التوقيع',
+                          constraints: const BoxConstraints(minWidth: AppTheme.minTouchTarget, minHeight: AppTheme.minTouchTarget),
                           onPressed: () {
                             final list = List<ReportSignature>.from(_report.signatures);
                             list[idx] = sig.copyWith(signatureBase64: '');
@@ -3933,12 +3935,12 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                             );
                           },
                         ),
-                      if (hasSig) const SizedBox(width: 4),
+                      if (hasSig) const SizedBox(width: AppTheme.spaceSm),
                       FilledButton.icon(
                         style: FilledButton.styleFrom(
                           backgroundColor: hasSig ? AppTheme.primaryNavy : AppTheme.brandCyan,
                           foregroundColor: Colors.white,
-                          minimumSize: const Size(0, 44),
+                          minimumSize: const Size(0, AppTheme.minTouchTarget),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           elevation: 0,
@@ -4545,7 +4547,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
               IconButton(
                 tooltip: 'مسح قائمة الفريق',
                 icon: const Icon(Icons.delete_sweep_rounded, size: 20, color: AppTheme.statusRejected),
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                constraints: const BoxConstraints(minWidth: AppTheme.minTouchTarget, minHeight: AppTheme.minTouchTarget),
                 padding: const EdgeInsets.all(7),
                 style: IconButton.styleFrom(
                   backgroundColor: const Color(0xFFFEF2F2),
@@ -4567,7 +4569,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                           style: FilledButton.styleFrom(
                             backgroundColor: AppTheme.statusRejected,
                             foregroundColor: Colors.white,
-                            minimumSize: const Size(0, 44),
+                            minimumSize: const Size(0, AppTheme.minTouchTarget),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           onPressed: () {
@@ -4581,12 +4583,12 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                   );
                 },
               ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppTheme.spaceSm),
             FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.brandCyan,
                 foregroundColor: Colors.white,
-                minimumSize: const Size(0, 40),
+                minimumSize: const Size(0, AppTheme.minTouchTarget),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 elevation: 0,
@@ -4597,7 +4599,7 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppTheme.spaceSm),
 
         // Signatures Progress & Status Overview Bar
         if (totalCount > 0)
@@ -5495,27 +5497,27 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppTheme.spaceLg),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(0, 48),
+                          minimumSize: const Size(0, AppTheme.minTouchTarget),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: () => Navigator.pop(ctx),
                         child: const Text('إلغاء'),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppTheme.spaceSm),
                     Expanded(
                       flex: 2,
                       child: FilledButton.icon(
                         style: FilledButton.styleFrom(
                           backgroundColor: AppTheme.primaryNavy,
                           foregroundColor: Colors.white,
-                          minimumSize: const Size(0, 48),
+                          minimumSize: const Size(0, AppTheme.minTouchTarget),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),

@@ -158,7 +158,7 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
             // Pre-export validation warning banner if missing fields exist
             if (missingFields.isNotEmpty)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd, vertical: AppTheme.spaceSm),
                 decoration: const BoxDecoration(
                   color: Color(0xFFFFFBEB),
                   border: Border(bottom: BorderSide(color: Color(0xFFFDE68A))),
@@ -166,7 +166,7 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
                 child: Row(
                   children: [
                     const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 22),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: AppTheme.spaceSm),
                     Expanded(
                       child: Text(
                         'تنبيه: يوجد ${missingFields.length} ملاحظات أو حقول غير مكتملة قبل التصدير.',
@@ -176,7 +176,8 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
                     TextButton.icon(
                       style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFFB45309),
-                        minimumSize: const Size(48, 36),
+                        minimumSize: const Size(48, AppTheme.minTouchTarget),
+                        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceXs),
                       ),
                       icon: const Icon(Icons.fact_check_outlined, size: 16),
                       label: const Text('فحص الجاهزية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
@@ -218,7 +219,7 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
       ),
       bottomNavigationBar: SafeArea(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd, vertical: AppTheme.spaceSm),
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border(top: BorderSide(color: AppTheme.borderSubtle)),
@@ -242,9 +243,9 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF16A34A),
                     foregroundColor: Colors.white,
-                    minimumSize: const Size(0, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    minimumSize: const Size(0, AppTheme.minTouchTarget),
+                    padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMd, vertical: AppTheme.spaceSm),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
                     elevation: 0,
                   ),
                   icon: const Icon(Icons.share_rounded, size: 20),
@@ -254,7 +255,7 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppTheme.spaceSm),
               Expanded(
                 flex: 2,
                 child: OutlinedButton.icon(
@@ -265,9 +266,9 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.primaryNavy,
                     side: const BorderSide(color: AppTheme.borderMedium, width: 1.5),
-                    minimumSize: const Size(0, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    minimumSize: const Size(0, AppTheme.minTouchTarget),
+                    padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm, vertical: AppTheme.spaceSm),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
                   ),
                   icon: const Icon(Icons.print_rounded, size: 20),
                   label: const Text(

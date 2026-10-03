@@ -80,7 +80,6 @@ class StatsSummaryCard extends StatelessWidget {
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
                           color: AppTheme.textDark,
-                          fontFamily: 'Cairo',
                         ),
                       ),
                     ],
