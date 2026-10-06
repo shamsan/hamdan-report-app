@@ -1106,8 +1106,8 @@ class _QuestionCardWidgetState extends State<QuestionCardWidget> {
                       children: [
                         Text('تم إرفاق صورة توثيقية للبند',
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        Text('ستظهر الصورة في ملحق التقرير المصدّر',
-                            style: TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
+                        Text('ستظهر الصورة في ملحق توثيق الملاحظات (صفحة 14)',
+                            style: TextStyle(fontSize: 10.5, color: AppTheme.brandCyan, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),

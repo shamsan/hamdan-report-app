@@ -53,6 +53,7 @@ class InspectionItem {
   final String? photoBase64;
   final String priority; // Normal, High, Urgent
   final String? subcategory; // e.g. 'صندوق قواطع البطاريات (DC)'
+  final bool includeInPdf;
 
   const InspectionItem({
     required this.id,
@@ -63,6 +64,7 @@ class InspectionItem {
     this.photoBase64,
     this.priority = 'Normal',
     this.subcategory,
+    this.includeInPdf = true,
   });
 
   InspectionItem copyWith({
@@ -71,6 +73,7 @@ class InspectionItem {
     String? photoBase64,
     String? priority,
     String? subcategory,
+    bool? includeInPdf,
   }) {
     return InspectionItem(
       id: id,
@@ -81,6 +84,7 @@ class InspectionItem {
       photoBase64: photoBase64 ?? this.photoBase64,
       priority: priority ?? this.priority,
       subcategory: subcategory ?? this.subcategory,
+      includeInPdf: includeInPdf ?? this.includeInPdf,
     );
   }
 
@@ -93,6 +97,7 @@ class InspectionItem {
     'photoBase64': photoBase64,
     'priority': priority,
     'subcategory': subcategory,
+    'includeInPdf': includeInPdf,
   };
 
   factory InspectionItem.fromJson(Map<String, dynamic> json) => InspectionItem(
@@ -107,6 +112,7 @@ class InspectionItem {
     photoBase64: json['photoBase64'],
     priority: json['priority'] ?? 'Normal',
     subcategory: json['subcategory'] ?? _defaultSubcategoryForId(json['id']),
+    includeInPdf: json['includeInPdf'] as bool? ?? true,
   );
 
   static String? _defaultSubcategoryForId(dynamic id) {

@@ -342,6 +342,7 @@ class Report {
   final ApprovalStatement approvalStatement;
   final List<AttendanceRecord> attendanceList;
   final bool showNeedsInReport;
+  final bool showObservationsInReport;
   final List<MaintenanceNeedItem> requestedNeeds;
   final List<int> activeBatteryGroups;
   final List<int> activeCombinerBoxes;
@@ -387,6 +388,7 @@ class Report {
     required this.approvalStatement,
     required this.attendanceList,
     this.showNeedsInReport = true,
+    this.showObservationsInReport = true,
     this.requestedNeeds = const [],
     this.activeBatteryGroups = const [1, 2, 3, 4],
     this.activeCombinerBoxes = const [1, 2, 3, 4],
@@ -599,6 +601,7 @@ class Report {
     ApprovalStatement? approvalStatement,
     List<AttendanceRecord>? attendanceList,
     bool? showNeedsInReport,
+    bool? showObservationsInReport,
     List<MaintenanceNeedItem>? requestedNeeds,
     List<int>? activeBatteryGroups,
     List<int>? activeCombinerBoxes,
@@ -643,6 +646,7 @@ class Report {
       approvalStatement: approvalStatement ?? this.approvalStatement,
       attendanceList: attendanceList ?? this.attendanceList,
       showNeedsInReport: showNeedsInReport ?? this.showNeedsInReport,
+      showObservationsInReport: showObservationsInReport ?? this.showObservationsInReport,
       requestedNeeds: requestedNeeds ?? this.requestedNeeds,
       activeBatteryGroups: activeBatteryGroups ?? this.activeBatteryGroups,
       activeCombinerBoxes: activeCombinerBoxes ?? this.activeCombinerBoxes,
@@ -690,6 +694,7 @@ class Report {
     'approvalStatement': approvalStatement.toJson(),
     'attendanceList': attendanceList.map((e) => e.toJson()).toList(),
     'showNeedsInReport': showNeedsInReport,
+    'showObservationsInReport': showObservationsInReport,
     'requestedNeeds': requestedNeeds.map((e) => e.toJson()).toList(),
     'activeBatteryGroups': activeBatteryGroups,
     'activeCombinerBoxes': activeCombinerBoxes,
@@ -752,6 +757,7 @@ class Report {
         .map((e) => AttendanceRecord.fromJson(e))
         .toList(),
     showNeedsInReport: json['showNeedsInReport'] as bool? ?? true,
+    showObservationsInReport: json['showObservationsInReport'] as bool? ?? true,
     requestedNeeds: (json['requestedNeeds'] as List? ?? [])
         .map((e) => MaintenanceNeedItem.fromJson(e))
         .toList(),

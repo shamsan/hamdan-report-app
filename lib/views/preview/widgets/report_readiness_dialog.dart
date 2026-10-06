@@ -292,6 +292,37 @@ class ReportReadinessDialog extends StatelessWidget {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 10),
+
+                      // Section 7: Field Observations & Photos Appendix
+                      () {
+                        final obsItems = report.inspectionGroups
+                            .expand((g) => g.items)
+                            .where((it) => it.photoBase64 != null && it.photoBase64!.trim().isNotEmpty)
+                            .toList();
+                        return _buildSectionTile(
+                          icon: Icons.fact_check_rounded,
+                          title: 'سجل توثيق الملاحظات وصور بنود الفحص',
+                          isComplete: true,
+                          summary: obsItems.isNotEmpty
+                              ? (report.showObservationsInReport
+                                  ? 'سيتم تصدير ملحق رسمي بملاحظات الفحص المصورة (${obsItems.length} ملاحظة مصورة)'
+                                  : 'تم تسجيل ${obsItems.length} ملاحظة مصورة (محجوبة من PDF التقرير كسجل داخلي)')
+                              : 'لا توجد صور ملاحظات مسجلة على بنود الفحص',
+                          details: [
+                            _buildDetailItem(
+                              'الملاحظات المصورة',
+                              '${obsItems.length} ملاحظة',
+                              isGood: obsItems.isNotEmpty,
+                            ),
+                            _buildDetailItem(
+                              'الظهور في الـ PDF',
+                              report.showObservationsInReport ? 'مفعّل (ملحق رسمي)' : 'مخفي (سجل داخلي)',
+                              isGood: report.showObservationsInReport,
+                            ),
+                          ],
+                        );
+                      }(),
 
                       if (missingFields.isNotEmpty) ...[
                         const SizedBox(height: 16),

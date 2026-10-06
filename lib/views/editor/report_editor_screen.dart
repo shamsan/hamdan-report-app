@@ -23,6 +23,7 @@ import 'widgets/signature_pad_dialog.dart';
 import 'widgets/needs_section_widget.dart';
 import 'widgets/inverter_data_entry_widget.dart';
 import 'widgets/pv_combiner_boxes_widget.dart';
+import 'widgets/observations_section_widget.dart';
 import '../session/maintenance_session_screen.dart';
 import '../../core/widgets/yemeni_phone_field.dart';
 import '../../models/site.dart';
@@ -51,6 +52,11 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
   bool _isMasterSpecsUnlocked = false;
   bool _allInspectionGroupsExpanded = false;
   int _groupsExpansionRevision = 0;
+
+  int get _observationPhotosCount => _report.inspectionGroups.fold(
+        0,
+        (sum, g) => sum + g.items.where((it) => it.photoBase64 != null && it.photoBase64!.trim().isNotEmpty).length,
+      );
 
   Future<void> _syncSpecsToMasterSite() async {
     if (_report.siteId.isEmpty) return;
@@ -2474,6 +2480,29 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
     return Column(
       children: [
         _buildInteractiveSessionBanner(),
+        const SizedBox(height: 12),
+
+        _buildSectionCard(
+          icon: Icons.fact_check_rounded,
+          title: 'سجل توثيق الملاحظات وصور بنود الفحص (${_observationPhotosCount})',
+          subtitle: 'إدارة وتوثيق الصور والملاحظات الملتقطة أثناء الفحص والتحكم بظهورها في الـ PDF',
+          child: ObservationsSectionWidget(
+            report: _report,
+            onReportUpdated: _onReportUpdated,
+            onOpenSession: () async {
+              HapticFeedback.lightImpact();
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MaintenanceSessionScreen(reportId: _report.id),
+                ),
+              );
+              _loadReport();
+              setState(() {});
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
 
         // Fast toolbar for 10 models with expand/collapse control
         Container(
@@ -2621,9 +2650,19 @@ class _ReportEditorScreenState extends ConsumerState<ReportEditorScreen> {
     return Column(
       children: [
         _buildSectionCard(
+          icon: Icons.fact_check_rounded,
+          title: 'سجل توثيق الملاحظات وصور بنود الفحص (${_observationPhotosCount})',
+          subtitle: 'التحكم في ظهور ملحق صور الأعطال والملاحظات في تقرير الـ PDF (صفحة 14)',
+          child: ObservationsSectionWidget(
+            report: _report,
+            onReportUpdated: _onReportUpdated,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildSectionCard(
           icon: Icons.add_a_photo,
-          title: 'معرض الصور التوثيقية الميدانية',
-          subtitle: 'الصور الفوتوغرافية لأعمال الصيانة والمنظومة',
+          title: 'معرض الصور التوثيقية الميدانية للموقع',
+          subtitle: 'الصور الفوتوغرافية لأعمال الصيانة والمنظومة (صفحة 12)',
           child: PhotoSectionWidget(
             reportId: _report.id,
             photos: _report.photos,

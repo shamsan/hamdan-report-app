@@ -41,6 +41,7 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
     11: 'كشف حضور فريق العمل الميداني',
     12: 'ملحق التوثيق الفوتوغرافي للزيارة',
     13: 'جدول الاحتياجات والمواد للزيارة القادمة',
+    14: 'ملحق توثيق ملاحظات وصور بنود الفحص',
   };
 
   List<int> get _availablePages {
@@ -49,6 +50,10 @@ class _PdfPreviewScreenState extends ConsumerState<PdfPreviewScreen> {
     pages.addAll([8, 9, 10, 11]);
     if (_report.photos.isNotEmpty) pages.add(12);
     if (_report.showNeedsInReport && _report.requestedNeeds.any((n) => n.includeInPdf)) pages.add(13);
+    final hasObservationPhotos = _report.inspectionGroups.any(
+      (g) => g.items.any((it) => it.photoBase64 != null && it.photoBase64!.trim().isNotEmpty && it.includeInPdf),
+    );
+    if (_report.showObservationsInReport && hasObservationPhotos) pages.add(14);
     return pages;
   }
 

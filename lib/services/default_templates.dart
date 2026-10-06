@@ -516,6 +516,7 @@ class DefaultTemplates {
       ),
       attendanceList: defaultAttendanceList,
       showNeedsInReport: true,
+      showObservationsInReport: true,
       requestedNeeds: [
         MaintenanceNeedItem(
           id: 'need_sample_01',

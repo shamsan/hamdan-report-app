@@ -202,6 +202,20 @@ class SessionCompletionDialog {
                         _buildStatItem('مرفوض', rejectedCount, AppTheme.statusRejected),
                       ],
                     ),
+                    if (questions.any((q) => q.item.photoBase64 != null && q.item.photoBase64!.trim().isNotEmpty)) ...[
+                      const Divider(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.photo_camera_rounded, size: 16, color: AppTheme.brandCyan),
+                          const SizedBox(width: 6),
+                          Text(
+                            'تم توثيق ${questions.where((q) => q.item.photoBase64 != null && q.item.photoBase64!.trim().isNotEmpty).length} صور ملاحظات (بملحق التقرير صفحة 14)',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

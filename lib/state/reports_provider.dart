@@ -251,6 +251,7 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
       photos: const [],
       requestedNeeds: pendingNeeds,
       showNeedsInReport: true,
+      showObservationsInReport: true,
       signatures: cloneSourceReport?.signatures ?? [
         const ReportSignature(
           id: 'sig_eng',
@@ -383,6 +384,7 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
       photos: const [],
       requestedNeeds: pendingNeeds,
       showNeedsInReport: true,
+      showObservationsInReport: true,
       signatures: [
         const ReportSignature(
           id: 'sig_eng',
@@ -540,6 +542,7 @@ class ReportsNotifier extends StateNotifier<List<Report>> {
       attendanceList:      report.attendanceList.map((a) => a.copyWith()).toList(),
       requestedNeeds:      pendingNeeds,
       showNeedsInReport:   report.showNeedsInReport,
+      showObservationsInReport: report.showObservationsInReport,
       activeBatteryGroups: List<int>.from(report.activeBatteryGroups),
       activeCombinerBoxes: List<int>.from(report.activeCombinerBoxes),
       arrayPanelCounts:    Map<int, int>.from(report.arrayPanelCounts),

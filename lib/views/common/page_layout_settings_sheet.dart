@@ -85,6 +85,7 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
     11: 'كشف حضور فريق العمل الميداني والمهندسين',
     12: 'ملحق التوثيق الفوتوغرافي والصور الميدانية',
     13: 'جدول الاحتياجات وقطع الغيار المطلوبة للزيارة القادمة',
+    14: 'ملحق توثيق ملاحظات وصور بنود الفحص',
   };
 
   static const Map<int, IconData> _pageIcons = {
@@ -101,6 +102,7 @@ class _PageLayoutSettingsSheetState extends State<PageLayoutSettingsSheet> {
     11: Icons.groups_rounded,
     12: Icons.photo_library_rounded,
     13: Icons.handyman_rounded,
+    14: Icons.fact_check_rounded,
   };
 
   /// الصفحات ذات الكثافة الرأسية العالية المحمية هندسياً (عمودي إلزامي)

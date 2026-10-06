@@ -4046,6 +4046,270 @@ class PdfExportService {
       );
     }
 
+    // --- Section 14: Inspection Observations & Findings Photos (Optional Official Annex) ---
+    final observationItems = <({InspectionGroup group, InspectionItem item})>[];
+    for (final group in report.inspectionGroups) {
+      for (final item in group.items) {
+        if (item.photoBase64 != null &&
+            item.photoBase64!.trim().isNotEmpty &&
+            item.includeInPdf) {
+          observationItems.add((group: group, item: item));
+        }
+      }
+    }
+
+    if (report.showObservationsInReport &&
+        observationItems.isNotEmpty &&
+        (pagesToExport == null || pagesToExport.contains(14))) {
+      final pFormat = resolvePageFormat(14);
+      final pMode = getPageMode(14);
+      final isLandscape = pFormat.width > pFormat.height;
+      final isBookMode = pMode == 'book';
+      final rotW = pFormat.height;
+      final rotH = pFormat.width;
+      final isWide = isLandscape || isBookMode;
+
+      final itemsPerPage = isWide ? 2 : 3;
+      final totalObsPages = (observationItems.length / itemsPerPage).ceil();
+
+      for (int pIdx = 0; pIdx < totalObsPages; pIdx++) {
+        final pNum = currentPageNumber++;
+        final startIdx = pIdx * itemsPerPage;
+        final endIdx = (startIdx + itemsPerPage < observationItems.length)
+            ? startIdx + itemsPerPage
+            : observationItems.length;
+        final pageItems = observationItems.sublist(startIdx, endIdx);
+
+        final bannerTitle = totalObsPages > 1
+            ? 'ملحق سجل توثيق الملاحظات وصور بنود الفحص (${pIdx + 1} / $totalObsPages)'
+            : 'ملحق سجل توثيق الملاحظات وصور بنود الفحص';
+
+        final cardWidgets = <pw.Widget>[];
+        for (int i = 0; i < pageItems.length; i++) {
+          final record = pageItems[i];
+          final item = record.item;
+          final group = record.group;
+
+          final img = safeMemoryImage(item.photoBase64);
+          final statusColor = item.status == InspectionStatus.rejected
+              ? PdfColors.red800
+              : (item.status == InspectionStatus.needsFollowup
+                  ? PdfColors.orange800
+                  : (item.status == InspectionStatus.acceptable
+                      ? PdfColors.blue800
+                      : PdfColors.green800));
+          final statusBg = item.status == InspectionStatus.rejected
+              ? PdfColors.red50
+              : (item.status == InspectionStatus.needsFollowup
+                  ? PdfColors.orange50
+                  : (item.status == InspectionStatus.acceptable
+                      ? PdfColors.blue50
+                      : PdfColors.green50));
+          final statusLabel = item.status == InspectionStatus.rejected
+              ? 'مرفوض / خلل'
+              : (item.status == InspectionStatus.needsFollowup
+                  ? 'يحتاج متابعة'
+                  : (item.status == InspectionStatus.acceptable
+                      ? 'مقبول'
+                      : 'مطابق / سليم'));
+
+          cardWidgets.add(
+            pw.Container(
+              margin: const pw.EdgeInsets.only(bottom: 6),
+              padding: const pw.EdgeInsets.all(6),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.white,
+                border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.7),
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+              ),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Photo column
+                  pw.Container(
+                    width: isWide ? 190 : 160,
+                    height: isWide ? 150 : 138,
+                    padding: const pw.EdgeInsets.all(3),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.grey100,
+                      border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    ),
+                    child: img != null
+                        ? pw.Image(img, fit: pw.BoxFit.contain)
+                        : pw.Center(
+                            child: pw.Text(_ar('تعذر قراءة ملف الصورة'),
+                                style: textStyle(size: 7, color: PdfColors.red800)),
+                          ),
+                  ),
+                  pw.SizedBox(width: 8),
+                  // Details column
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                      children: [
+                        // Header row with serial, description & status
+                        pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Container(
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: pw.BoxDecoration(
+                                color: statusBg,
+                                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                                border: pw.Border.all(color: statusColor, width: 0.5),
+                              ),
+                              child: pw.Text(_ar(statusLabel),
+                                  style: textStyle(size: 7, isBold: true, color: statusColor)),
+                            ),
+                            pw.Expanded(
+                              child: pw.Text(
+                                _ar('بند #${item.serialNo}: ${item.description}'),
+                                style: textStyle(size: 8, isBold: true, color: darkNavyColor),
+                                textAlign: pw.TextAlign.right,
+                                maxLines: 2,
+                              ),
+                            ),
+                          ],
+                        ),
+                        pw.SizedBox(height: 3),
+                        // Group & Subcategory
+                        pw.Align(
+                          alignment: pw.Alignment.centerRight,
+                          child: pw.Text(
+                            _ar('${group.title}${item.subcategory != null ? " • " + item.subcategory! : ""}'),
+                            style: textStyle(size: 7, color: PdfColors.grey700),
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                        pw.SizedBox(height: 3),
+                        // Priority Badge if Urgent or High
+                        if (item.priority == 'Urgent' || item.priority == 'High') ...[
+                          pw.Align(
+                            alignment: pw.Alignment.centerRight,
+                            child: pw.Container(
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: pw.BoxDecoration(
+                                color: PdfColors.amber50,
+                                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
+                                border: pw.Border.all(color: PdfColors.amber800, width: 0.5),
+                              ),
+                              child: pw.Text(
+                                _ar('درجة الأولوية: ${item.priority == "Urgent" ? "عاجلة" : "عالية"}'),
+                                style: textStyle(size: 6.5, isBold: true, color: PdfColors.amber900),
+                              ),
+                            ),
+                          ),
+                          pw.SizedBox(height: 3),
+                        ],
+                        // Engineering Notes Box
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(5),
+                          decoration: pw.BoxDecoration(
+                            color: PdfColors.grey100,
+                            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                            border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                          ),
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                            children: [
+                              pw.Text(
+                                _ar('الملاحظات والتشخيص الميداني:'),
+                                style: textStyle(size: 6.5, isBold: true, color: darkNavyColor),
+                                textAlign: pw.TextAlign.right,
+                              ),
+                              pw.SizedBox(height: 2),
+                              pw.Text(
+                                _arNotes(
+                                    item.notes.isNotEmpty
+                                        ? item.notes
+                                        : 'تم توثيق الحالة فوتوغرافياً أثناء المرور بالبند.',
+                                    isWide ? 50 : 38),
+                                style: textStyle(size: 7),
+                                textAlign: pw.TextAlign.right,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Fill remaining space if less than itemsPerPage
+        if (pageItems.length < itemsPerPage) {
+          cardWidgets.add(pw.Expanded(child: pw.SizedBox()));
+        }
+
+        pdf.addPage(
+          pw.Page(
+            pageFormat: pFormat,
+            margin: isBookMode
+                ? pw.EdgeInsets.zero
+                : const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+            build: (pw.Context context) {
+              final pageContent = wrapWithPageFrame(
+                context: context,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    buildRunningHeader(isLandscape: isWide),
+                    buildSectionBanner('14', bannerTitle),
+                    pw.SizedBox(height: 6),
+                    // Explanatory Banner
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: pw.BoxDecoration(
+                        color: cyanColor.withAlpha(0.1),
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                      ),
+                      child: pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text(
+                            'Field Observations & Inspection Photo Documentation',
+                            style: textStyle(size: 8, isBold: true),
+                          ),
+                          pw.Text(
+                            _ar('سجل توثيق الملاحظات وصور الأعطال الميدانية الملتقطة لبنود الفحص'),
+                            style: textStyle(size: 8, isBold: true),
+                          ),
+                        ],
+                      ),
+                    ),
+                    pw.SizedBox(height: 6),
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                        children: cardWidgets,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    buildRunningFooter(pNum),
+                  ],
+                ),
+              );
+
+              if (isBookMode) {
+                return wrapWithBookModeRotation(
+                  child: pageContent,
+                  rotW: rotW,
+                  rotH: rotH,
+                  padding: const pw.EdgeInsets.only(left: 14, right: 14, top: 10, bottom: 10),
+                );
+              }
+
+              return pageContent;
+            },
+          ),
+        );
+      }
+    }
+
     return pdf.save();
   }
 }

@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/inspection_item.dart';
 import '../../../services/preset_notes_service.dart';
+import '../../../services/camera_service.dart';
 
 class InspectionTableWidget extends StatefulWidget {
   final InspectionGroup group;
@@ -234,6 +236,55 @@ class _InspectionTableWidgetState extends State<InspectionTableWidget> {
                     },
                   ),
                   const SizedBox(height: 6),
+                  // Photo attachment indicator & camera capture
+                  Row(
+                    children: [
+                      if (item.photoBase64 != null && item.photoBase64!.trim().isNotEmpty) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Image.memory(
+                            base64Decode(item.photoBase64!),
+                            width: 32,
+                            height: 32,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'مرفق صورة توثيقية للبند (ستظهر بملحق ص 14)',
+                            style: TextStyle(fontSize: 10.5, color: AppTheme.brandCyan, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                          tooltip: 'حذف الصورة',
+                          onPressed: () => _updateItem(realIndex, item.copyWith(photoBase64: '')),
+                        ),
+                      ] else ...[
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                          icon: const Icon(Icons.add_a_photo_outlined, size: 15, color: AppTheme.brandCyan),
+                          label: const Text(
+                            'إرفاق صورة توثيقية للبند',
+                            style: TextStyle(fontSize: 11, color: AppTheme.brandCyan),
+                          ),
+                          onPressed: () async {
+                            final bytes = await CameraService.capturePhotoFromCamera();
+                            if (bytes != null) {
+                              final b64 = base64Encode(bytes);
+                              _updateItem(realIndex, item.copyWith(photoBase64: b64));
+                            }
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
                   // Quick suggestion chips row
                   Builder(
                     builder: (context) {
